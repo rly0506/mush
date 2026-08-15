@@ -2,11 +2,14 @@
 
 ## 前置条件（全部满足才开始 M2 代码迁移）
 
-- [ ] Sol 事后审计完成（审计哈希锚定意向项目当前路径，拆分/迁移前必须闭环；
-      审计提示词已于 2026-08-15 交付 owner）
-- [ ] 意向项目 INDEX.md / BOARD.md 与迁移基线收口完成（static-drift 门由 Sol 处理）
-- [ ] parent 绑定按 Directive 12 §3 审计化 rebind 回 Sol
-- [ ] tbtk 中转 tools 透传稳定性观察（Sol 审计能跑 = 基本恢复；连续数日稳定更佳）
+- [x] Sol 事后审计完成（2026-08-15 终局 `RATIFY_CLOSEOUT`，两个 HIGH finding 均关闭：
+      F 跨模型复核（fresh GPT-5.6）通过 + migration verifier `NONE/IDLE` 缺陷经
+      epoch-53 TDD 修正；提交 `0837036`）
+- [x] 意向项目 INDEX.md / BOARD.md 与迁移基线收口完成（审计 G 项完成）
+- [x] parent 绑定按 Directive 12 §3 审计化 rebind 回 Sol（epoch-51）
+- [x] Sol 通道功能性恢复（经备用中转完成全部审计与修正工作；tbtk 本身的
+      local_shell 400 仍在修复中，见 2026-08-15 排查记录——不影响迁移，仅影响
+      Codex Desktop 经 tbtk 的工具使用）
 
 ## 迁移物
 
