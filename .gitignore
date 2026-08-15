@@ -1,0 +1,19 @@
+# secrets
+.env
+.env.*
+*.key
+*credentials*
+
+# runtime / evidence (append-only history never committed here)
+runtime/
+events/
+*.log
+
+# node
+node_modules/
+dist/
+coverage/
+
+# os/editor
+Thumbs.db
+.DS_Store
