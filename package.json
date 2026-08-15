@@ -1,0 +1,13 @@
+{
+  "name": "mush",
+  "version": "0.0.0",
+  "private": true,
+  "description": "个人跨 harness 多 agent 编排工具（雪橇队）",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "node --test --test-isolation=none tests/*.test.ts"
+  }
+}

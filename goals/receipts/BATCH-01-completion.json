@@ -1,0 +1,92 @@
+{
+  "batch": "BATCH-01",
+  "unit": "U1",
+  "goal_id": "MUSH-GOAL-001",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "dsh/deepseek headless",
+  "started_from": "启动序列完成：AGENTS.md / CONSTITUTION.md / DECISIONS.md 已读；goals/ 与 goals/receipts/ 已读（此前无回报，从零开始）；git log ce19f19 为起点",
+  "changed_paths": [
+    ".gitignore",
+    "package.json",
+    "tsconfig.json",
+    "tests/pi-rpc-wire-codec.test.ts",
+    "tests/pi-rpc-completion-state-machine.test.ts",
+    "tests/pi-adapter-capability.test.ts",
+    "tests/process-job-clixml.test.ts",
+    "tests/support/README.md",
+    "tests/support/pi-rpc-wire.ts",
+    "tests/support/pi-rpc-completion.ts",
+    "tests/support/pi-rpc-session.ts",
+    "tests/support/pi-adapter.ts",
+    "tests/support/process-clixml.ts",
+    "tests/support/windows-argument.ts",
+    "goals/receipts/BATCH-01-test-output.txt",
+    "goals/receipts/BATCH-01-completion.json",
+    "goals/receipts/GOAL-001-completion.json"
+  ],
+  "tests_run": "npm test 真实执行：tests 55 / pass 55 / fail 0 / exit code 0；运行断言约 191（静态 assert.* 调用点 120，循环展开后：adapter 41 + rpc-state-machine 125 + wire 9 + process 16）；脚本为 node --test --test-isolation=none tests/*.test.ts（原因见 open_findings F-01）",
+  "test_output_summary": "55/55 全绿，0 fail，0 skipped，duration ~0.45s；完整原始输出见 goals/receipts/BATCH-01-test-output.txt（sha256 632CCC4A8BD624696028E84A252690778F292C5E8BF420FCD7849865ACF2A5A5）",
+  "ps_source_trace": [
+    "bridge-pi-rpc.tests.ps1 L283-L504（wire framing / happy / fail-closed / 19 场景 / audit tamper）",
+    "invoke-managed-pi-agent.ps1 L95-L106（fence strip）、L160-L520（RPC 状态机与 completion 校验）",
+    "fake-pi-rpc-agent.ps1 L111-L239（各 CompletionScenario 输入语义）",
+    "bridge-pi-adapter.tests.ps1 L30-L35、L37-L64、L67-L75、L77-L95、L115-L134、L183-L213、L215-L224、L201-L206",
+    "bridge-process-job.tests.ps1 L260-L275（CLIXML 边角）、L111-L159（cmd/bat 引号参数）、L673-L736（GBK 意图移植）",
+    "start-goal-orchestrator.ps1 L475-L509（Windows 参数引用）、L989-L1060（Remove-BridgeProgressClixml）"
+  ],
+  "ported_assertions": [
+    {
+      "test": "pi-rpc-wire-codec.test.ts（7 tests）",
+      "ps_source": "bridge-pi-rpc.tests.ps1:L290-L307 + invoke-managed-pi-agent.ps1:L95-L106",
+      "assertions": 9
+    },
+    {
+      "test": "pi-rpc-completion-state-machine.test.ts（32 tests：happy、fail-closed 19 场景、超时、身份、conflation、audit）",
+      "ps_source": "bridge-pi-rpc.tests.ps1:L283-L504 + invoke-managed-pi-agent.ps1:L160-L520 + fake-pi-rpc-agent.ps1:L111-L239",
+      "assertions": 125
+    },
+    {
+      "test": "pi-adapter-capability.test.ts（9 tests）",
+      "ps_source": "bridge-pi-adapter.tests.ps1:L30-L224",
+      "assertions": 41
+    },
+    {
+      "test": "process-job-clixml.test.ts（7 tests）",
+      "ps_source": "bridge-process-job.tests.ps1:L260-L275、L111-L159、L673-L736 + start-goal-orchestrator.ps1:L475-L509、L989-L1060",
+      "assertions": 16
+    }
+  ],
+  "open_findings": [
+    {
+      "id": "F-01",
+      "severity": "info",
+      "detail": "本 harness 沙箱对 piped-stdio 子进程 spawn 返回 EPERM；node --test 默认以子进程跑测试文件会失败。npm test 改用 --test-isolation=none（同进程运行测试）。未引入任何依赖；owner 可复核该脚本选择。"
+    },
+    {
+      "id": "F-02",
+      "severity": "info",
+      "detail": "D:\\意向项目 git status 存在大量既有修改/未跟踪文件（backend/spec/fake-pi-agent.ps1 等），非本会话产生——本会话对其只读。GOAL 指名的三个黄金源文件 diff 为 0（已核验）。建议 owner 确认那些改动来源。"
+    },
+    {
+      "id": "F-03",
+      "severity": "info",
+      "detail": "RM-001 M1 规定不写生产实现；tests/support/ 下为 fixture 语义参考件，仅让翻译后的断言可执行。M2 时把测试 import 切到生产 src/，断言不变。"
+    },
+    {
+      "id": "F-04",
+      "severity": "info",
+      "detail": "RPC 会话参考件把 PS 秒级超时参数按毫秒接受（测试用 60/200ms），跑同一超时状态机；语义不弱化，单位差异已注释。"
+    },
+    {
+      "id": "F-05",
+      "severity": "info",
+      "detail": "U1 未覆盖（留待 U2/U3 批次）：Windows Job Object kill-on-close、junction/reparse ancestry、真实 named-pipe IPC、gated launcher 全进程树用例；PS5.1 BOM/GBK 补丁按派发包移植意图而非补丁（已注释）。"
+    },
+    {
+      "id": "F-06",
+      "severity": "info",
+      "detail": "硬边界禁止删文件，测试运行时物 .test-fixtures/ 会累积（已 gitignore，全部位于 D:\\mush 内）。"
+    }
+  ],
+  "spent_estimate_usd": 0.05
+}
