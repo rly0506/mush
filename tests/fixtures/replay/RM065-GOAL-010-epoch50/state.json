@@ -1,0 +1,86 @@
+{
+    "schema_version":  2,
+    "run_id":  "RM065-GOAL-010-20260815T104802Z-dffbb6f9",
+    "goal_id":  "RM065-GOAL-010",
+    "goal_path":  "D:\\意向项目\\spec\\roadmaps\\planning\\rm-065\\goals\\RM065-GOAL-010.md",
+    "assignment_epoch":  50,
+    "parent_role":  "parent_reviewer",
+    "executor_role":  "backend_executor",
+    "actor_bindings":  {
+                           "backend_executor":  {
+                                                    "adapter_id":  "pi",
+                                                    "model_profile":  "pi/deepseek-v4-pro",
+                                                    "instance_id":  "executor-pi-deepseek-rm065-goal010-20260815-50",
+                                                    "mailbox_path":  ".agent-bridge/TO_BACKEND_EXECUTOR.md",
+                                                    "lane_path":  "spec/roadmaps/planning/current/backend-executor-rm065-goal-010-epoch50.md",
+                                                    "executable":  "C:/Program Files/nodejs/node.exe",
+                                                    "arguments":  [
+                                                                      "D:/npm-global/node_modules/@earendil-works/pi-coding-agent/dist/cli.js",
+                                                                      "--mode",
+                                                                      "rpc",
+                                                                      "--provider",
+                                                                      "deepseek",
+                                                                      "--model",
+                                                                      "deepseek-v4-pro",
+                                                                      "--no-session"
+                                                                  ],
+                                                    "prompt_transport":  "stdin",
+                                                    "capability_id":  "64C65D7F58B93DAFE68CFC423DB5B8AB"
+                                                },
+                           "parent_reviewer":  {
+                                                   "model_profile":  "pi/deepseek-v4-pro",
+                                                   "instance_id":  "parent-pi-deepseek-rm065-goal010-20260815-48",
+                                                   "mailbox_path":  ".agent-bridge/TO_PARENT_REVIEWER.md",
+                                                   "lane_path":  "spec/roadmaps/planning/current/parent-reviewer.md",
+                                                   "executable":  "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+                                                   "arguments":  [
+                                                                     "-NoProfile",
+                                                                     "-Command",
+                                                                     "exit 0"
+                                                                 ],
+                                                   "prompt_transport":  "none",
+                                                   "capability_id":  "447726651326E55B9433E6799106A319"
+                                               }
+                       },
+    "config_digest":  "99274CC69FB54A2819CF3C4DAAD9F7365D4EA7F148DA6E2F3CB90BA6741AE978",
+    "bootstrap_config_sha256":  "EC4AF74D8C910574A81CFAA13C96B782E2DA95EDEC61EF06061A8FD09CE60CE2",
+    "implementation_owner":  "backend_executor",
+    "review_owner":  "parent_reviewer",
+    "parent_product_edit_policy":  "FORBIDDEN",
+    "parent_product_snapshot":  {
+
+                                },
+    "status":  "DONE",
+    "expected_role":  null,
+    "sequence":  2,
+    "max_full_reviews":  3,
+    "review_phase_limit":  3,
+    "review_phase":  1,
+    "phase_transition_pending":  false,
+    "full_review_count":  1,
+    "finding_recheck_count":  0,
+    "active_finding_ids":  [
+
+                           ],
+    "finding_attempts":  {
+
+                         },
+    "finding_attempt_digests":  {
+
+                                },
+    "dispatch_status":  "IDLE",
+    "dispatch_role":  null,
+    "dispatch_actor_instance_id":  null,
+    "dispatch_sequence":  null,
+    "dispatch_id":  null,
+    "dispatch_job_name":  null,
+    "dispatch_process_id":  null,
+    "dispatch_process_started_at_utc":  null,
+    "resume_status":  null,
+    "resume_expected_role":  null,
+    "last_event_id":  "38ae25cad1844fdea99bf2fa0aaa1288",
+    "last_packet_path":  "D:\\意向项目\\.agent-bridge\\runtime\\orchestrator\\RM065-GOAL-010-epoch50\\packets\\000002-7bb36410abdc40f59de0e626c8845312-approved.json",
+    "run_pause_reason":  null,
+    "terminal_reason":  "APPROVED",
+    "updated_at_utc":  "2026-08-15T11:24:56.0711943Z"
+}
