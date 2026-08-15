@@ -1,0 +1,55 @@
+{
+    "schema_version":  2,
+    "event_id":  "f8ae5617d3e24bc48955aad5421138f9",
+    "goal_id":  "RM065-GOAL-010",
+    "run_id":  "RM065-GOAL-010-20260815T104802Z-dffbb6f9",
+    "assignment_epoch":  50,
+    "sequence":  1,
+    "parent_instance_id":  "parent-pi-deepseek-rm065-goal010-20260815-48",
+    "actor_role":  "backend_executor",
+    "actor_instance_id":  "executor-pi-deepseek-rm065-goal010-20260815-50",
+    "dispatch_id":  "ce85e797c58f476898f75ebc3b890342",
+    "event_type":  "review_ready",
+    "phase":  1,
+    "finding_ids":  [
+
+                    ],
+    "finding_material_digests":  {
+
+                                 },
+    "packet_path":  "D:\\意向项目\\.agent-bridge\\runtime\\orchestrator\\RM065-GOAL-010-epoch50\\packets\\000001-ce85e797c58f476898f75ebc3b890342-pi.json",
+    "packet_sha256":  "502B5B57186FA3F9A99746B6D9E573BB889479414E7FC07B5AD28311109D722F",
+    "config_digest":  "99274CC69FB54A2819CF3C4DAAD9F7365D4EA7F148DA6E2F3CB90BA6741AE978",
+    "capability_id":  "64C65D7F58B93DAFE68CFC423DB5B8AB",
+    "signature":  "3C1706E2051557755FD8DF3C15BEFD9DD78F641F29CF8C9D86966431FD529F8B",
+    "provider":  "deepseek",
+    "model_id":  "deepseek-v4-pro",
+    "summary":  "Read-only inspection of the frozen RM065-GOAL-009 G-1 projection completed. Both allowed paths exist, are byte-identical, and their computed SHA-256 equals the frozen hash CDEC5F5D5EAA3C5FA17001EDA9F2E63D4D3D93BF7B59EF946F618540CDFEC2F8. The projection (backend-executor lane, owner Sol, role backend_executor, model_profile deepseek, instance_id deepseek-gpt007-backend-20260811, assignment_epoch 1, updated 2026-08-11) records: active_goal RM065-GOAL-009 with dispatch_status ACTIVE-G1-FINDING-RECHECK-HANDOFF. Parent-status block: human approval on 2026-08-11 replaced the unavailable Luna assignment with a role-bound DeepSeek instance through RM065-GOAL-009; GPT-GOAL-007 remains the protected product contract; this lane owns only its inherited G-1 finding-specific recheck and any Sol-returned correction inside the exact three-file boundary; G-2 and all broader operations remain stopped; the handoff must be read before relying on inherited evidence. Executor-progress block: current_phase RM065-GOAL-009 / VERIFY-INHERITED-G1-PACKET; evidence records that the handoff was created and inherited Luna results are not yet DeepSeek evidence; projected next step is to verify the frozen worktree, fixture hashes, exact inventory, focused tests, and compatibility residuals, then request Sol\u0027s G-1 narrow recheck; blocker_or_review_request NONE. No writes performed; no out-of-scope paths touched.",
+    "changed_paths":  [
+
+                      ],
+    "tests_run":  [
+
+                  ],
+    "test_results":  [
+                         {
+
+                         }
+                     ],
+    "evidence_paths_and_hashes":  [
+                                      {
+                                          "path":  "D:\\意向项目\\spec\\roadmaps\\planning\\current\\backend-executor.md",
+                                          "sha256":  "CDEC5F5D5EAA3C5FA17001EDA9F2E63D4D3D93BF7B59EF946F618540CDFEC2F8"
+                                      },
+                                      {
+                                          "path":  "D:\\意向项目\\.agent-bridge\\runtime\\orchestrator\\RM065-GOAL-010-epoch50\\evidence\\000001-ce85e797c58f476898f75ebc3b890342-g1-projection.md",
+                                          "sha256":  "CDEC5F5D5EAA3C5FA17001EDA9F2E63D4D3D93BF7B59EF946F618540CDFEC2F8"
+                                      }
+                                  ],
+    "open_findings":  [
+
+                      ],
+    "requested_decision":  "NONE",
+    "next_step":  "Inspection task complete; return this completion to the orchestrator. No executor action is authorized or required by this read-only inspection. The VERIFY-INHERITED-G1-PACKET steps projected in the G-1 projection belong to the frozen RM065-GOAL-009 lane under Sol, not to this RM065-GOAL-010 run.",
+    "created_at_utc":  "2026-08-15T10:49:44.6619667Z"
+}

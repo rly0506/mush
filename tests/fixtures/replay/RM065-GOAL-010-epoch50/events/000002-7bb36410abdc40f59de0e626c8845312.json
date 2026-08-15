@@ -1,0 +1,27 @@
+{
+    "schema_version":  2,
+    "event_id":  "38ae25cad1844fdea99bf2fa0aaa1288",
+    "goal_id":  "RM065-GOAL-010",
+    "run_id":  "RM065-GOAL-010-20260815T104802Z-dffbb6f9",
+    "assignment_epoch":  50,
+    "sequence":  2,
+    "parent_instance_id":  "parent-pi-deepseek-rm065-goal010-20260815-48",
+    "actor_role":  "parent_reviewer",
+    "actor_instance_id":  "parent-pi-deepseek-rm065-goal010-20260815-48",
+    "dispatch_id":  "7bb36410abdc40f59de0e626c8845312",
+    "event_type":  "approved",
+    "phase":  1,
+    "finding_ids":  [
+
+                    ],
+    "packet_path":  "D:\\意向项目\\.agent-bridge\\runtime\\orchestrator\\RM065-GOAL-010-epoch50\\packets\\000002-7bb36410abdc40f59de0e626c8845312-approved.json",
+    "packet_sha256":  "97E478701AFEB63AC8F6DC4AA0CCB526AC7EBB65638E543E72640FFB216106EC",
+    "finding_material_digests":  {
+
+                                 },
+    "config_digest":  "99274CC69FB54A2819CF3C4DAAD9F7365D4EA7F148DA6E2F3CB90BA6741AE978",
+    "capability_id":  "447726651326E55B9433E6799106A319",
+    "signature":  "8FC31D59BD581CAC467074F5883BE8BA36962ED2EA7AAF4C87D316ADF45BB3E9",
+    "resume_target":  "",
+    "created_at_utc":  "2026-08-15T11:24:48.3048245Z"
+}

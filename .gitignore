@@ -9,6 +9,9 @@ runtime/
 events/
 *.log
 
+# M1 replay fixtures: recorded event JSON evidence IS committed with its hash manifest
+!tests/fixtures/replay/RM065-GOAL-010-epoch50/events/
+
 # node
 node_modules/
 dist/
