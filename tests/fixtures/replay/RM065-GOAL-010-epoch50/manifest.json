@@ -1,0 +1,17 @@
+{
+    "schema_version":  1,
+    "source_root":  "D:\\意向项目\\.agent-bridge\\runtime\\orchestrator\\RM065-GOAL-010-epoch50\\events\\active",
+    "copied_at_utc":  "2026-08-15T17:17:29.6133228Z",
+    "files":  [
+                  {
+                      "file":  "000001-ce85e797c58f476898f75ebc3b890342.json",
+                      "sha256":  "0BBEA327EC9A22FB2FF4F2354506DD5BAB864C8E2FB2E1B2460AAAD3420ED1C8",
+                      "source":  "D:\\意向项目\\.agent-bridge\\runtime\\orchestrator\\RM065-GOAL-010-epoch50\\events\\active\\000001-ce85e797c58f476898f75ebc3b890342.json"
+                  },
+                  {
+                      "file":  "000002-7bb36410abdc40f59de0e626c8845312.json",
+                      "sha256":  "EE3C46A1A398284A88A8884C7B2A90371273FB980A5EF1CDA1DCA31EB7D1E555",
+                      "source":  "D:\\意向项目\\.agent-bridge\\runtime\\orchestrator\\RM065-GOAL-010-epoch50\\events\\active\\000002-7bb36410abdc40f59de0e626c8845312.json"
+                  }
+              ]
+}
