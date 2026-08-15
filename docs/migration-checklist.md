@@ -32,3 +32,6 @@
 - 意向项目 = mush 的普通消费者（继续用 PS 黄金参照版跑日常协作，直至 mush M4 后择机切换）；
 - 双方不共享代码路径；mush 通过 adapter 合同操作任意工作区（workspace-root 参数化）；
 - 2026-08-15 起意向项目侧不再修改桥代码（避免迁移分歧）。
+  例外：owner 授权的 migration-verifier `NONE / IDLE` lane 缺陷修正
+  （Sol 事后审计发现的 HIGH finding，2026-08-15 授权的一次性 TDD correction），
+  修正后黄金参照版本重新冻结，哈希在修正回执中记录。
