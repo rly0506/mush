@@ -211,3 +211,18 @@ b47afd7c0fd93fdead7b48392b3dcc1e9e46791d991776330e49a83540d91403  .test-fixtures
   M4 后补充探测的备用通道（nonce 由头犬自证）。
 - **对调实验**：BLOCKED_DEF-01 正确（无第二家族时结论无效）。
 - **push 欠账**：头犬侧全量同步本轮一并完成。
+
+## AD-16 · GOAL-005 验收 + RM-001 整单收口（2026-08-17，头犬 zcode 会话）
+
+- **机检**：独立复跑 `npm test` = **199/199 pass / exit 0**（183→+16）。
+- **真实冒烟**：`node bin/mush board` 起服 → GET / 200；/api/snapshot 读出真实
+  GOAL-004 预算门审批记录；/api/stream SSE 200（text/event-stream）——头犬亲测。
+- **验收**：GOAL-005 升 **AUTO_ACCEPTED**（executor: kimi-k3 thinking 模式，
+  5 commits a652e91…ca27a62，花费 ~$1.05）。
+- **D7/D14 里程碑**：北极星"最终只和一个页面交流"的第一块拼图落地。
+- **RM-001 DoD 终检**：M1–M5 全绿 ✅；dogfood loop 闭环（loop-zcode-001）✅；
+  触发门真实弹审批 + owner 应答（预算门 APPROVED）✅；头犬/执行犬对调
+  （role-swap-001，三模型家族）✅；黄金参照零改动 ✅。
+  → **RM-001 全部 DoD 满足，整单 COMPLETE_REQUESTED，DONE 待 owner 一句话。**
+- 遗留（不阻断，记 findings）：F-G5-02 loop→看板推送接线/USD 台账落盘（M5+）；
+  F-G5-03 局域网暴露待 owner（门 4）；GOAL-004 遗留散件已由头犬纳入本提交。
