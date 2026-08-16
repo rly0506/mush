@@ -192,3 +192,22 @@ b47afd7c0fd93fdead7b48392b3dcc1e9e46791d991776330e49a83540d91403  .test-fixtures
   owner 应答”闭环完成。
 - **对调实验**：无第二模型家族（DEF-01 未解），不造假执行；状态 BLOCKED_DEF-01，
   骨架已备，claude 真实通道就绪后补跑。
+
+## AD-15 · DEF-01 修复轮复核（2026-08-17，头犬 zcode 会话）
+
+- **机检**：独立复跑 `npm test` = **183/183 pass / exit 0**（新增 claude
+  model-family fail-closed 回归测试）。
+- **DEF-01 修复验收**：✅ `src/adapters/claude.ts` 运行时 model-family 校验 +
+  回归测试；`claude-real-003` 以 append-only correction 规范撤回
+  （REVOKED-FAIL-IDENTITY-MISMATCH，原文件未改写）——核验通过。
+- **claude-real-005 核验**：诚实 FAIL（403 group 不允许 /v1/messages），
+  `identity_mismatch` 字段已生效。结论维持：**本环境暂无第二模型家族**，
+  claude 犬 NOT-READY 直至真实 anthropic 通道或 deepseek-via-claude-cli
+  合同重定义。
+- **预算门闭环核验**：✅ owner-response（APPROVED）落盘——RM DoD"真实弹审批
+  + owner 应答"全闭环。
+- **F-30**（zcode 探测 3× 环境失败：`--json` 参数缺失、EPERM、SQLite readonly）
+  → 按纪律停，能力 UNKNOWN 诚实保留。补充头犬视角：本会话即 zcode，可作
+  M4 后补充探测的备用通道（nonce 由头犬自证）。
+- **对调实验**：BLOCKED_DEF-01 正确（无第二家族时结论无效）。
+- **push 欠账**：头犬侧全量同步本轮一并完成。
