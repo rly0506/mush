@@ -434,16 +434,20 @@ export class DispatchPipeline {
   }
 
   /** G009：在册犬只名册（派发下拉/看板视图的取数源）——合同表投影，
-   * 只含身份字段，不含 executable 路径等敏感细节。 */
+   * 只含身份字段，不含 executable 路径等敏感细节。
+   * 测试假犬（fake-t1）不进名册——owner 2026-08-17 反馈：生产下拉不应出现
+   * 测试夹具；合同表保留（测试/开发冒烟仍可显式 dispatch）。 */
   roster(): Array<{ adapter_id: string; protocol: string; expected_provider: string; expected_model_id: string; variants?: string[]; model_flag?: string }> {
-    return Object.values(this.contracts).map((contract) => ({
-      adapter_id: contract.adapter_id,
-      protocol: contract.protocol,
-      expected_provider: contract.expected_provider,
-      expected_model_id: contract.expected_model_id,
-      ...(contract.variants !== undefined ? { variants: [...contract.variants] } : {}),
-      ...(contract.model_flag !== undefined ? { model_flag: contract.model_flag } : {}),
-    }));
+    return Object.values(this.contracts)
+      .filter((contract) => contract.adapter_id !== 'fake-t1' || process.env.MUSH_INCLUDE_FAKE_ROSTER === '1')
+      .map((contract) => ({
+        adapter_id: contract.adapter_id,
+        protocol: contract.protocol,
+        expected_provider: contract.expected_provider,
+        expected_model_id: contract.expected_model_id,
+        ...(contract.variants !== undefined ? { variants: [...contract.variants] } : {}),
+        ...(contract.model_flag !== undefined ? { model_flag: contract.model_flag } : {}),
+      }));
   }
 
   recent(limit = 20): DispatchRecord[] {

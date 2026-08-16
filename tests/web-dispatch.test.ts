@@ -261,3 +261,13 @@ test('SSE receives dispatch lifecycle events during a dry-run dispatch (DoD smok
   await dispatchPromise;
   assert.equal(sawDispatch, true, 'SSE must deliver dispatch lifecycle frames');
 });
+
+// owner 2026-08-17：生产名册不得出现测试假犬（fake-t1 属测试夹具）。
+test('roster excludes the fake test dog (production-facing projection)', () => {
+  const root = fixtureRoot();
+  const pipeline = makePipeline(root);
+  const ids = pipeline.roster().map((entry) => entry.adapter_id);
+  assert.equal(ids.includes('fake-t1'), false, 'fake-t1 must not appear in roster');
+  assert.ok(ids.length > 0, 'real dogs must still be listed');
+  assert.equal(ids.includes('deepseek-dsh'), true);
+});
