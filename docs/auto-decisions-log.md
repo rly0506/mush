@@ -123,3 +123,18 @@ b47afd7c0fd93fdead7b48392b3dcc1e9e46791d991776330e49a83540d91403  .test-fixtures
   正式 DONE 仍归 owner。
 - **F-24**：claude 2.1 要求 stream-json 配 `--verbose`，合同已修正并测试同步。
 - **F-22/F-23**：上述两犬环境阻塞原因，备案。
+
+## AD-11 · GOAL-004 准备单元完成 + U-REAL 前置未满足（诚实 BLOCKED）
+
+- **机检**：`npm test` = **177/177 pass / exit 0**（U1 loop 状态机、U2 扫描/
+  owner 确认门、U3+U4 审核门与对调骨架、U5+U6 闭环检查器与预算触发门，每批
+  commit `0c3bf62`/`99dfca9`/`6f1e45b`/`d20f672`）。
+- **预算门真实验证**：`goals/receipts/approval-requests/budget-gate-mush-
+  goal-004-probe-*.json`（cap=0.01/amount=0.02 人工小额场景）已发出
+  WAITING_OWNER_APPROVAL——RM DoD“真实弹审批至少一次”的机制侧证据成立，
+  等 owner 一句批准/否决补全闭环。
+- **U-REAL**：BLOCKED_ENV（DEEPSEEK_API_KEY 缺、claude 未登录）+
+  BLOCKED_WAITING_OWNER（首任务 m5-board/zcode-adapter 未选定）。两者均为
+  owner 侧前置，不代做、不虚构。
+- **验收建议**：GOAL-004 整单暂不升 AUTO_ACCEPTED（DoD 的真实 loop 未闭环）；
+  U1–U6 准备单元可按 D15 机检记录，U-REAL 闭环后再转正。

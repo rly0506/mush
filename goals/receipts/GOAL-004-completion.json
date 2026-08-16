@@ -1,0 +1,59 @@
+{
+  "goal_id": "MUSH-GOAL-004",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "dsh/deepseek headless",
+  "changed_paths": [
+    "docs/dispatch/004-deepseek-dsh-m4-dogfood.md",
+    "src/loop/loop.ts",
+    "src/loop/scan.ts",
+    "src/loop/review.ts",
+    "src/loop/role-swap.ts",
+    "src/loop/closure.ts",
+    "src/loop/approval-gate.ts",
+    "tests/loop-state-machine.test.ts",
+    "tests/loop-scan.test.ts",
+    "tests/loop-review-swap.test.ts",
+    "tests/loop-closure-gate.test.ts",
+    "goals/receipts/loop-evidence/scan-2026-08-17.json",
+    "goals/receipts/loop-evidence/closure-2026-08-17.json",
+    "goals/receipts/approval-requests/budget-gate-mush-goal-004-probe-*.json",
+    "goals/receipts/BATCH-18..21-*"
+  ],
+  "tests_run": "npm test：tests 177 / pass 177 / fail 0 / exit 0（GOAL-004 各批真实执行；输出见 BATCH-18..21-test-output.txt）。",
+  "ported_assertions": [
+    {
+      "test": "loop-state-machine.test.ts（5 tests / 25 断言）",
+      "ps_source": "D6 + 宪法 §2 + GOAL-004 任务2"
+    },
+    {
+      "test": "loop-scan.test.ts（5 tests / 19 断言）",
+      "ps_source": "D6 + GOAL-004 任务1/2"
+    },
+    {
+      "test": "loop-review-swap.test.ts（4 tests / 24 断言）",
+      "ps_source": "D15 + GOAL-004 任务2/4"
+    },
+    {
+      "test": "loop-closure-gate.test.ts（5 tests / 19 断言）",
+      "ps_source": "GOAL-004 前置 + RM-001 DoD + 宪法 §1.1"
+    }
+  ],
+  "evidence": [
+    { "path": "goals/receipts/BATCH-21-test-output.txt", "sha256": "D9A05C0336B6C9979E0950D85C3D2BFA3077519C0CD29942E207E266DD92CBA8" },
+    { "path": "goals/receipts/loop-evidence/scan-2026-08-17.json", "sha256": "24EEB9ED8E93D849182B18227C92E2C9D3E3FAB4778884DF2628621BF52E5EC1" },
+    { "path": "goals/receipts/loop-evidence/closure-2026-08-17.json", "sha256": "C5ECD8E07F7C741AB122B5816B660709BA817EEA84EC9F5CB93AA41008BE2F52" }
+  ],
+  "open_findings": [
+    "F-26 U3/U4 同批实现（审核门与对调骨架共享状态机依赖）",
+    "F-27 预算门机制已真实触发（小额人工场景），APPROVAL_REQUEST 等待 owner 应答——RM DoD 的“弹审批”闭环需 owner 一句批准或否决后补全",
+    "U-REAL 真实 loop：BLOCKED_ENV（DEEPSEEK_API_KEY 缺、claude 未登录）+ BLOCKED_WAITING_OWNER（首任务 m5-board vs zcode-adapter 未选定）"
+  ],
+  "real_loop": {
+    "status": "BLOCKED",
+    "reasons": [
+      "credential environment not ready (deepseek-dsh/claude-code)",
+      "owner has not selected first task (m5-board | zcode-adapter)"
+    ]
+  },
+  "spent_estimate_usd": 0.08
+}
