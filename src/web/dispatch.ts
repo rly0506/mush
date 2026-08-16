@@ -182,6 +182,7 @@ export class DispatchPipeline {
   private readonly records = new Map<string, DispatchRecord>();
   private selectedWorkspace: string | null = null;
   private now: () => Date;
+  private readonly persistence: BoardPersistence | null;
 
   constructor(options: DispatchPipelineOptions) {
     this.workspaceRoot = path.resolve(options.workspaceRoot);
@@ -199,6 +200,11 @@ export class DispatchPipeline {
       );
     this.onEvent = options.onEvent ?? (() => {});
     this.now = options.now ?? (() => new Date());
+    this.persistence = options.persistence ?? null;
+    // GP-03：重启回放——已落盘的派发记录重新入内存（recent() 跨重启可用）。
+    for (const record of this.persistence?.loadDispatchRecords() ?? []) {
+      this.records.set(record.dispatch_id, record);
+    }
     this.runAdapter =
       options.runAdapter ??
       (async (contract, prompt, opts) => {
@@ -246,10 +252,24 @@ export class DispatchPipeline {
       payload,
     };
     record.events.push(event);
+    this.persistence?.appendDispatchEvent(record, event);
     this.onEvent(event);
   }
 
   private appendLedger(entry: UsdAdmissionEntry): void {
+    if (this.persistence !== null) {
+      this.persistence.appendLedger({
+        atUtc: entry.atUtc,
+        actorId: entry.actorId,
+        decision: entry.decision,
+        amountUsd: entry.amountUsd,
+        capUsd: entry.capUsd,
+        spentBeforeUsd: entry.spentBeforeUsd,
+        remainingUsd: entry.remainingUsd,
+        meta: entry.meta,
+      });
+      return;
+    }
     mkdirSync(path.dirname(this.ledgerPath), { recursive: true });
     writeFileSync(this.ledgerPath, JSON.stringify(entry) + '\n', { flag: 'a', encoding: 'utf8' });
   }
@@ -310,12 +330,13 @@ export class DispatchPipeline {
       meta: { dispatch_id: dispatchId, effort, real, prompt_sha256: sha256Hex(prompt) },
     });
     record.admission = { decision: admission.decision, remaining_usd: admission.remainingUsd };
+    this.records.set(dispatchId, record);
+    this.persistence?.saveDispatchHeader(record); // GP-03：header 先于任何事件行落盘
     this.appendLedger(admission);
     this.emit(record, 'ADMISSION', admission.decision === 'ADMITTED' ? 'ADMITTED' : 'FAIL', {
       decision: admission.decision,
       remaining_usd: admission.remainingUsd,
     });
-    this.records.set(dispatchId, record);
     if (admission.decision !== 'ADMITTED') {
       record.status = 'FAIL';
       record.error = 'budget admission denied';

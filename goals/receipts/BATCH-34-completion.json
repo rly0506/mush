@@ -1,0 +1,43 @@
+{
+  "batch": "BATCH-34",
+  "unit": "GP-03",
+  "goal_id": "GP-03",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "dsh/deepseek headless",
+  "changed_paths": [
+    "src/web/persistence.ts",
+    "src/web/dispatch.ts",
+    "src/web/server.ts",
+    "src/cli.ts",
+    "tests/persistence.test.ts",
+    "tests/web-dispatch.test.ts",
+    "goals/receipts/BATCH-34-test-output.txt",
+    "goals/receipts/BATCH-34-completion.json",
+    "goals/receipts/GP-03-completion.json"
+  ],
+  "tests_run": "npm test 全量真实执行：tests 253 / pass 253 / fail 0 / exit 0（本批新增 persistence 4 tests + 重启回放 1 test + 既有回归）",
+  "test_output_summary": "253/253 全绿；持久化测试：records header+events 跨实例读回、台账哈希链 verify、事件链锚点 reload、单实例锁（活进程拒绝/同进程重入/陈锁接管/释放）",
+  "ps_source_trace": [
+    "docs/review-2026-08-17-midpoint.md §一a（持久化缺口）",
+    "CONSTITUTION §2（证据 append-only + 哈希链）",
+    "GP-03 任务 1/2/3（派发记录/事件链+台账锚点/单实例锁 F-42）"
+  ],
+  "ported_assertions": [
+    {
+      "test": "persistence.test.ts（4 tests）",
+      "ps_source": "GP-03 + 宪法 §2",
+      "assertions": 18
+    },
+    {
+      "test": "web-dispatch.test.ts 新增（重启回放：新 pipeline 读回 records、新 server snapshot.dispatches 仍在、台账链 verify）",
+      "ps_source": "GP-03 DoD",
+      "assertions": 6
+    }
+  ],
+  "open_findings": [
+    "F-38 单实例锁同进程重入放行（测试/嵌入宿主多 server 场景）；跨进程仍是 F-42 防线。",
+    "F-39 进程级“杀进程→重启”冒烟在沙箱不可做（spawn/kill 受限），以同进程 close→新建 server 的等价重启回放测试替代；普通环境可补跑脚本化冒烟。",
+    "F-40 编号说明：本批测试输出先误用 BATCH-33-test-output.txt 号，已用 git 恢复 kimi 原文并把本批规范为 BATCH-34。"
+  ],
+  "spent_estimate_usd": 0.04
+}

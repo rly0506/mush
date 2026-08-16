@@ -6,6 +6,7 @@ import { DispatchPipeline, InputError, type DispatchLifecycleEvent, type RunAdap
 import { startBoardServer, type BoardServer } from '../src/web/server.ts';
 import { LoopStateMachine } from '../src/loop/loop.ts';
 import { createLoopBridge } from '../src/web/loop-stream.ts';
+import { BoardPersistence } from '../src/web/persistence.ts';
 
 // GOAL-006 U2：派发管线（fake runner 路径全覆盖）+ USD 台账 + 生命周期事件。
 // 契约：src/web/api-contract.md。
@@ -180,6 +181,46 @@ test('board server exposes dispatch/workspaces/budget endpoints per contract v1'
   assert.equal(budget.status, 200);
   const budgetBody = (await budget.json()) as { actors: unknown[] };
   assert.ok((budgetBody.actors as unknown[]).length >= 1);
+});
+
+test('GP-03 restart replay: new pipeline + new server read back records and chained ledger', async () => {
+  const root = fixtureRoot();
+  const runtimeRoot = path.join(root, 'runtime');
+  const persistence = new BoardPersistence(runtimeRoot);
+  const first = new DispatchPipeline({
+    workspaceRoot: root,
+    approvalRoot: path.join(root, 'approvals'),
+    ledgerPath: path.join(runtimeRoot, 'budget-ledger.jsonl'),
+    runAdapter: fakeOk,
+    persistence,
+  });
+  const record = await first.dispatch({ adapter_id: 'fake-t1', prompt: 'restart replay', amount_usd: 1 });
+  persistence.verifyLedgerChain();
+
+  const second = new DispatchPipeline({
+    workspaceRoot: root,
+    approvalRoot: path.join(root, 'approvals'),
+    ledgerPath: path.join(runtimeRoot, 'budget-ledger.jsonl'),
+    runAdapter: fakeOk,
+    persistence,
+  });
+  assert.ok(second.get(record.dispatch_id) !== null);
+  assert.equal(second.recent(10).length, 1);
+
+  const server = await startBoardServer({
+    approvalRoot: path.join(root, 'approvals'),
+    runId: 'board-restart-run',
+    assignmentEpoch: 1,
+    dispatch: second,
+    persistence,
+  });
+  after(async () => {
+    await server.close();
+  });
+  const snapshotResponse = await fetch(`http://127.0.0.1:${server.port}/api/snapshot`);
+  assert.equal(snapshotResponse.status, 200);
+  const snapshot = (await snapshotResponse.json()) as { dispatches?: unknown[] };
+  assert.ok((snapshot.dispatches ?? []).length >= 1, 'dispatches must survive server restart');
 });
 
 test('SSE receives dispatch lifecycle events during a dry-run dispatch (DoD smoke)', async () => {

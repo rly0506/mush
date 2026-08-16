@@ -1,0 +1,38 @@
+{
+  "goal_id": "GP-03",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "dsh/deepseek headless",
+  "changed_paths": [
+    "src/web/persistence.ts",
+    "src/web/dispatch.ts",
+    "src/web/server.ts",
+    "src/cli.ts",
+    "tests/persistence.test.ts",
+    "tests/web-dispatch.test.ts",
+    "goals/receipts/BATCH-33-*"
+  ],
+  "tests_run": "npm test：tests 253 / pass 253 / fail 0 / exit 0（239+ 要求满足）。",
+  "evidence": [
+    {
+      "item": "派发记录持久化",
+      "result": "runtime/dispatches/<id>.jsonl：header + 生命周期事件增量追加；新 pipeline 实例读回 records（web-dispatch restart replay test 在案）"
+    },
+    {
+      "item": "事件链 + 台账哈希锚点",
+      "result": "event-log-<runId>.jsonl 随 append 落盘（prev_sha256）；budget-ledger.jsonl 每行 sha256/prev_sha256，verifyLedgerChain 测试通过"
+    },
+    {
+      "item": "单实例锁（F-42）",
+      "result": "runtime/board.lock：活进程拒绝第二实例（CLI exit 3）、同进程重入放行、陈锁接管、close/SIGINT 释放（released_at 写回，不删文件）"
+    },
+    {
+      "item": "重启回放",
+      "result": "persistence + web-dispatch 测试：新 pipeline / 新 server 读回 records 与链式台账，snapshot.dispatches 跨重启仍在"
+    }
+  ],
+  "open_findings": [
+    "F-38 同进程重入放行（嵌入式多 server 需要；跨进程防线在案）",
+    "F-39 进程级杀-重启冒烟受沙箱限制，以同进程 close→重启等价测试替代"
+  ],
+  "spent_estimate_usd": 0.04
+}

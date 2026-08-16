@@ -16,6 +16,7 @@ import { parseBridgeEventV2 } from '../schema/events.ts';
 import { collectBoardSnapshot } from './sources.ts';
 import { renderBoardPage } from './page.ts';
 import { DispatchPipeline, InputError } from './dispatch.ts';
+import { BoardPersistence } from './persistence.ts';
 
 export interface BoardServerOptions {
   approvalRoot: string;
@@ -29,6 +30,9 @@ export interface BoardServerOptions {
   dispatch?: DispatchPipeline;
   workspaceRoot?: string;
   ledgerPath?: string;
+  /** GP-03：持久化与锁；缺省 <workspaceRoot>/runtime。 */
+  runtimeRoot?: string;
+  persistence?: BoardPersistence;
 }
 
 export interface BoardServer {
@@ -62,13 +66,29 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
   const host = options.host ?? '127.0.0.1';
   const port = options.port ?? 0;
   const approvalRoot = path.resolve(options.approvalRoot);
+  const workspaceRoot = options.workspaceRoot ?? process.cwd();
+  // 测试/缺省：runtime 挂在 approvalRoot 下（天然隔离）；生产 CLI 显式传 workspace/runtime。
+  const runtimeRoot = options.runtimeRoot ?? path.join(approvalRoot, 'runtime');
+  const persistence = options.persistence ?? new BoardPersistence(runtimeRoot);
+
+  // GP-03 / F-42：单实例锁。已在运行的看板实例拒绝第二个实例。
+  persistence.acquireLock();
+
+  // GP-03：事件链持久化回放——启动时读回 JSONL 并重建哈希链日志。
   const log = options.eventLog ?? new EventLog(options.runId, options.assignmentEpoch);
+  if (options.eventLog === undefined) {
+    for (const line of persistence.loadEventLogLines(options.runId)) {
+      log.append(line.event);
+    }
+  }
   const dispatch =
     options.dispatch ??
     new DispatchPipeline({
-      workspaceRoot: options.workspaceRoot ?? process.cwd(),
+      workspaceRoot,
       approvalRoot,
-      ledgerPath: options.ledgerPath ?? path.join(process.cwd(), 'runtime', 'budget-ledger.jsonl'),
+      ledgerPath: options.ledgerPath ?? path.join(runtimeRoot, 'budget-ledger.jsonl'),
+      registryPath: path.join(workspaceRoot, 'runtime', 'capability-registry.json'),
+      persistence,
       onEvent: (event) => broadcast(event),
     });
   const sseClients = new Set<ServerResponse>();
@@ -109,6 +129,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     let entry;
     try {
       entry = log.append(parsed); // run/epoch/sequence 违规 → 核心层 fail-closed → 409
+      persistence.appendEventLog(options.runId, entry); // GP-03：事件链随 append 同步落盘（哈希锚点）
     } catch (error) {
       sendJson(response, 409, { ok: false, error: error instanceof Error ? error.message : String(error) });
       return;
@@ -327,15 +348,25 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
   const address = server.address();
   const boundPort = typeof address === 'object' && address !== null ? address.port : port;
 
+  // GP-03 / F-42：SIGINT 优雅释放锁（CLI 的 SIGINT 会调 close）。
+  const release = (): void => {
+    persistence.releaseLock();
+  };
+  process.once('SIGINT', release);
+
   return {
     server,
     host,
     port: boundPort,
     close: () =>
       new Promise<void>((resolve) => {
+        process.removeListener('SIGINT', release);
         for (const client of sseClients) client.end();
         sseClients.clear();
-        server.close(() => resolve());
+        server.close(() => {
+          release();
+          resolve();
+        });
       }),
   };
 }

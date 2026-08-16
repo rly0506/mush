@@ -12,6 +12,7 @@ import { validateAdapterContract, type AdapterContract } from './adapters/contra
 import { buildDeepSeekContract } from './adapters/deepseek.ts';
 import { buildClaudeContract } from './adapters/claude.ts';
 import { startBoardServer } from './web/server.ts';
+import { LockError } from './web/persistence.ts';
 
 export interface CliResult {
   exitCode: number;
@@ -95,7 +96,16 @@ export async function runCli(argv: string[]): Promise<CliResult> {
       assignmentEpoch: 1,
       host,
       port,
+      runtimeRoot: path.join(workspace, 'runtime'),
+    }).catch((error) => {
+      if (error instanceof LockError) {
+        return { exitCode: 3, stdout: jsonLine({ ok: false, error: error.message, hint: 'another board instance is running' }) } as unknown as Awaited<ReturnType<typeof startBoardServer>>;
+      }
+      throw error;
     });
+    if ('exitCode' in server) {
+      return server as unknown as CliResult;
+    }
     const url = `http://${host}:${server.port}/`;
     const payload = {
       ok: true,
