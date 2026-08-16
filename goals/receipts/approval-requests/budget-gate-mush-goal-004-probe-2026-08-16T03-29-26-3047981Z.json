@@ -1,0 +1,10 @@
+{
+    "schema_version":  1,
+    "gate":  "BUDGET_GATE",
+    "actor_id":  "mush-goal-004-budget-gate-probe",
+    "cap_usd":  0.01,
+    "amount_usd":  0.02,
+    "reason":  "RM DoD: 轻量模式下真实触发预算门弹审批（人工构造小额场景，机制验证）",
+    "requested_at_utc":  "2026-08-16T03:29:26.3101343Z",
+    "status":  "WAITING_OWNER_APPROVAL"
+}

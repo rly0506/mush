@@ -1,0 +1,15 @@
+{
+    "schema_version":  1,
+    "checked_at_utc":  "2026-08-16T03:29:26.1499270Z",
+    "status":  "BLOCKED_ENV",
+    "reasons":  [
+                    "deepseek-dsh: no PASS dispatch evidence with runtime nonce proof",
+                    "deepseek-dsh: credential environment not ready",
+                    "claude-code: no PASS dispatch evidence with runtime nonce proof",
+                    "claude-code: credential environment not ready"
+                ],
+    "evidence":  [
+                     "goals/receipts/dispatch-events/dsh-real-001.json",
+                     "goals/receipts/dispatch-events/claude-real-001.json"
+                 ]
+}
