@@ -1,0 +1,10 @@
+PASS  D1 头犬+effort 选择受理  — status=200
+PASS  D3 响应体含 reply 头犬文本  — 冒烟头犬回复：已收到并派活 session_id
+PASS  D3 同步语义（200 非 202）  — v1.3.1
+PASS  D1 executor 伪装头犬被拒（400）  — status=400
+PASS  D2 思考中占位+秒表结构在页面
+PASS  D2 输入不锁（无 disabled = pending）
+PASS  D4 getSelection 选字保护在页面
+PASS  D4 detail 可选中 + 热区收缩
+
+=== g012b smoke: 8/8 PASS ===
