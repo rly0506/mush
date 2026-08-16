@@ -323,3 +323,19 @@ b47afd7c0fd93fdead7b48392b3dcc1e9e46791d991776330e49a83540d91403  .test-fixtures
 - **owner 说明**：`gargantua-raytracer/` 为其对 deepseek 的私人测试项目，
   "完成后就可以删除，先不用管"。头犬不动该目录；删除授权**待 owner 届时
   一句话触发**（不自行判定"已完成"）。
+
+## AD-23 · GP-03 验收（2026-08-17，头犬 zcode 会话）
+
+- **隔离验证（worktree @ 877d63f）**：253/253 全绿；真杀进程冒烟（头犬环境，
+  补 deepseek 沙箱不能做的部分）：起服→dry-run 派发→kill -9→重启→
+  `snapshot.dispatches` 记忆存活 ✅；**F-42 锁实测**：同目录第二实例
+  exit 3 + 明确 PID 报错 ✅。
+- **台账链**：字段为 `previous_sha256`（genesis null）+ `sha256`，
+  verifyLedgerChain 套内测试通过（头犬首轮校验脚本字段名用错，已更正）。
+- **验收**：GP-03 **AUTO_ACCEPTED**（executor deepseek-dsh，commit 877d63f）。
+  宪法 §2 审计链（台账锚点）补全；看板重启不失忆达成。
+- **DEF-05（小，显示级）**：重启回放只读 header.status（ADMITTED），不折叠
+  后续生命周期事件（EXECUTE/REPORT/REVIEW 的 FAIL 未反映）——事件数据完整
+  落盘（5 行全链），属回放聚合缺陷。归 GP-10（运行历史）或下一后端批顺手修。
+- **F-40/编号事件**：deepseek 误用 BATCH-33 后已 git 恢复 kimi 原文并规范为
+  BATCH-34——核验通过（两份回执俱在）。

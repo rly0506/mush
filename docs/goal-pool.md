@@ -10,7 +10,7 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | GP-01 | RM-002 收官：意向项目首个真实任务 | D22 | 高 | queued | P1✅ P2 | 任务内容 owner 指定（开放槽） |
 | GP-02 | P2 前端批：F-40 自由输入/新建 workspace + F-39 显示归一 | owner 复盘 | 高 | done（AD-21，2026-08-17） | — | kimi |
-| GP-03 | P3 持久化批：记录/事件链落盘 + 台账哈希锚点 + 单实例锁（F-42） | 复盘 §一a | 高 | queued（packet 009） | — | deepseek；宪法 §2 审计链补全 |
+| GP-03 | P3 持久化批：记录/事件链落盘 + 台账哈希锚点 + 单实例锁（F-42） | 复盘 §一a | 高 | done（AD-23，2026-08-17；DEF-05 回放聚合小缺陷随 GP-10） | — | deepseek；宪法 §2 审计链补全 |
 | GP-04 | P4 补编批：kimi adapter 入册 + flaky 竞态修复 + 会话续跑（dsh --resume / claude --continue 接管线） | 复盘 §一b/e | 中 | idea | GP-03 | kimi 犬入册后看板可派 kimi |
 | GP-05 | 预算实测化：per-dispatch 真实成本回传（申报制→计量制），对齐 cc-switch usage 表 | 复盘 §一d | 中 | idea | — | 治理语义修复 |
 | GP-06 | 审核深化：REVIEW 从 exit 机检升级为 diff 级审核（学 todos.dev Change review：GitHub 风格逐文件 diff） | 复盘 §一c + todos.dev | 中 | idea | GP-03 | AI 互审（todos.dev）可挂此处 |
