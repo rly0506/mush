@@ -1,0 +1,35 @@
+{
+  "batch": "BATCH-28",
+  "unit": "G8-U1",
+  "goal_id": "MUSH-GOAL-008",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "dsh/deepseek headless",
+  "changed_paths": [
+    "src/adapters/codex.ts",
+    "src/adapters/opencode.ts",
+    "tests/adapters-codex-opencode.test.ts",
+    "goals/receipts/BATCH-28-test-output.txt",
+    "goals/receipts/BATCH-28-completion.json"
+  ],
+  "tests_run": "git 跟踪测试文件 + 本批新增测试真实执行：tests 204 / pass 204 / fail 0 / exit 0（基线 199 + 本批 5）；完整输出见 BATCH-28-test-output.txt",
+  "test_output_summary": "204/204 全绿；全量 glob 受 kimi 未跟踪前端测试（web-board-page.test.ts）在途红影响，见 F-32",
+  "ps_source_trace": [
+    "harness-landscape-2026-08-16.md：codex exec T1 / opencode run T1（ACP/HTTP 为后续升级项）",
+    "GOAL-008 任务1/2（合同 + 身份证据解析；凭据由 cc-switch 自理，mush 只调 executable）"
+  ],
+  "ported_assertions": [
+    {
+      "test": "adapters-codex-opencode.test.ts（5 tests：合同/JSONL 解析/身份 UNKNOWN 门）",
+      "ps_source": "harness-landscape + D13 + GOAL-008",
+      "assertions": 20
+    }
+  ],
+  "open_findings": [
+    {
+      "id": "F-32",
+      "severity": "info",
+      "detail": "kimi（GOAL-007）的前端测试 tests/web-board-page.test.ts 以未跟踪文件先行落盘（TDD 红），其 page.ts 实现尚未提交，导致 npm test 全量 glob 含在途红。G6/G8 侧按“跟踪文件面”跑绿（204/204）；待 kimi 提交实现后全量恢复。另：本批执行期间发现 G6-U1 曾误覆盖 G5 的 BATCH-25-test-output.txt，已用 git 恢复原文件（证据无损）。"
+    }
+  ],
+  "spent_estimate_usd": 0.02
+}
