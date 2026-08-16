@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "dispatch_id": "kimi-real-003-head-verified",
+  "adapter_id": "kimi-code",
+  "channel": "direct kimi -p (non-sandbox host, head-dog verification)",
+  "challenge": "sha256 of time-based nonce",
+  "nonce_matched": true,
+  "expected": "8217509843e03640e8a92c75695190d8ff5cb5bb9e1ff617340cbbec2d15b7c6",
+  "observed": "8217509843e03640e8a92c75695190d8ff5cb5bb9e1ff617340cbbec2d15b7c6",
+  "verdict": "PASS — kimi READY（deepseek 沙箱 FAIL 系环境；通道与凭据正常）",
+  "recorded_at_utc": "2026-08-16T15:20:49.130Z"
+}

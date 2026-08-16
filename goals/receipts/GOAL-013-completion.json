@@ -1,6 +1,6 @@
 {
   "goal_id": "MUSH-GOAL-013",
-  "status": "MACHINE_GREEN",
+  "status": "AUTO_ACCEPTED",
   "packet": "rm003-p14-deepseek-dogcap",
   "branch": "g013",
   "worktree": "runtime/worktrees/deepseek-b",
@@ -13,5 +13,9 @@
     "batch_receipt": "goals/receipts/BATCH-40-completion.json"
   },
   "open_finding": "kimi-code real nonce FAIL (exit 1, empty stdout, non-empty stderr); requires on-host/non-sandbox channel verification before marking kimi READY. Not a code regression; adapter contract and tests are green.",
-  "acceptance": "D15 machine acceptance only; owner explicit acceptance still required for DONE per constitution."
+  "acceptance": {
+    "mode": "D15",
+    "applied": "2026-08-17",
+    "machine_checks": "278/278 worktree; merged 289/289; kimi nonce head-verified PASS (AD-30)"
+  }
 }

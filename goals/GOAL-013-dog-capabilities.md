@@ -1,6 +1,6 @@
 ---
 goal_id: MUSH-GOAL-013
-status: QUEUED（RM-003 / M3；M1 合并后启动）
+status: AUTO_ACCEPTED（D15，2026-08-17；kimi 经头犬复核转 READY，AD-30）
 mode: LIGHT
 rm: RM-003 / M3 犬力批
 executor_model_profile: deepseek-dsh（后端）

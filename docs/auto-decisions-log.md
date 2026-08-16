@@ -423,3 +423,15 @@ RM-001、RM-002 全部构件正式收官。另：派发包编号改带 RM 前缀
   附注：执行者发现并修复 Node/libuv Windows SSE 关闭竞态
   （process.exit→exitCode），经验入回执——加分项。
 - RM-003 进度：M2 补完；余 p13（图标动效）/p14（犬力批）在途。
+
+## AD-30 · GOAL-013 验收 + 合并 + kimi 转 READY（2026-08-17，头犬 zcode 会话）
+
+- **隔离验证**：worktree g013 278/278（+10）；合并 master（契约版本行
+  冲突手工合流 v1.4）后 **289/289 全绿**（g012b+g013 测试并集）。
+- **kimi nonce 复核（头犬非沙箱环境直测）**：**PASS**——哈希精确匹配
+  （证据 kimi-real-003.json）。deepseek 沙箱内的 FAIL 系环境，通道与
+  凭据正常。**kimi-code 犬正式 READY**（六犬满编：deepseek/claude/kimi/
+  zcode/codex/opencode + head-dog）。
+- **验收**：GOAL-013 **AUTO_ACCEPTED**（executor deepseek-dsh，g013 @ 1bcf8df）。
+  profile/effort 合同/rerun/kimi 合同全部落库；契约 v1.4。
+- RM-003 进度：M1 ✅ M2 ✅ M3 ✅（待 p13 图标动效合并后收官）。
