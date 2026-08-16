@@ -1,0 +1,11 @@
+{
+    "schema_version":  1,
+    "scanned_at_utc":  "2026-08-16T03:26:28.2761411Z",
+    "candidates":  [
+                       "m5-board",
+                       "zcode-adapter"
+                   ],
+    "selected":  null,
+    "status":  "WAITING_OWNER",
+    "reason":  "GOAL-004 任务1：owner 尚未一句话选定首任务（D6）"
+}
