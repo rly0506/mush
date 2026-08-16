@@ -71,7 +71,9 @@ test('real dispatch requires owner approval record; with it, PASS is recorded', 
   const approvalRoot = path.join(root, 'approvals');
   mkdirSync(approvalRoot, { recursive: true });
   writeFileSync(path.join(approvalRoot, 'fake-t1.approved.json'), JSON.stringify({ schema_version: 1, adapter_id: 'fake-t1', approved_by: 'owner', scope: 'one bounded dispatch' }) + '\n', 'utf8');
-  const passed = await pipeline.dispatch({ adapter_id: 'fake-t1', prompt: 'x', real: true });
+  // G009：犬只批准目录与看板审批目录分离（dispatchApprovalRoot 默认
+  // <root>/goals/receipts/dispatch-approvals）——测试显式指向 fixture approvals。
+  const passed = await makePipeline(root, { dispatchApprovalRoot: approvalRoot }).dispatch({ adapter_id: 'fake-t1', prompt: 'x', real: true });
   assert.equal(passed.status, 'PASS');
   assert.equal(passed.events.at(-1)?.status, 'PASS');
 });

@@ -25,6 +25,9 @@ export function buildClaudeContract(expectedModelId: string): AdapterContract {
     prompt_transport: 'argument',
     expected_provider: 'anthropic',
     expected_model_id: expectedModelId,
+    // G009：变体切换实证可用（claude-real-011 经 --model 下发生效）。
+    variants: ['claude-sonnet-5', 'claude-sonnet-4-5'],
+    model_flag: '--model',
   });
 }
 

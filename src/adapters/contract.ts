@@ -18,6 +18,11 @@ export interface AdapterContract {
   readonly prompt_transport: PromptTransport;
   readonly expected_provider: string;
   readonly expected_model_id: string;
+  /** G009：可切换的模型变体（UI 下拉数据源）；缺省 = 仅合同默认模型。 */
+  readonly variants?: readonly string[];
+  /** G009：变体切换的 CLI 注入旗标（如 claude 的 '--model'）；缺省 = 该通道
+   * 不支持命令行变体切换（变体仅作为身份期望记录）。 */
+  readonly model_flag?: string;
 }
 
 const PROTOCOLS: readonly string[] = ['t1', 'pi-rpc', 'stream-json'];
@@ -46,6 +51,14 @@ export function validateAdapterContract(input: unknown): AdapterContract {
   }
   if (isBlank(record.expected_provider)) throw new Error("adapter contract 'expected_provider' must be non-blank");
   if (isBlank(record.expected_model_id)) throw new Error("adapter contract 'expected_model_id' must be non-blank");
+  if (record.variants !== undefined) {
+    if (!Array.isArray(record.variants) || record.variants.some((v) => typeof v !== 'string' || v.trim() === '')) {
+      throw new Error("adapter contract 'variants' must be an array of non-blank strings");
+    }
+  }
+  if (record.model_flag !== undefined && (typeof record.model_flag !== 'string' || record.model_flag.trim() === '')) {
+    throw new Error("adapter contract 'model_flag' must be a non-blank string when present");
+  }
   return {
     adapter_id: record.adapter_id as string,
     executable: record.executable as string,
@@ -54,5 +67,7 @@ export function validateAdapterContract(input: unknown): AdapterContract {
     prompt_transport: record.prompt_transport as PromptTransport,
     expected_provider: (record.expected_provider as string).trim(),
     expected_model_id: (record.expected_model_id as string).trim(),
+    ...(record.variants !== undefined ? { variants: [...(record.variants as string[])] } : {}),
+    ...(record.model_flag !== undefined ? { model_flag: (record.model_flag as string).trim() } : {}),
   };
 }

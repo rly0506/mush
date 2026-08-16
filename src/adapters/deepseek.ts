@@ -24,7 +24,11 @@ export function buildDeepSeekContract(channel: DeepSeekChannel): AdapterContract
       protocol: 't1',
       prompt_transport: 'argument',
       expected_provider: 'deepseek',
-      expected_model_id: 'deepseek-v4-pro',
+      // 实测（--dump-config 2026-08-17）：headless profile 服务 deepseek-v4-flash。
+      expected_model_id: 'deepseek-v4-flash',
+      // 变体轴 flash/pro：切换通道待定（dsh headless 无 --model、env 无效、
+      // --patch 需 loader-entry 覆盖格式——F-G9-02），先作为身份期望声明。
+      variants: ['deepseek-v4-flash', 'deepseek-v4-pro'],
     });
   }
   return validateAdapterContract({

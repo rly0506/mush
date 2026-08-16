@@ -64,6 +64,8 @@ export type RunAdapterFn = (
 export interface DispatchPipelineOptions {
   workspaceRoot: string;
   approvalRoot: string;
+  /** G009：real-dispatch 犬只批准目录；缺省 <workspaceRoot>/goals/receipts/dispatch-approvals。 */
+  dispatchApprovalRoot?: string;
   ledgerPath: string;
   contracts?: Record<string, AdapterContract>;
   runAdapter?: RunAdapterFn;
@@ -90,11 +92,28 @@ function knownContracts(): Record<string, AdapterContract> {
       expected_model_id: 'fake-model',
     }),
     'deepseek-dsh': buildDeepSeekContract('dsh'),
-    'claude-code': buildClaudeContract('claude-sonnet-4-5'),
+    // 默认 sonnet-5：claude-real-011 实证该变体身份+nonce 双通过。
+    'claude-code': buildClaudeContract('claude-sonnet-5'),
     zcode: buildZcodeContract(),
     codex: buildCodexContract(),
     opencode: buildOpencodeContract(),
   };
+}
+
+/** G009：应用模型变体——更新身份期望；有 model_flag 的通道同步重写 CLI 参数
+ *（旗标值替换为变体名）。无 flag 通道仅记录身份期望（切换能力见 F-G9-02）。 */
+function applyModelVariant(contract: AdapterContract, modelId: string): AdapterContract {
+  const arguments_ =
+    contract.model_flag !== undefined && contract.arguments.includes(contract.model_flag)
+      ? contract.arguments.map((arg, index) =>
+          index > 0 && contract.arguments[index - 1] === contract.model_flag ? modelId : arg,
+        )
+      : contract.arguments;
+  return validateAdapterContract({
+    ...contract,
+    arguments: arguments_,
+    expected_model_id: modelId,
+  });
 }
 
 const EFFORTS = new Set(['LOW', 'HIGH', 'XHIGH']);
@@ -106,6 +125,7 @@ function sha256Hex(text: string): string {
 export class DispatchPipeline {
   readonly workspaceRoot: string;
   readonly approvalRoot: string;
+  private readonly dispatchApprovalRoot: string;
   readonly ledgerPath: string;
   private readonly contracts: Record<string, AdapterContract>;
   private readonly runAdapter: RunAdapterFn;
@@ -118,6 +138,11 @@ export class DispatchPipeline {
   constructor(options: DispatchPipelineOptions) {
     this.workspaceRoot = path.resolve(options.workspaceRoot);
     this.approvalRoot = path.resolve(options.approvalRoot);
+    // G009 修复：real-dispatch 的犬只批准目录与看板审批视图（approval-requests）
+    // 是两类记录，默认分开——犬只批准在 dispatch-approvals（D6 惯例）。
+    this.dispatchApprovalRoot = path.resolve(
+      options.dispatchApprovalRoot ?? path.join(this.workspaceRoot, 'goals', 'receipts', 'dispatch-approvals'),
+    );
     this.ledgerPath = path.resolve(options.ledgerPath);
     this.contracts = options.contracts ?? knownContracts();
     this.onEvent = options.onEvent ?? (() => {});
@@ -186,6 +211,15 @@ export class DispatchPipeline {
     const adapterId = typeof body.adapter_id === 'string' ? body.adapter_id : '';
     const contract = this.contracts[adapterId];
     if (contract === undefined) throw new InputError(`unknown adapter: ${adapterId}`);
+    // G009：模型变体选择——必须属于合同声明的 variants（fail-closed）。
+    let effectiveContract = contract;
+    if (body.model_id !== undefined) {
+      const modelId = String(body.model_id);
+      if (contract.variants === undefined || !contract.variants.includes(modelId)) {
+        throw new InputError(`model_id '${modelId}' not in variants of ${adapterId}`);
+      }
+      effectiveContract = applyModelVariant(contract, modelId);
+    }
     const prompt = typeof body.prompt === 'string' ? body.prompt : '';
     if (prompt.trim() === '' || prompt.length > 64000) throw new InputError('prompt must be 1..64000 chars');
     const effort = body.effort === undefined ? 'LOW' : String(body.effort).toUpperCase();
@@ -230,7 +264,7 @@ export class DispatchPipeline {
     }
 
     if (real) {
-      const approvalPath = path.join(this.approvalRoot, adapterId + '.approved.json');
+      const approvalPath = path.join(this.dispatchApprovalRoot, adapterId + '.approved.json');
       if (!existsSync(approvalPath)) {
         record.status = 'BLOCKED_WAITING_OWNER';
         record.error = 'real dispatch requires owner approval record (D6)';
@@ -244,7 +278,7 @@ export class DispatchPipeline {
     mkdirSync(receiptDir, { recursive: true });
     const receiptPath = path.join(receiptDir, `dispatch-${dispatchId}.json`);
     this.emit(record, 'EXECUTE', real ? 'ADMITTED' : 'DRY_RUN', { workspace });
-    const run = await this.runAdapter(contract, prompt, {
+    const run = await this.runAdapter(effectiveContract, prompt, {
       workspaceRoot: workspace,
       receiptPath,
       timeoutMs: real ? 120_000 : 5_000,
@@ -279,12 +313,14 @@ export class DispatchPipeline {
 
   /** G009：在册犬只名册（派发下拉/看板视图的取数源）——合同表投影，
    * 只含身份字段，不含 executable 路径等敏感细节。 */
-  roster(): Array<{ adapter_id: string; protocol: string; expected_provider: string; expected_model_id: string }> {
+  roster(): Array<{ adapter_id: string; protocol: string; expected_provider: string; expected_model_id: string; variants?: string[]; model_flag?: string }> {
     return Object.values(this.contracts).map((contract) => ({
       adapter_id: contract.adapter_id,
       protocol: contract.protocol,
       expected_provider: contract.expected_provider,
       expected_model_id: contract.expected_model_id,
+      ...(contract.variants !== undefined ? { variants: [...contract.variants] } : {}),
+      ...(contract.model_flag !== undefined ? { model_flag: contract.model_flag } : {}),
     }));
   }
 

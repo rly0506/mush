@@ -103,6 +103,10 @@ export function renderBoardPage(): string {
           <label for="dispatch-adapter">犬只（在册，身份证明）</label>
           <select id="dispatch-adapter"></select>
         </div>
+        <div id="dispatch-model-wrap" style="display:none">
+          <label for="dispatch-model">模型变体</label>
+          <select id="dispatch-model"></select>
+        </div>
         <div>
           <label for="workspace-select">workspace</label>
           <select id="workspace-select"></select>
@@ -191,8 +195,9 @@ export function renderBoardPage(): string {
     if (roster.length > 0) {
       select.innerHTML = roster.map(function (r) {
         var badge = esc(r.expected_provider) + ' / ' + esc(r.expected_model_id);
-        return '<option value="' + esc(r.adapter_id) + '">' + esc(r.adapter_id) + '（' + badge + '）</option>';
+        return '<option value="' + esc(r.adapter_id) + '" data-variants="' + esc((r.variants || []).join(',')) + '">' + esc(r.adapter_id) + '（' + badge + '）</option>';
       }).join('');
+      renderModelOptions();
       return;
     }
     var actors = (snapshot && snapshot.actors) || [];
@@ -204,6 +209,18 @@ export function renderBoardPage(): string {
       var badge = esc(a.provider) + ' / ' + esc(a.model_id);
       return '<option value="' + esc(a.actor_instance_id) + '">' + esc(a.actor_instance_id) + '（' + badge + '）</option>';
     }).join('');
+  }
+
+  /* ---------- G009：模型变体下拉（合同 variants；无变体通道隐藏） ---------- */
+  function renderModelOptions() {
+    var wrap = document.getElementById('dispatch-model-wrap');
+    var select = document.getElementById('dispatch-model');
+    var adapterSelect = document.getElementById('dispatch-adapter');
+    var opt = adapterSelect && adapterSelect.options[adapterSelect.selectedIndex];
+    var variants = (opt && opt.getAttribute('data-variants') || '').split(',').filter(Boolean);
+    if (variants.length === 0) { wrap.style.display = 'none'; select.innerHTML = ''; return; }
+    wrap.style.display = '';
+    select.innerHTML = variants.map(function (v) { return '<option value="' + esc(v) + '">' + esc(v) + '</option>'; }).join('');
   }
 
   /* ---------- workspace 选择器 ---------- */
@@ -238,6 +255,8 @@ export function renderBoardPage(): string {
     if (!prompt) { toast('任务不能为空', false); return; }
     var body = { adapter_id: adapterId, prompt: prompt, effort: effort, cap_usd: capUsd, real: real };
     if (workspace) body.workspace = workspace;
+    var modelSel = document.getElementById('dispatch-model');
+    if (modelSel && modelSel.value) body.model_id = modelSel.value;
     postJson('/api/dispatch', body).then(function (result) {
       var data = result.body;
       if (result.status === 202 && data.ok) {
@@ -301,11 +320,22 @@ export function renderBoardPage(): string {
     }).catch(function (error) { detail.textContent = '加载失败：' + error; });
   }
 
-  /* ---------- 犬队状态 ---------- */
+  /* ---------- 犬队状态（G009：活动为空时回退 roster 名册） ---------- */
   function renderDogs() {
     var el = document.getElementById('view-dogs');
     var actors = snapshot.actors;
-    if (actors.length === 0) { el.innerHTML = '<div class="empty">暂无犬只活动（等待事件流入）</div>'; return; }
+    if (actors.length === 0) {
+      var roster = snapshot.roster || [];
+      if (roster.length === 0) { el.innerHTML = '<div class="empty">暂无在册犬只</div>'; return; }
+      var rr = roster.map(function (r) {
+        return '<tr><td class="mono">' + esc(r.adapter_id) + '</td><td>—</td>' +
+          '<td>' + esc(r.expected_provider) + '</td><td>' + esc(r.expected_model_id) + '</td>' +
+          '<td class="mono">' + esc((r.variants || []).join(' | ')) + '</td>' +
+          '<td>0</td><td>（未活动，注册在册）</td></tr>';
+      }).join('');
+      el.innerHTML = '<table><thead><tr><th>犬（合同）</th><th>角色</th><th>provider</th><th>model</th><th>变体</th><th>事件数</th><th>最近事件</th></tr></thead><tbody>' + rr + '</tbody></table>';
+      return;
+    }
     var rows = actors.map(function (a) {
       return '<tr><td class="mono">' + esc(a.actor_instance_id) + '</td><td>' + esc(a.role) + '</td>' +
         '<td>' + esc(a.provider) + '</td><td>' + esc(a.model_id) + '</td>' +
@@ -315,10 +345,22 @@ export function renderBoardPage(): string {
     el.innerHTML = '<table><thead><tr><th>犬（实例）</th><th>角色</th><th>provider</th><th>model</th><th>capability</th><th>事件数</th><th>最近事件</th></tr></thead><tbody>' + rows + '</tbody></table>';
   }
 
-  /* ---------- 事件链 ---------- */
+  /* ---------- 事件链（G009：无 epoch 链时回退显示派发生命周期记录） ---------- */
   function renderEpochs() {
     var el = document.getElementById('view-epochs');
-    if (snapshot.epochs.length === 0) { el.innerHTML = '<div class="empty">暂无 epoch 事件链</div>'; return; }
+    if (snapshot.epochs.length === 0) {
+      var dispatches = snapshot.dispatches || [];
+      if (dispatches.length === 0) { el.innerHTML = '<div class="empty">暂无 epoch 事件链（无派发记录；派发后此处显示其生命周期）</div>'; return; }
+      var dr = dispatches.map(function (d) {
+        return '<tr><td class="mono">' + esc(d.dispatch_id.slice(0, 12)) + '</td>' +
+          '<td>' + esc(d.adapter_id) + '</td>' +
+          '<td><span class="badge ' + esc(d.status) + '">' + esc(d.status) + '</span></td>' +
+          '<td class="mono">' + esc(d.at_utc || '') + '</td></tr>';
+      }).join('');
+      el.innerHTML = '<div class="hint">（无 epoch 链时显示派发生命周期记录）</div>' +
+        '<table><thead><tr><th>dispatch</th><th>犬</th><th>状态</th><th>最近时间</th></tr></thead><tbody>' + dr + '</tbody></table>';
+      return;
+    }
     el.innerHTML = snapshot.epochs.map(function (epoch) {
       var chainBadge = epoch.chain_verified
         ? '<span class="badge ok">链校验通过</span>'
@@ -438,6 +480,7 @@ export function renderBoardPage(): string {
     });
   });
   document.getElementById('dispatch-form').addEventListener('submit', submitDispatch);
+  document.getElementById('dispatch-adapter').addEventListener('change', renderModelOptions);
   document.getElementById('dispatch-real').addEventListener('change', function () {
     document.getElementById('real-hint').style.display = this.checked ? 'block' : 'none';
   });

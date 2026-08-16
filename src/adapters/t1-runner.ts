@@ -9,7 +9,7 @@
 
 import { createHash } from 'node:crypto';
 import { spawn as nodeSpawn } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { AdapterContract } from './contract.ts';
 
@@ -77,8 +77,42 @@ function sha256Hex(text: string): string {
   return createHash('sha256').update(text, 'utf8').digest('hex').toUpperCase();
 }
 
+/** G009（DEF-03）：Windows npm-global 的 .cmd 垫片不能被 node 直接 spawn
+ *（ENOENT/EINVAL）。解析垫片内容找到其真实 JS 入口，改用
+ * `node <entry>` 调用——与对调实验的绕行方案同构，但自动化且通用。
+ * 返回 null 表示无法解析（保持原样直 spawn，让错误按 DEF-02 路径受控上报）。 */
+const shimEntryCache = new Map<string, { node: string; entry: string } | null>();
+function resolveWindowsShim(executable: string): { node: string; entry: string } | null {
+  if (process.platform !== 'win32' || path.isAbsolute(executable) || executable.includes('/') || executable.includes('\\')) {
+    return null;
+  }
+  if (shimEntryCache.has(executable)) return shimEntryCache.get(executable) ?? null;
+  let resolved: { node: string; entry: string } | null = null;
+  try {
+    for (const dir of (process.env.PATH ?? '').split(path.delimiter)) {
+      if (dir.trim() === '') continue;
+      const shim = path.join(dir, `${executable}.cmd`);
+      if (!existsSync(shim)) continue;
+      const text = readFileSync(shim, 'utf8');
+      const match = text.match(/node_modules[^\r\n"']*\.js/i);
+      if (match === null) continue;
+      const entry = path.resolve(dir, match[0]);
+      resolved = { node: process.execPath, entry };
+      break;
+    }
+  } catch {
+    resolved = null; // 解析失败 fail-closed：回退直 spawn（受 DEF-02 保护）。
+  }
+  shimEntryCache.set(executable, resolved);
+  return resolved;
+}
+
 function defaultSpawn(executable: string, args: string[], opts: { cwd: string }): ChildProcessLike {
-  const child = nodeSpawn(executable, args, { cwd: opts.cwd, windowsHide: true });
+  const shim = resolveWindowsShim(executable);
+  const child =
+    shim !== null
+      ? nodeSpawn(shim.node, [shim.entry, ...args], { cwd: opts.cwd, windowsHide: true })
+      : nodeSpawn(executable, args, { cwd: opts.cwd, windowsHide: true });
   return {
     stdinWrite: (chunk) => {
       if (child.stdin !== null) child.stdin.write(chunk);
