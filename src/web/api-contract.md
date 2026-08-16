@@ -106,6 +106,29 @@
 `dispatch` 生命周期 phase 顺序：`ADMISSION → EXECUTE → REPORT → REVIEW`；终态
 status ∈ `DRY_RUN | ADMITTED | BLOCKED_WAITING_OWNER | BLOCKED_ENV | FAIL | PASS`。
 
+## 聊天 API（v1.3，GOAL-011 M1 新增）
+
+### POST /api/chat
+
+请求：`{ "message": "string (1..64000)", "resume": "session_id?" }`
+- 语义：把 message 作为 owner 消息派发给 `head-dog`（章程注入 + 会话续跑）；
+  dry-run 默认（真实头犬 dispatch 走既有 approval 记录）；
+- 响应 `202`：`{ "ok": true, "session_id", "role": "head", "dispatch_id", "status" }`；
+- `400`：message 为空/超长；`resume` 指向未知会话按新会话 fail-closed 或
+  `404`（实现选定后契约锁定：当前实现未知 resume 会创建新会话）。
+- 持久化：`runtime/chat/<session_id>.jsonl`，每行一条 `{role:"user"|"head",
+  text, at_utc, dispatch_id?}`，append-only。
+
+### GET /api/chat/history?session=<id>&limit=<n>
+
+`{ "ok": true, "turns": [ {role, text, at_utc, dispatch_id?} ] }`
+- 缺 session → `400`；缺文件 → `200` + 空 `turns`；limit 缺省 50、负值按 1。
+
+### roster role 字段（v1.3）
+
+`GET /api/snapshot` 及 roster 消费点的犬只条目新增 `"role": "head" | "executor"`；
+`head-dog` 为唯一 head，其余为 executor。
+
 ## 实现与契约一致性
 
 - `src/web/api-contract.md` 为本文件；实现改动必须同步本文件（同 commit）。
