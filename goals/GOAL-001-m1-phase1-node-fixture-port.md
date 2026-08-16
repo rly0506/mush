@@ -1,6 +1,6 @@
 ---
 goal_id: MUSH-GOAL-001
-status: ACTIVE
+status: AUTO_ACCEPTED（D15 非阻断验收，2026-08-16；DONE 待 owner 转正）
 mode: LIGHT（宪法 §1 轻量档；触发门照常生效）
 rm: RM-001 / M1 Phase-1
 executor_model_profile: dsh/deepseek（dsh --profile headless）

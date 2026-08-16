@@ -1,6 +1,12 @@
 {
   "goal_id": "MUSH-GOAL-001",
-  "status": "COMPLETE_REQUESTED",
+  "status": "AUTO_ACCEPTED",
+  "acceptance": {
+    "mode": "standing-default D15（非阻断验收，试行）",
+    "applied": "2026-08-16",
+    "machine_checks": "npm test 91/91 pass exit 0；回报/哈希锚点/PS 源追溯齐全（见 docs/auto-decisions-log.md AD-01）",
+    "owner_final": "DONE 待 owner 一句话转正；异议则追加 reopen 条目"
+  },
   "executor": "dsh/deepseek headless",
   "changed_paths": [
     ".gitignore",

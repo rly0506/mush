@@ -19,12 +19,16 @@ mush 是个人跨 harness 多 agent 编排工具（雪橇队）。你在本仓�
 ## 工作约定
 
 - 证据 append-only：摘要不覆盖原文，事件带哈希锚点；
-- 用户显式接受才 DONE，模型不自行宣布完成；
+- 用户显式接受才 DONE，模型不自行宣布完成（D15：机检验收规格全绿可升
+  AUTO_ACCEPTED，不阻断后续 Goal；DONE 与否决权仍归 owner）；
 - 语言/运行时：Node/TS（D2）；UTF-8 原生，不引入 PS5.1 式编码补丁；
 - 测试即验收规格：新实现行为与 fixture/影子回放不一致即为缺陷；
 - 技能：用户全局技能目录可用；本仓库暂无专属技能，需要时按 DECISIONS D12 处理。
 
 ## 当前状态
 
-奠基阶段。代码迁移的前置条件见 `docs/migration-checklist.md`（未满足前不动 M2）。
-M1（fixture 翻译）可先行。
+M1 完成：fixture 移植 91 tests 全绿，GOAL-001 = AUTO_ACCEPTED（D15）。
+M2 前置条件已满足（docs/migration-checklist.md 四项全勾）；下一步
+GOAL-002（M2 核心移植，已排队，队列自续 D17）。
+findings 默认裁决记录：docs/auto-decisions-log.md（D16，append-only）。
+无人值守调度器仍默认关（D8）；持久运行 = 队列自续 + 断点续跑 + 非阻断验收。
