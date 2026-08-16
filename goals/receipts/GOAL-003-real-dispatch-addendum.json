@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "kind": "GOAL-003 real dispatch addendum (append-only)",
+  "written_at_utc": "2026-08-16T03:20:00Z",
+  "owner_confirmation": {
+    "evidence": "owner 对话 2026-08-17：「M3确认，继续目标」",
+    "approval_files": [
+      "goals/receipts/dispatch-approvals/deepseek-dsh.approved.json",
+      "goals/receipts/dispatch-approvals/claude-code.approved.json"
+    ]
+  },
+  "real_dispatch_results": [
+    {
+      "dog": "deepseek (dsh)",
+      "dispatch_id": "dsh-real-001",
+      "status": "BLOCKED_ENV",
+      "reason": "dsh exit 1: MISSING_CREDENTIAL — 启动环境没有 DEEPSEEK_API_KEY；按边界不动凭据路径/密钥",
+      "evidence": "goals/receipts/dispatch-events/dsh-real-001.json",
+      "identity_proven": true,
+      "identity": "deepseek / deepseek-v4-flash"
+    },
+    {
+      "dog": "claude-code",
+      "dispatch_id": "claude-real-001",
+      "status": "BLOCKED_ENV",
+      "reason": "claude exit 1: result='Not logged in · Please run /login'（custom endpoint 环境未登录）；按边界不代登录",
+      "evidence": "goals/receipts/dispatch-events/claude-real-001.json",
+      "identity_proven": true,
+      "identity_note": "stream-json init 报 model=claude-opus-5（regex 捕获含 ANSI 片段，证据原文保留）"
+    }
+  ],
+  "open_findings": [
+    "F-22 dsh 真实 dispatch BLOCKED_ENV：MISSING_CREDENTIAL（DEEPSEEK_API_KEY 未在启动环境）",
+    "F-23 claude 真实 dispatch BLOCKED_ENV：Not logged in（/login 需人工登录）",
+    "F-24 claude 2.1 要求 --output-format stream-json 必须配 --verbose；src/adapters/claude.ts 合同已修正为 ['-p','--output-format','stream-json','--verbose']，测试同步更新"
+  ],
+  "acceptance_note": "GOAL-003 机检规格仍满足（npm test 158/158 + 回报/证据落盘）；真实 dispatch 两项按证据记为 BLOCKED_ENV，不再 WAITING_OWNER。"
+}

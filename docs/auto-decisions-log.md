@@ -104,3 +104,22 @@ b47afd7c0fd93fdead7b48392b3dcc1e9e46791d991776330e49a83540d91403  .test-fixtures
 - **F-14**（schema sequence/nullable 修正）→ Goal 内已解决，备案。
 - **F-15 / AD-07 / AD-08**（push 无凭据）→ 头犬持有凭据，验收后一次性全量同步，
   关闭。
+
+## AD-10 · GOAL-003 验收与真实 dispatch 环境阻塞（owner 已确认 M3）
+
+- **owner 确认**：2026-08-17 对话「M3确认，继续目标」→ 按 D6 解锁两犬首次真实
+  有界 dispatch；approval 证据落盘 `goals/receipts/dispatch-approvals/
+  {deepseek-dsh,claude-code}.approved.json`。
+- **真实 dispatch 结果（诚实 BLOCKED_ENV，不虚构 PASS）**：
+  - deepseek-dsh `dsh-real-001`：exit 1，`MISSING_CREDENTIAL`（启动环境无
+    DEEPSEEK_API_KEY）。按边界不动凭据路径/密钥。
+  - claude-code `claude-real-001`：exit 1，`Not logged in · Please run /login`。
+    按边界不代登录。
+  - 证据：`goals/receipts/dispatch-events/{dsh,claude}-real-001.json` +
+    `GOAL-003-real-dispatch-addendum.json`。
+- **验收**：GOAL-003 机检规格满足（`npm test` 158/158 pass / exit 0；回报与
+  证据齐全）→ 按 D15 升 **AUTO_ACCEPTED**。真实 dispatch 两项按证据记
+  BLOCKED_ENV（不再 WAITING_OWNER）；在可用凭据环境重跑即闭环，无需再次确认。
+  正式 DONE 仍归 owner。
+- **F-24**：claude 2.1 要求 stream-json 配 `--verbose`，合同已修正并测试同步。
+- **F-22/F-23**：上述两犬环境阻塞原因，备案。

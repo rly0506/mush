@@ -18,7 +18,7 @@ export function buildClaudeContract(expectedModelId: string): AdapterContract {
   return validateAdapterContract({
     adapter_id: 'claude-code',
     executable: 'claude',
-    arguments: ['-p', '--output-format', 'stream-json'],
+    arguments: ['-p', '--output-format', 'stream-json', '--verbose'],
     protocol: 'stream-json',
     prompt_transport: 'argument',
     expected_provider: 'anthropic',

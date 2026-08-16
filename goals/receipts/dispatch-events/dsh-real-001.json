@@ -1,0 +1,20 @@
+{
+    "schema_version":  1,
+    "dispatch_id":  "dsh-real-001",
+    "adapter_id":  "deepseek-dsh",
+    "owner_approval":  "goals/receipts/dispatch-approvals/deepseek-dsh.approved.json",
+    "started_at_utc":  "2026-08-16T03:15:51.3164486Z",
+    "finished_at_utc":  "2026-08-16T03:16:31.1556955Z",
+    "provider":  "deepseek",
+    "model_id":  "deepseek-v4-flash",
+    "identity_proven":  true,
+    "nonce":  "98efb3f5d44b4313a24d712288cde768",
+    "expected_sha256":  "8de34beeffd53877558fece3280058d11c0a1ab7aa5c1005acb41a92a3a394a4",
+    "observed":  null,
+    "marker_ok":  false,
+    "nonce_matched":  false,
+    "exit_code":  1,
+    "stdout_sha256":  "AD764446A4A3CCB92B01C52AC792AAEA0F9BF57875D7C0A959043F4AD8BB11D4",
+    "stdout_len":  605,
+    "status":  "FAIL"
+}

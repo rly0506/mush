@@ -41,7 +41,7 @@ test('Claude contract is stream-json with prompt as final argument (landscape cl
   const contract = buildClaudeContract('claude-sonnet-4-5');
   assert.equal(contract.adapter_id, 'claude-code');
   assert.equal(contract.executable, 'claude');
-  assert.deepEqual(contract.arguments, ['-p', '--output-format', 'stream-json']);
+  assert.deepEqual(contract.arguments, ['-p', '--output-format', 'stream-json', '--verbose']);
   assert.equal(contract.protocol, 'stream-json');
   assert.equal(contract.prompt_transport, 'argument');
   assert.equal(contract.expected_model_id, 'claude-sonnet-4-5');

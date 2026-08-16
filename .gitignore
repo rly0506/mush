@@ -12,6 +12,10 @@ events/
 # M1 replay fixtures: recorded event JSON evidence IS committed with its hash manifest
 !tests/fixtures/replay/RM065-GOAL-010-epoch50/events/
 
+# M3 local harness config redirections (may contain credential material; NEVER commit)
+.dsh-home/
+.claude-config/
+
 # node
 node_modules/
 dist/

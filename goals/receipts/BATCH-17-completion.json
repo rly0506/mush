@@ -1,0 +1,42 @@
+{
+  "batch": "BATCH-17",
+  "unit": "U-REAL",
+  "goal_id": "MUSH-GOAL-003",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "dsh/deepseek headless",
+  "changed_paths": [
+    "docs/auto-decisions-log.md",
+    "src/adapters/claude.ts",
+    "tests/adapters-claude.test.ts",
+    ".gitignore",
+    "goals/receipts/dispatch-approvals/deepseek-dsh.approved.json",
+    "goals/receipts/dispatch-approvals/claude-code.approved.json",
+    "goals/receipts/dispatch-events/dsh-real-001.json",
+    "goals/receipts/dispatch-events/claude-real-001.json",
+    "goals/receipts/GOAL-003-real-dispatch-addendum.json",
+    "goals/receipts/GOAL-003-SUMMARY-ADDENDUM-REAL-DISPATCH.md",
+    "goals/receipts/BATCH-17-test-output.txt",
+    "goals/receipts/BATCH-17-completion.json"
+  ],
+  "tests_run": "npm test 真实执行：tests 158 / pass 158 / fail 0 / exit code 0（合同 --verbose 修正后全量回归）；完整输出见 BATCH-17-test-output.txt",
+  "test_output_summary": "158/158 全绿；真实 dispatch 两次尝试证据见 dispatch-events/（dsh MISSING_CREDENTIAL；claude Not logged in）",
+  "ps_source_trace": [
+    "D6 owner 确认：「M3确认，继续目标」→ dispatch-approvals/*.approved.json",
+    "claude 2.1 实测错误：--output-format=stream-json requires --verbose → 合同修正（F-24）",
+    "dsh 实测：MISSING_CREDENTIAL（F-22）；claude 实测：Not logged in（F-23）"
+  ],
+  "ported_assertions": [
+    {
+      "test": "全量 158 tests 作为合同修正回归",
+      "ps_source": "claude 2.1 CLI 实测 + D6",
+      "assertions": 0
+    }
+  ],
+  "open_findings": [
+    "F-22 dsh 真实 dispatch BLOCKED_ENV：启动环境无 DEEPSEEK_API_KEY",
+    "F-23 claude 真实 dispatch BLOCKED_ENV：Not logged in /login",
+    "F-24 claude stream-json 需 --verbose，合同已修正",
+    "F-25 .dsh-home/ 与 .claude-config/ 为沙箱内重定向出的本机 harness 配置目录，可能含凭据材料，已 gitignore 永不提交；owner 可自行清理"
+  ],
+  "spent_estimate_usd": 0.05
+}

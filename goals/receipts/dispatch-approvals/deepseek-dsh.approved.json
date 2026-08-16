@@ -1,0 +1,10 @@
+{
+    "schema_version":  1,
+    "adapter_id":  "deepseek-dsh",
+    "approved_by":  "owner",
+    "approved_at_utc":  "2026-08-16T03:15:30.1461235Z",
+    "evidence":  "owner 对话 2026-08-17：「M3确认，继续目标」",
+    "scope":  "one bounded real dispatch (D6 first-dispatch unlock)",
+    "per_actor_cap_usd":  5,
+    "constraints":  "bounded prompt + timeout + nonce identity check; evidence append-only under goals/receipts/"
+}
