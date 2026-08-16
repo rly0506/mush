@@ -1,6 +1,6 @@
 # RM-002：活用化与扩编（Mobilization）
 
-状态：`ACTIVE`（2026-08-17 立项，D22；owner grilling 定稿）
+状态：`DONE`（2026-08-17 owner 收官。G006-G010+GP-01..03 全链完成：看板调度入口+扩编+持久化+意向项目首战 RF-C 诊断 PASS。验收链 AD-17..24）
 授权依据：DECISIONS.md D22（含 D5/D7/D14/D20/D21 既有授权的延续）。
 
 ## 目标
