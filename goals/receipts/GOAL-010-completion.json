@@ -1,0 +1,31 @@
+{
+  "goal_id": "MUSH-GOAL-010",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "dsh/deepseek headless",
+  "changed_paths": [
+    "src/adapters/ccswitch-probe.ts",
+    "src/web/dispatch.ts",
+    "src/adapters/t1-runner.ts",
+    "tests/ccswitch-probe.test.ts",
+    "tests/adapters-t1-runner.test.ts",
+    "runtime/capability-registry.json（gitignored 产物，真实探测生成）",
+    "goals/receipts/BATCH-32-*",
+    "goals/receipts/GOAL-010-completion.json"
+  ],
+  "tests_run": "跟踪面 228 / 228 pass / exit 0；本 Goal 5 tests 全绿（含 SELECT 列白名单断言 settings_config 不被读取）。",
+  "evidence": [
+    {
+      "path": "runtime/capability-registry.json",
+      "probe": "real cc-switch DB read-only：providers=32、recent_models=500、pricing=189",
+      "desensitization": "grep sk-/token/api_key = clean"
+    },
+    {
+      "roster": "DispatchPipeline(registryPath) roster 实测：claude-code 19 variants、codex 61、opencode 2、deepseek-dsh 2（静态+实测合成）"
+    }
+  ],
+  "open_findings": [
+    "F-37 kimi 在途前端 triage 测试使全量 npm test 暂红；跟踪面为权威",
+    "DEF-02 补强：沙箱同步 EPERM spawn 失败路径已纳入 BLOCKED_ENV 受控收尾（环境自适应）"
+  ],
+  "spent_estimate_usd": 0.03
+}

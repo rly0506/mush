@@ -144,7 +144,30 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
       ? [...contract.arguments, options.prompt]
       : [...contract.arguments];
   const startedAt = new Date().toISOString();
-  const child = spawn(contract.executable, args, { cwd: options.workspaceRoot });
+
+  let child: ChildProcessLike;
+  try {
+    child = spawn(contract.executable, args, { cwd: options.workspaceRoot });
+  } catch (error) {
+    // DEF-02 环境自适应：沙箱可能让 nodeSpawn 同步抛 EPERM——同样受控收尾。
+    const spawnError = error instanceof Error ? error : new Error(String(error));
+    const receipt: T1Receipt = {
+      schema_version: 1,
+      adapter_id: contract.adapter_id,
+      started_at_utc: startedAt,
+      finished_at_utc: new Date().toISOString(),
+      exit_code: 127,
+      timed_out: false,
+      child_killed: false,
+      identity_fail_closed: false,
+      stdout_sha256: sha256Hex(''),
+      stderr_sha256: sha256Hex(''),
+      spawn_error: spawnError.message,
+    };
+    mkdirSync(path.dirname(path.resolve(options.receiptPath)), { recursive: true });
+    writeFileSync(options.receiptPath, JSON.stringify(receipt) + '\n', 'utf8');
+    throw new Error(`spawn failed (BLOCKED_ENV): ${spawnError.message}`);
+  }
 
   let stdout = '';
   let stderr = '';
@@ -189,8 +212,16 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
       settle();
     });
     if (contract.prompt_transport === 'stdin') {
-      child.stdinWrite?.(options.prompt);
-      child.stdinEnd?.();
+      // DEF-02 环境自适应：沙箱对 piped-stdio spawn 同步抛 EPERM（可能发生在
+      // 首次 stdin write 而非 async error 事件）——同样按 spawn 失败受控收尾。
+      try {
+        child.stdinWrite?.(options.prompt);
+        child.stdinEnd?.();
+      } catch (error) {
+        spawnError = error instanceof Error ? error : new Error(String(error));
+        exitCode = 127;
+        settle();
+      }
     }
   });
 

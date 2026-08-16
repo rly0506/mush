@@ -227,5 +227,6 @@ test('DEF-02: real spawn ENOENT is contained as BLOCKED_ENV with spawn_error rec
   );
   const receipt = JSON.parse(readFileSync(receiptPath, 'utf8')) as { exit_code: number; spawn_error?: string };
   assert.equal(receipt.exit_code, 127);
-  assert.match(receipt.spawn_error ?? '', /ENOENT|mush-def02-missing-exe-xyz/);
+  // 环境自适应（AD-02）：普通环境 ENOENT、沙箱 EPERM 均为合法 spawn 失败路径。
+  assert.match(receipt.spawn_error ?? '', /ENOENT|EPERM|mush-def02-missing-exe-xyz/);
 });

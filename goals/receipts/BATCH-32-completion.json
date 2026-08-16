@@ -1,0 +1,40 @@
+{
+  "batch": "BATCH-32",
+  "unit": "G10-U1",
+  "goal_id": "MUSH-GOAL-010",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "dsh/deepseek headless",
+  "changed_paths": [
+    "src/adapters/ccswitch-probe.ts",
+    "src/web/dispatch.ts",
+    "src/adapters/t1-runner.ts",
+    "tests/ccswitch-probe.test.ts",
+    "tests/adapters-t1-runner.test.ts",
+    "goals/receipts/BATCH-32-test-output.txt",
+    "goals/receipts/BATCH-32-completion.json",
+    "goals/receipts/GOAL-010-completion.json"
+  ],
+  "tests_run": "git 跟踪测试 + 本批新增真实执行：tests 228 / pass 228 / fail 0 / exit 0（含密钥列白名单断言 5 tests）；全量 glob 仍受 kimi 在途 triage 测试影响（F-37）",
+  "test_output_summary": "228/228 全绿；真实探测 runtime/capability-registry.json 生成：providers=32、recent=500、pricing=189、adapters=3（claude 18 模型 / codex 61 / opencode 2），grep 脱敏核验 clean",
+  "ps_source_trace": [
+    "DECISIONS D20/D22 + GOAL-010 任务1-5",
+    "头犬 AD-13 附带 cc-switch DB 表结构实录"
+  ],
+  "ported_assertions": [
+    {
+      "test": "ccswitch-probe.test.ts（5 tests：列白名单/枚举脱敏/注册分组/合同合成回退/输出无密钥材料）",
+      "ps_source": "D20 + GOAL-010 + 宪法 §3",
+      "assertions": 20
+    },
+    {
+      "test": "DEF-02 环境自适应回归（EPERM 同步 spawn 失败受控收尾）",
+      "ps_source": "AD-02 + DEF-02",
+      "assertions": 3
+    }
+  ],
+  "open_findings": [
+    "F-37 kimi 在途 untracked 测试（web-board-triage.test.ts 等）使全量 glob 暂红；跟踪面 228/228 为权威",
+    "runtime/capability-registry.json 为 gitignore 产物，不入库；真实重生成命令已实测"
+  ],
+  "spent_estimate_usd": 0.03
+}

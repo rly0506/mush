@@ -45,6 +45,15 @@ export interface DispatchRecord {
   admission: { decision: string; remaining_usd: number } | null;
   events: DispatchLifecycleEvent[];
   error: string | null;
+  /** G7B-E1（契约 v1.1 向后兼容新增）：只读输出摘要，REPORT 后填充。 */
+  stdout_tail: { text: string; truncated: boolean } | null;
+  stderr_tail: { text: string; truncated: boolean } | null;
+}
+
+/** 尾部截断（UTF-8 字符安全）：超长保留末段并标记 truncated。 */
+export function tailOf(text: string, maxChars: number): { text: string; truncated: boolean } {
+  if (text.length <= maxChars) return { text, truncated: false };
+  return { text: text.slice(text.length - maxChars), truncated: true };
 }
 
 export interface RunAdapterResult {
@@ -72,15 +81,19 @@ export interface DispatchPipelineOptions {
   spawn?: SpawnFn;
   onEvent?: (event: DispatchLifecycleEvent) => void;
   now?: () => Date;
+  /** G010：能力注册表路径；缺省 <workspaceRoot>/runtime/capability-registry.json。 */
+  registryPath?: string;
 }
 
 export interface WorkspaceInfo {
   path: string;
   is_git: boolean;
   mush_managed: boolean;
+  /** G7B-E2（契约 v1.1 向后兼容新增）：是否为当前选中 workspace。 */
+  selected: boolean;
 }
 
-function knownContracts(): Record<string, AdapterContract> {
+function baseContracts(): Record<string, AdapterContract> {
   return {
     'fake-t1': validateAdapterContract({
       adapter_id: 'fake-t1',
@@ -98,6 +111,38 @@ function knownContracts(): Record<string, AdapterContract> {
     codex: buildCodexContract(),
     opencode: buildOpencodeContract(),
   };
+}
+
+export interface RegistryFile {
+  adapters?: Array<{ adapter_id: string; models?: string[] }>;
+}
+
+/** G010：静态合同 + cc-switch 注册表合成。注册表缺省时回退静态（fail-closed 不猜测）；
+ * 注册表只增补 variants 与 provider 归属，executable/协议等敏感细节不来自外部数据。 */
+export function buildContracts(registry?: RegistryFile | null): Record<string, AdapterContract> {
+  const contracts = baseContracts();
+  for (const entry of registry?.adapters ?? []) {
+    const base = contracts[entry.adapter_id];
+    if (base === undefined || entry.models === undefined || entry.models.length === 0) continue;
+    const variants = [...new Set([...(base.variants ?? []), ...entry.models.filter((model) => typeof model === 'string' && model.trim() !== '' && model !== 'UNKNOWN')])];
+    if (variants.length === 0) continue;
+    contracts[entry.adapter_id] = validateAdapterContract({
+      ...base,
+      variants,
+    });
+  }
+  return contracts;
+}
+
+function loadRegistry(registryPath: string): RegistryFile | undefined {
+  try {
+    const text = readFileSync(registryPath, 'utf8');
+    const parsed = JSON.parse(text) as RegistryFile;
+    return parsed;
+  } catch (error) {
+    if (error instanceof SyntaxError) return undefined; // 损坏的注册表 fail-closed 回退静态
+    return undefined; // 文件缺失/不可读同回退
+  }
 }
 
 /** G009：应用模型变体——更新身份期望；有 model_flag 的通道同步重写 CLI 参数
@@ -144,7 +189,11 @@ export class DispatchPipeline {
       options.dispatchApprovalRoot ?? path.join(this.workspaceRoot, 'goals', 'receipts', 'dispatch-approvals'),
     );
     this.ledgerPath = path.resolve(options.ledgerPath);
-    this.contracts = options.contracts ?? knownContracts();
+    this.contracts =
+      options.contracts ??
+      buildContracts(
+        loadRegistry(options.registryPath ?? path.join(this.workspaceRoot, 'runtime', 'capability-registry.json')),
+      );
     this.onEvent = options.onEvent ?? (() => {});
     this.now = options.now ?? (() => new Date());
     this.runAdapter =
@@ -241,6 +290,8 @@ export class DispatchPipeline {
       admission: null,
       events: [],
       error: null,
+      stdout_tail: null,
+      stderr_tail: null,
     };
 
     const admission = this.ledger.admit({
@@ -284,6 +335,8 @@ export class DispatchPipeline {
       timeoutMs: real ? 120_000 : 5_000,
     });
     record.receipt_path = receiptPath;
+    record.stdout_tail = tailOf(run.stdout, 2048);
+    record.stderr_tail = tailOf(run.stderr, 256);
     const receipt = {
       schema_version: 1,
       dispatch_id: dispatchId,
@@ -358,6 +411,7 @@ export class DispatchPipeline {
           path: candidate,
           is_git: existsSync(path.join(candidate, '.git')),
           mush_managed: existsSync(path.join(candidate, '.mush')),
+          selected: this.selectedWorkspace !== null && candidate === this.selectedWorkspace,
         });
       } catch {
         // 不可读目录 fail-closed：不返回。
