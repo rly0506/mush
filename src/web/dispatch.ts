@@ -204,7 +204,13 @@ export class DispatchPipeline {
     this.now = options.now ?? (() => new Date());
     this.persistence = options.persistence ?? null;
     // GP-03：重启回放——已落盘的派发记录重新入内存（recent() 跨重启可用）。
+    // DEF-05 修复：header.status 只反映落盘瞬间，事件链才是权威——回放时
+    // 以最后一个生命周期事件的状态为准（747c7040 曾显示 ADMITTED 而实为超时）。
     for (const record of this.persistence?.loadDispatchRecords() ?? []) {
+      const lastEvent = record.events.length > 0 ? record.events[record.events.length - 1] : null;
+      if (lastEvent !== null && (lastEvent.phase === 'REPORT' || lastEvent.phase === 'REVIEW')) {
+        record.status = lastEvent.status;
+      }
       this.records.set(record.dispatch_id, record);
     }
     // DEF-09：僵尸派发回收——上个实例若在 EXECUTE 中途被杀（重启/崩溃），
