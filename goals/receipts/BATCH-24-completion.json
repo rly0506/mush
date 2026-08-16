@@ -1,0 +1,25 @@
+{
+  "batch": "BATCH-24",
+  "unit": "G5-U1",
+  "goal_id": "MUSH-GOAL-005",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "kimi-k3 (goal mode)",
+  "changed_paths": [
+    "src/web/sources.ts",
+    "tests/web-sources.test.ts",
+    "goals/receipts/BATCH-24-baseline-test-output.txt",
+    "goals/receipts/BATCH-24-completion.json"
+  ],
+  "tests_run": "node --test tests/web-sources.test.ts 真实执行：tests 6 / pass 6 / fail 0；基线 npm test（本单元改动前）183/183 全绿，输出见 BATCH-24-baseline-test-output.txt",
+  "test_output_summary": "6/6 全绿（空快照/事件链投影/actor 身份投影/审批状态投影/坏文件 fail-open/只读性）",
+  "ps_source_trace": [
+    "CONSTITUTION.md §2 证据纪律（append-only + 哈希链）",
+    "GOAL-005：数据源只读消费事件流，不引入第二状态源（D7 红线）",
+    "goals/receipts/approval-requests/ 现有 request/owner-response 同构结构"
+  ],
+  "open_findings": [
+    "bin/mush 与 src/cli.ts 非提交变更（GOAL-005 U4 范围，后续批次）",
+    "goals/receipts/dispatch-events/swap-deepseek-real-001.json.t1-receipt.json 为 GOAL-004 遗留未跟踪文件，不属本 Goal 范围，不动"
+  ],
+  "spent_estimate_usd": 0.35
+}
