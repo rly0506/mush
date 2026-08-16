@@ -1,0 +1,28 @@
+{
+  "batch": "BATCH-40",
+  "goal_id": "MUSH-GOAL-013",
+  "packet": "rm003-p14-deepseek-dogcap",
+  "branch": "g013",
+  "worktree": "runtime/worktrees/deepseek-b",
+  "at_utc": "2026-08-17T06:45:00Z",
+  "executor": "deepseek-dsh (backend)",
+  "units": {
+    "U1_GP21_profile": "dispatch 增 profile 字段：仅允许 ~/.dsh/profiles 下真实目录（探测一次缓存，路径穿越 fail-closed），注入 --profile <name> 替换合同默认；契约 v1.4；测试覆盖存在/缺失/不支持的 adapter。",
+    "U2_GP22_effort": "AdapterContract 增 effort_levels + effort_injection；各 harness 按本机 --help/配置实证：dsh none+DEFAULT、claude --effort low/medium/high/xhigh/max、codex --config reasoning.effort minimal/low/medium/high/xhigh、kimi config supportEfforts low/medium/high（注入 none 占位）、opencode --variant minimal/low/medium/high/max、zcode UNKNOWN 暂沿用旧三档；dispatch 校验 effort ∈ effort_levels（未声明合同回退 LOW/HIGH/XHIGH）。",
+    "U3_kimi_registration": "新增 src/adapters/kimi.ts（kimi -p T1，role=executor，effort low/medium/high）+ baseContracts 注册 + roster 暴露 effort 元数据；真实有界 nonce 经看板 API dispatch kimi-code 一次，结果 FAIL（exit 1，stdout 空、stderr 非空），证据 goals/receipts/dispatch-events/kimi-real-002.json 落盘。",
+    "U4_rerun": "新增 POST /api/dispatch/:id/rerun：读取持久化 request 快照，克隆 prompt/adapter/model_id/effort/workspace/timeout（不含 amount_usd），支持 real/cap_usd 覆盖，仍走 approval 门；契约 v1.4 + 测试覆盖 pipeline 与 HTTP 404/400。"
+  },
+  "tests": {
+    "new": [
+      "tests/adapters-contract.test.ts（GP-22 合同字段校验）",
+      "tests/adapters-kimi.test.ts（kimi-code T1 合同）",
+      "tests/web-dispatch.test.ts（GP-21 profile / GP-22 effort / GP-10 rerun / roster kimi）",
+      "tests/persistence.test.ts（request 快照持久化）"
+    ],
+    "full_run": "278/278 PASS",
+    "baseline": "268/268 PASS before new tests; after additions 278/278 PASS"
+  },
+  "kimi_nonce_finding": "真实 kimi-code dispatch 返回 FAIL：exit_code=1、stdout 空、stderr 非空（哈希见证据）。疑似沙箱/CLI 通道问题；按 U3 纪律记 finding，不静默当作 PASS。后续需在非沙箱宿主复核 kimi -p 参数与凭据通道。",
+  "red_lines": "零框架/零构建/零外链；未改 page.ts/chat.ts/静态资产路由；未触碰 D:\\意向项目；未 push；密钥未入库；127.0.0.1 不变。",
+  "acceptance": "D15：机检全绿 + kimi nonce 诚实 FAIL 落盘；待头犬审核 + owner 显式接受"
+}

@@ -25,6 +25,10 @@ export function buildHeadDogContract(): AdapterContract {
     role: 'head',
     // F-48：dsh 0.1.0 headless 实测不支持 --resume（unknown option）——声明
     // 摘除，多轮上下文经 chat.ts 的 prompt 缝合实现；通道支持后恢复。
+    // GP-22：同 dsh headless 无 effort 档位；chat.ts 历史硬编码 HIGH，故保留
+    // 旧通用档位作为兼容接受（不注入），避免 M1 聊天回归。通道接入后收敛。
+    effort_levels: ['DEFAULT', 'LOW', 'HIGH', 'XHIGH'],
+    effort_injection: { kind: 'none' },
   });
 }
 

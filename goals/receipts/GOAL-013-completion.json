@@ -1,0 +1,17 @@
+{
+  "goal_id": "MUSH-GOAL-013",
+  "status": "MACHINE_GREEN",
+  "packet": "rm003-p14-deepseek-dogcap",
+  "branch": "g013",
+  "worktree": "runtime/worktrees/deepseek-b",
+  "completed_at_utc": "2026-08-17T06:50:00Z",
+  "doD": {
+    "tests": "278/278 PASS (baseline 268 + 10 new)",
+    "kimi_nonce": "one real bounded dispatch via board API executed; result FAIL honest evidence goals/receipts/dispatch-events/kimi-real-002.json",
+    "contract": "src/web/api-contract.md v1.4 synced (profile/effort/rerun/request snapshot, all backward-compatible optional)",
+    "commit": "G13-01 on g013, path-limited",
+    "batch_receipt": "goals/receipts/BATCH-40-completion.json"
+  },
+  "open_finding": "kimi-code real nonce FAIL (exit 1, empty stdout, non-empty stderr); requires on-host/non-sandbox channel verification before marking kimi READY. Not a code regression; adapter contract and tests are green.",
+  "acceptance": "D15 machine acceptance only; owner explicit acceptance still required for DONE per constitution."
+}

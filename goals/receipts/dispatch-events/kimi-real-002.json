@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "dispatch_id": "29d86aacb5034bbda182c16b9ca35048",
+  "adapter_id": "kimi-code",
+  "channel": "t1 (-p headless) via board API",
+  "purpose": "D13 nonce registration (GOAL-013 U3)",
+  "nonce": "944a02991ee5fa89fedace51726d06c0",
+  "expected_sha256": "c4fad8d1bab4d584cd4f944f4da9c700c54e0dc76d2de42be5c1cdb50558faa0",
+  "observed": null,
+  "matched": false,
+  "exit_code": 1,
+  "timed_out": false,
+  "stdout_sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+  "stderr_sha256": "F2A052731B85ABD25F257E6ACF594CDE762DA9ABDB927A8959A182786655C46D",
+  "status": "FAIL",
+  "verdict": "FAIL",
+  "error": "kimi exited 1 with empty stdout and non-empty stderr; receipt .mush-receipts/dispatch-29d86aacb5034bbda182c16b9ca35048.json + runtime/dispatches JSONL retain hashes. Sandbox piped-stdio may also be implicated; channel needs on-host verification.",
+  "recorded_at_utc": "2026-08-16T15:15:37.149Z"
+}
