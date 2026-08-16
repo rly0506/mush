@@ -28,8 +28,10 @@ mush 是个人跨 harness 多 agent 编排工具（雪橇队）。你在本仓�
 
 ## 当前状态
 
-M1/M2 完成（fixture + 核心移植，124 tests 全绿；GOAL-001/002 均 AUTO_ACCEPTED）。
-下一步 GOAL-003（M3 双犬适配器 + D21 CLI 化 + D20 实测注册，已排队）——
-每犬首次真实 dispatch 按 D6 待 owner 一句话，不花钱部分不阻塞。
-findings 默认裁决记录：docs/auto-decisions-log.md（D16，append-only）。
+M1–M3 完成（158 tests 全绿；GOAL-001/002/003 均 AUTO_ACCEPTED）。真实 dispatch
+已获 owner 批准但因凭据环境 BLOCKED_ENV（缺 DEEPSEEK_API_KEY、claude 未登录——
+owner 侧动作，mush 不代做）。
+下一步 GOAL-004（M4 dogfood live loop，已排队）：前置 = 凭据就绪后重跑
+GOAL-003 dispatch 闭环；首任务（M5 看板 vs zcode 接入）待 owner 一句话选定。
+findings 默认裁决记录：docs/auto-decisions-log.md（D16）。
 GitHub 私有远端同步为常规动作（D19）；无人值守调度器仍默认关（D8）。
