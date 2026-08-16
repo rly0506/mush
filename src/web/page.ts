@@ -184,12 +184,20 @@ export function renderBoardPage(): string {
     });
   }
 
-  /* ---------- 犬只下拉（在册身份证明徽章） ---------- */
+  /* ---------- 犬只下拉（G009 修复：取 roster 注册名册；无活动时也应有犬可选） ---------- */
   function renderAdapterOptions() {
     var select = document.getElementById('dispatch-adapter');
+    var roster = (snapshot && snapshot.roster) || [];
+    if (roster.length > 0) {
+      select.innerHTML = roster.map(function (r) {
+        var badge = esc(r.expected_provider) + ' / ' + esc(r.expected_model_id);
+        return '<option value="' + esc(r.adapter_id) + '">' + esc(r.adapter_id) + '（' + badge + '）</option>';
+      }).join('');
+      return;
+    }
     var actors = (snapshot && snapshot.actors) || [];
     if (actors.length === 0) {
-      select.innerHTML = '<option value="">（无在册犬只活动记录）</option>';
+      select.innerHTML = '<option value="">（无在册犬只）</option>';
       return;
     }
     select.innerHTML = actors.map(function (a) {

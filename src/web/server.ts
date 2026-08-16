@@ -185,6 +185,9 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         at_utc: record.events.length > 0 ? record.events[record.events.length - 1].at_utc : null,
         receipt_path: record.receipt_path,
       }));
+      // G009 修复：在册犬只名册（派发合同表）——下拉取数源应为注册名册而非
+      // 活动投影（actors 只在有 loop 事件流后才有值，冷启动必然为空）。
+      snapshot.roster = dispatch.roster();
       sendJson(response, 200, snapshot);
       return;
     }

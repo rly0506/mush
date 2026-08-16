@@ -8,7 +8,7 @@
  */
 
 import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { UsdBudgetLedger, type UsdAdmissionEntry } from '../core/budget.ts';
 import { validateAdapterContract, type AdapterContract } from '../adapters/contract.ts';
@@ -277,6 +277,17 @@ export class DispatchPipeline {
     return this.records.get(dispatchId) ?? null;
   }
 
+  /** G009：在册犬只名册（派发下拉/看板视图的取数源）——合同表投影，
+   * 只含身份字段，不含 executable 路径等敏感细节。 */
+  roster(): Array<{ adapter_id: string; protocol: string; expected_provider: string; expected_model_id: string }> {
+    return Object.values(this.contracts).map((contract) => ({
+      adapter_id: contract.adapter_id,
+      protocol: contract.protocol,
+      expected_provider: contract.expected_provider,
+      expected_model_id: contract.expected_model_id,
+    }));
+  }
+
   recent(limit = 20): DispatchRecord[] {
     return [...this.records.values()].slice(-limit).reverse();
   }
@@ -297,6 +308,9 @@ export class DispatchPipeline {
   listWorkspaces(extraCandidates: string[] = []): WorkspaceInfo[] {
     const candidates = new Set<string>([this.workspaceRoot]);
     if (this.selectedWorkspace !== null) candidates.add(this.selectedWorkspace);
+    // G009 修复：已知工作区持久化列表（<repoRoot>/.mush/known-workspaces.json），
+    // 解决列表只含服务 cwd、冷启动选不到其他工作区的问题。
+    for (const known of this.knownWorkspaces()) candidates.add(known);
     for (const candidate of extraCandidates) candidates.add(path.resolve(candidate));
     const result: WorkspaceInfo[] = [];
     for (const candidate of candidates) {
@@ -328,7 +342,35 @@ export class DispatchPipeline {
       JSON.stringify({ schema_version: 1, selected: resolved, selected_at_utc: this.now().toISOString() }) + '\n',
       'utf8',
     );
+    this.rememberWorkspace(resolved);
     return resolved;
+  }
+
+  /** G009：选中即记住（append 到 repo 侧 known-workspaces.json，去重）。 */
+  private rememberWorkspace(resolved: string): void {
+    const known = new Set(this.knownWorkspaces());
+    known.add(resolved);
+    const mushDir = path.join(this.workspaceRoot, '.mush');
+    mkdirSync(mushDir, { recursive: true });
+    writeFileSync(
+      path.join(mushDir, 'known-workspaces.json'),
+      JSON.stringify({ schema_version: 1, workspaces: [...known].sort() }, null, 2) + '\n',
+      'utf8',
+    );
+  }
+
+  private knownWorkspaces(): string[] {
+    const file = path.join(this.workspaceRoot, '.mush', 'known-workspaces.json');
+    try {
+      if (!existsSync(file)) return [];
+      const parsed = JSON.parse(readFileSync(file, 'utf8')) as { workspaces?: unknown };
+      return Array.isArray(parsed.workspaces)
+        ? parsed.workspaces.filter((item): item is string => typeof item === 'string')
+        : [];
+    } catch (error) {
+      if (error instanceof SyntaxError) return []; // JSON 损坏 fail-closed
+      throw error; // 编程错误（如未导入符号）不得静默吞掉
+    }
   }
 }
 
