@@ -1,7 +1,7 @@
 {
   "goal_id": "MUSH-GOAL-012B",
   "title": "聊天体验四缺陷修复（owner 实操反馈，派发包 rm003-p12）",
-  "status": "AUTO_ACCEPTED_PENDING_OWNER",
+  "status": "AUTO_ACCEPTED",
   "branch": "g012b",
   "worktree": "runtime/worktrees/kimi-b",
   "executor": "kimi-k3 (thinking high)",
@@ -16,7 +16,9 @@
     "契约": "DONE — api-contract.md v1.3.1（adapter_id/effort 可选新增 + 200 同步 reply 语义注明）"
   },
   "backend_scope_held": "授权边界仅两处（chat.ts post 参数化 + server.ts 聊天路由响应体），未越界；超出项零发生，无 finding 需记",
-  "batches": ["BATCH-39（四缺陷一体修复，小步提交 b732114 后端+契约 / 3fafa70 前端+测试）"],
+  "batches": [
+    "BATCH-39（四缺陷一体修复，小步提交 b732114 后端+契约 / 3fafa70 前端+测试）"
+  ],
   "commits": [
     "b732114 feat(G12B-A/B): chat.post parameterized + 200 sync reply/status (contract v1.3.1)",
     "3fafa70 feat(G12B): chat UX quad-fix frontend (279/279)"
@@ -27,5 +29,10 @@
     "模板正则双写（DEF-07 防线测试每批绿）；意向项目零触碰；无远端推送"
   ],
   "experience_note": "冒烟脚本初版 process.exit 触发 Node/libuv Windows SSE 关闭竞态（async.c assertion，exit 127）——改 process.exitCode 自然排空修复；同类脚本沿用此模式",
-  "acceptance_semantics": "D15：机检全绿 + 冒烟真实执行 → AUTO_ACCEPTED；DONE 与否决权归 owner。待头犬（zcode）审核验收 + owner 显式接受。"
+  "acceptance_semantics": "D15：机检全绿 + 冒烟真实执行 → AUTO_ACCEPTED；DONE 与否决权归 owner。待头犬（zcode）审核验收 + owner 显式接受。",
+  "acceptance": {
+    "mode": "D15",
+    "applied": "2026-08-17",
+    "machine_checks": "279/279 worktree+merged; live reply-field & head-only-400 verified (AD-29)"
+  }
 }

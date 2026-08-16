@@ -411,3 +411,15 @@ RM-001、RM-002 全部构件正式收官。另：派发包编号改带 RM 前缀
   reparse 污染（GP-28 前置约束更新）。**
 - **验收**：GOAL-012 **AUTO_ACCEPTED**（executor kimi-k3，g012 @ ddd4d4f）。
   RM-003 M1+M2 完成；剩余 DoD：owner 经面板实操多轮对话 + G013（M3）。
+
+## AD-29 · GOAL-012B 验收 + 合并（2026-08-17，头犬 zcode 会话）
+
+- **隔离验证**：worktree g012b 279/279（+11）；冒烟脚本 8/8。
+- **合并**：master 279/279 全绿。
+- **活体验证（头犬亲测）**：① chat 带 effort 参数 PASS 且响应体含
+  `reply`（D3 修复实证——回复直达气泡数据源）；② adapter_id=executor
+  伪充头犬 → 400（D1 fail-closed 实证）。
+- **验收**：GOAL-012B **AUTO_ACCEPTED**（executor kimi-k3，g012b @ f7385e9）。
+  附注：执行者发现并修复 Node/libuv Windows SSE 关闭竞态
+  （process.exit→exitCode），经验入回执——加分项。
+- RM-003 进度：M2 补完；余 p13（图标动效）/p14（犬力批）在途。
