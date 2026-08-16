@@ -1,13 +1,22 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { runCli } from '../src/cli.ts';
 
 // GOAL-005 U4：bin/mush board 子命令——起服务 + 打印访问地址。
 // 常驻服务进程以 --once 探测模式测试（绑定一次打印地址即退出），
 // 避免测试里挂常驻句柄；真实常驻模式由 runCli 内部 startBoardServer 承载。
+// GP-03/F-42 后 board 持真实单实例锁：测试必须用隔离 workspace，
+// 否则会与开发机正在运行的看板互相拒绝（DEF-07 复盘发现）。
+function isolatedArgs(args: string[]): string[] {
+  const ws = mkdtempSync(path.join(tmpdir(), 'mush-board-cli-'));
+  return [...args, '--workspace', ws];
+}
 
 test('board --once binds 127.0.0.1 by default and prints the access URL', async () => {
-  const result = await runCli(['board', '--once']);
+  const result = await runCli(isolatedArgs(['board', '--once']));
   assert.equal(result.exitCode, 0);
   const parsed = JSON.parse(result.stdout) as Record<string, unknown>;
   assert.equal(parsed.ok, true);
@@ -19,7 +28,7 @@ test('board --once binds 127.0.0.1 by default and prints the access URL', async 
 });
 
 test('board --once honours --port and --host flags', async () => {
-  const result = await runCli(['board', '--once', '--port', '0']);
+  const result = await runCli(isolatedArgs(['board', '--once', '--port', '0']));
   assert.equal(result.exitCode, 0);
   const parsed = JSON.parse(result.stdout) as { host: string; port: number };
   assert.equal(parsed.host, '127.0.0.1');

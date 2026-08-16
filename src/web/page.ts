@@ -577,14 +577,15 @@ export function renderBoardPage(): string {
 
   function normalizeDisplayPath(p) {
     // F-39：展示统一反斜杠形态（与后端 path.resolve 归一对齐）。
-    return String(p || '').replace(/\//g, '\\');
+    // 注意：本函数在模板字符串内，反斜杠会被模板层吃一层——源码必须双写。
+    return String(p || '').replace(/\\//g, '\\\\');
   }
 
   function isFrozenSubtree(p) {
     // 纵深防御提示层：意向项目（黄金参照冻结区）子树前端直接拒绝；
     // 后端硬拦截属 GP-14 范围。统一归一后做前缀判断（大小写不敏感）。
-    var norm = normalizeDisplayPath(p).replace(/\\+$/, '').toLowerCase();
-    return /^[a-z]:\\意向项目(\\|$)/.test(norm);
+    var norm = normalizeDisplayPath(p).replace(/\\\\+$/, '').toLowerCase();
+    return /^[a-z]:\\\\意向项目(\\\\|$)/.test(norm);
   }
 
   function registerWorkspace(rawPath) {

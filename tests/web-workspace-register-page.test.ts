@@ -28,6 +28,8 @@ test('safety: 意向项目 subtree is refused client-side (golden reference froz
 });
 
 test('F-39: displayed workspace paths use the normalized backslash form', () => {
-  // 前端展示统一反斜杠形态（与后端 path.resolve 归一对齐）
-  assert.match(html, /replace\(\/\[\\\\\/\]\/|replace\(\/\//, '正斜杠归一为反斜杠的展示处理');
+  // 前端展示统一反斜杠形态。DEF-07 修复后，模板内源码为双转义形态
+  // `replace(/\\//g, '\\\\')`（模板层吃一层后输出正确的 `replace(/\//g, '\\')`）。
+  // 断言匹配修复后的双转义源码；可解析性由 web-page-parse.test.ts 保证。
+  assert.match(html, /replace\(\/\\\/\//, '正斜杠归一为反斜杠的展示处理（双转义形态）');
 });
