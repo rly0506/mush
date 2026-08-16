@@ -226,3 +226,12 @@ b47afd7c0fd93fdead7b48392b3dcc1e9e46791d991776330e49a83540d91403  .test-fixtures
   → **RM-001 全部 DoD 满足，整单 COMPLETE_REQUESTED，DONE 待 owner 一句话。**
 - 遗留（不阻断，记 findings）：F-G5-02 loop→看板推送接线/USD 台账落盘（M5+）；
   F-G5-03 局域网暴露待 owner（门 4）；GOAL-004 遗留散件已由头犬纳入本提交。
+
+## AD-17 · G6-U1 API 契约 v1 定稿 + BATCH 编号说明（2026-08-17，dsh 执行）
+
+- **交付**：`src/web/api-contract.md` v1 定稿（8 端点/schema/错误码/SSE
+  dispatch+loop 事件类型/向后兼容规则），GOAL-007 关键路径已解锁。
+- **编号说明（F-31）**：dsh 首次回报误用 BATCH-24/25 号创建了
+  `BATCH-24-test-output.txt`、`BATCH-25-test-output.txt` 两个新文件；G5 原有
+  `BATCH-24-baseline-test-output.txt` 与各 completion 均未受影响。本批规范为
+  **BATCH-27**；误建文件保留为历史痕迹，不覆盖任何既有证据。
