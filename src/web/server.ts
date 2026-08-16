@@ -74,6 +74,11 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
   const runtimeRoot = options.runtimeRoot ?? path.join(approvalRoot, 'runtime');
   const persistence = options.persistence ?? new BoardPersistence(runtimeRoot);
 
+  // GOAL-013L（rm003-p13，授权唯一后端小改）：品牌图标静态路由。
+  // 白名单目录 assets/brands/，仅 .svg；name 先校验纯文件名（拒绝路径穿越），
+  // 再经 path.resolve 前缀复核（纵深防御）；content-type image/svg+xml + 短缓存。
+  const brandAssetsRoot = path.resolve(workspaceRoot, 'assets', 'brands');
+
   // GP-03 / F-42：单实例锁。已在运行的看板实例拒绝第二个实例。
   persistence.acquireLock();
 
@@ -205,6 +210,26 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     if (route === 'GET /') {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       response.end(renderBoardPage());
+      return;
+    }
+    const brandMatch = /^\/assets\/brands\/([^/]+)$/.exec(url.pathname);
+    if (request.method === 'GET' && brandMatch !== null) {
+      // GOAL-013L：品牌图标静态服务——白名单目录 + 纯文件名校验（拒绝穿越）+ 仅 .svg。
+      const name = brandMatch[1];
+      if (!/^[A-Za-z0-9_-]+\.svg$/.test(name)) {
+        sendJson(response, 404, { ok: false, error: `brand asset not found: ${name}` });
+        return;
+      }
+      const filePath = path.resolve(brandAssetsRoot, name);
+      if (!filePath.startsWith(brandAssetsRoot + path.sep) || !existsSync(filePath)) {
+        sendJson(response, 404, { ok: false, error: `brand asset not found: ${name}` });
+        return;
+      }
+      response.writeHead(200, {
+        'content-type': 'image/svg+xml; charset=utf-8',
+        'cache-control': 'public, max-age=300',
+      });
+      response.end(readFileSync(filePath));
       return;
     }
     if (route === 'GET /api/snapshot') {

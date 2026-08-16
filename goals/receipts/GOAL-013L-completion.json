@@ -1,0 +1,28 @@
+{
+  "goal_id": "MUSH-GOAL-013L",
+  "title": "官方品牌图标接线 + 三态动效（派发包 rm003-p13）",
+  "status": "AUTO_ACCEPTED_PENDING_OWNER",
+  "branch": "g013-logo",
+  "worktree": "runtime/worktrees/kimi-c",
+  "executor": "kimi-k3 (thinking high)",
+  "completed_at_utc": "2026-08-17T07:15:00Z",
+  "dod_checklist": {
+    "静态资产路由": "DONE — GET /assets/brands/:name.svg（白名单/纯文件名/仅 svg/穿越拒绝 resolve 前缀复核；image/svg+xml + max-age=300）；授权唯一后端小改，未越界",
+    "官方图标接线": "DONE — BRAND_MAP 兜底链（deepseek/claude/kimi/opencode/head-dog→deepseek 同源），img onerror 静默回退手绘，codex/zcode 手绘；fill=currentColor 主题化",
+    "三态动效": "DONE — working logo-hop 弹跳+辉光 / idle 静止+悬停微反馈 / terminal-flash 落定闪一次（PASS 绿 FAIL 红）；roster 行/派发卡/思考中指示器/页头徽章四处应用；prefers-reduced-motion 降级无位移",
+    "加载失败兜底": "DONE — onerror 回退手绘内联 SVG，无破图",
+    "契约": "DONE — api-contract.md v1.4 静态品牌资产节（含 404 fail-closed 全分支与前端消费约定）",
+    "测试": "DONE — 284/284 全绿（新增 g013l-brand-logos 5 用例）；web-page-parse vm.Script 每批必过",
+    "冒烟": "DONE — scripts/g013l-brand-smoke.cjs 真实执行 9/9 PASS（exit=0）"
+  },
+  "commits": [
+    "（合并基线）g012b 四缺陷修复",
+    "BATCH-40：资产路由 + 兜底链 + 三态动效 + 契约 v1.4 + 测试 + 冒烟"
+  ],
+  "boundaries_held": [
+    "F-45：全部工作在 runtime/worktrees/kimi-c（g013-logo），master 零触碰",
+    "后端改动唯一授权处（server.ts 资产路由）；零框架/零构建/零外链（资产在仓自供）",
+    "127.0.0.1 不变；凭据永不渲染；模板转义陷阱（onerror 内嵌引号）被 DEF-07 防线抓获并以 &quot; 方案修复"
+  ],
+  "acceptance_semantics": "D15：机检全绿 + 冒烟真实执行 → AUTO_ACCEPTED；DONE 与否决权归 owner。待头犬（zcode）审核验收 + owner 显式接受。"
+}

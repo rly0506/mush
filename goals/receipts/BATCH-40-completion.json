@@ -1,0 +1,30 @@
+{
+  "batch": "BATCH-40",
+  "goal_id": "MUSH-GOAL-013L",
+  "packet": "rm003-p13-kimi-brand-logos",
+  "branch": "g013-logo",
+  "worktree": "runtime/worktrees/kimi-c",
+  "base": "master + g012b 合并（p12 四缺陷修复在先）",
+  "at_utc": "2026-08-17T07:10:00Z",
+  "executor": "kimi-k3 (thinking high)",
+  "scope": {
+    "1_静态资产路由": "GET /assets/brands/:name.svg —— 白名单目录 assets/brands/、纯文件名校验 ^[A-Za-z0-9_-]+\\.svg$（拒绝 .. /子路径/非 svg）、path.resolve 前缀复核纵深防御、image/svg+xml + cache-control max-age=300、404 fail-closed JSON",
+    "2_官方图标接线": "BRAND_MAP（deepseek-dsh→deepseek / claude-code→claude / kimi→kimi / opencode→opencode / head-dog→deepseek）词边界精确匹配+包含回退；<img> onerror 静默回退手绘内联 SVG（data-fallback 携带，不留破图）；资产 fill=currentColor + 容器 color 继承主题化；codex/zcode 直接手绘",
+    "3_三态动效": "working（logo-hop 弹跳 ≤5px + squash + 叠加辉光 logo-anim，1.2s 循环）/ idle（静止+悬停微反馈）/ terminal-flash（logo-settle-flash 落定一次，PASS 绿 FAIL 红，flashRegistry 按 adapter+dispatch 双键登记消费一次）；应用位置：roster 行、派发卡头行、聊天思考中指示器（working 跳动头犬徽章+三点呼吸并存）、页头当前头犬徽章（chatPending→working）；prefers-reduced-motion 降级为辉光呼吸无位移",
+    "4_加载失败兜底": "onerror 链式替换为手绘 SVG，测试断言 onerror 与 LOGO_SHAPES 共存"
+  },
+  "backend_scope": "严格限于授权唯一后端小改（server.ts 资产路由）；契约 v1.4 同步一节",
+  "tests": {
+    "new": "tests/g013l-brand-logos.test.ts（5 用例：200+content-type+缓存头 / 404 / 穿越+非svg+子路径拒绝 / 兜底链结构 / 三态动效结构）",
+    "full_run": "284/284 PASS → goals/receipts/BATCH-40-test-output.txt",
+    "parse_regression": "tests/web-page-parse.test.ts PASS（vm.Script 真解析）"
+  },
+  "smoke": {
+    "script": "scripts/g013l-brand-smoke.cjs（真实执行，exit=0）",
+    "result": "9/9 PASS → goals/receipts/BATCH-40-smoke-output.txt",
+    "coverage": "deepseek.svg 200+svg头 / 缓存头 / 404 / 穿越拒绝 / 页面 img+onerror+手绘共存 / 三态动效结构"
+  },
+  "def_07_note": "onerror 内嵌 JS 字符串引号改用 &quot;（HTML 属性层）规避模板字符串 \\\\' 被模板层吃掉的转义陷阱——vm.Script 解析测试当场抓获，已修复",
+  "red_lines": "零框架/零构建/零外链（资产在仓自供）；凭据永不渲染；127.0.0.1 不变；master 零触碰；模板正则双写",
+  "acceptance": "D15：机检全绿 + 冒烟 9/9，待头犬审核 + owner 显式接受"
+}
