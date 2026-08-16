@@ -1,0 +1,22 @@
+{
+    "schema_version":  1,
+    "dispatch_id":  "claude-real-002",
+    "adapter_id":  "claude-code",
+    "owner_approval":  "goals/receipts/dispatch-approvals/claude-code.approved.json",
+    "started_at_utc":  "2026-08-16T03:38:23.3167470Z",
+    "finished_at_utc":  "2026-08-16T03:38:27.4054085Z",
+    "provider":  "anthropic",
+    "model_id":  "claude-opus-5[1m]",
+    "identity_proven":  true,
+    "nonce":  "49032600f082456a8f9d02d889c16cf8",
+    "expected_sha256":  "6d2a921ce128d13fa7ab44cce441db2563eceaf65213d30421383df583abf84f",
+    "observed":  null,
+    "marker_ok":  false,
+    "nonce_matched":  false,
+    "exit_code":  1,
+    "timed_out":  false,
+    "stdout_sha256":  "B57E32A0ACBD8B994F932572E63FAB5EDDD3A44FBD968321E31C27A0308BE3A0",
+    "stdout_len":  3542,
+    "status":  "FAIL",
+    "correction_note":  "env extraction failed in this attempt (python inline quoting); corrected pre-commit: exit 1, FAIL"
+}

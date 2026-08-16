@@ -1,0 +1,24 @@
+{
+    "schema_version":  1,
+    "checked_at_utc":  "2026-08-16T03:39:40.6953680Z",
+    "status":  "READY",
+    "dogs":  [
+                 {
+                     "adapter_id":  "deepseek-dsh",
+                     "dispatch":  "dsh-real-002",
+                     "nonce_matched":  true,
+                     "runtime_identity":  "provider=deepseek config; nonce runtime PASS"
+                 },
+                 {
+                     "adapter_id":  "claude-code",
+                     "dispatch":  "claude-real-003",
+                     "nonce_matched":  true,
+                     "runtime_model_id":  "deepseek-v4-flash (stream-json init, runtime-reported)",
+                     "total_cost_usd":  0.14051
+                 }
+             ],
+    "evidence":  [
+                     "goals/receipts/dispatch-events/dsh-real-002.json",
+                     "goals/receipts/dispatch-events/claude-real-003.json"
+                 ]
+}

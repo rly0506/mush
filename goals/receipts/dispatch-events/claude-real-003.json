@@ -1,0 +1,22 @@
+{
+    "schema_version":  1,
+    "dispatch_id":  "claude-real-003",
+    "adapter_id":  "claude-code",
+    "owner_approval":  "goals/receipts/dispatch-approvals/claude-code.approved.json",
+    "started_at_utc":  "2026-08-16T03:39:04.4594479Z",
+    "finished_at_utc":  "2026-08-16T03:39:10.1765970Z",
+    "provider":  "anthropic",
+    "model_id":  "deepseek-v4-flash",
+    "identity_proven":  true,
+    "nonce":  "94d542153e7c43fd9888268fbd838a59",
+    "expected_sha256":  "eb9aa39e741d59e21e932a04df647c0e140214db2d24892d317a154c04e4d823",
+    "observed":  "eb9aa39e741d59e21e932a04df647c0e140214db2d24892d317a154c04e4d823",
+    "marker_ok":  true,
+    "nonce_matched":  true,
+    "total_cost_usd":  0.14051,
+    "exit_code":  0,
+    "timed_out":  false,
+    "stdout_sha256":  "BA410334131A6E5B43FBE99D03DF5D01CBB636A9A0955CCE13764DF263560A8C",
+    "stdout_len":  57638,
+    "status":  "PASS"
+}

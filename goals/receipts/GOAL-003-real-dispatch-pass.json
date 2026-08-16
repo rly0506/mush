@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "kind": "GOAL-003 real dispatch PASS addendum (append-only)",
+  "written_at_utc": "2026-08-16T03:45:00Z",
+  "owner_credential_authorization": "goals/receipts/dispatch-approvals/credential-use-2026-08-17.json（owner：使用现有密钥登录）",
+  "results": [
+    {
+      "dog": "deepseek (dsh)",
+      "dispatch_id": "dsh-real-002",
+      "status": "PASS",
+      "nonce_matched": true,
+      "model_id": "deepseek-v4-flash（dsh dump-config 配置级；nonce 为运行时计算证明）",
+      "evidence": "goals/receipts/dispatch-events/dsh-real-002.json"
+    },
+    {
+      "dog": "claude-code",
+      "dispatch_id": "claude-real-003",
+      "status": "PASS",
+      "nonce_matched": true,
+      "runtime_model_id": "deepseek-v4-flash（stream-json init 运行时报告；当前 cc-switch claude profile 指向 DeepSeek 端点）",
+      "total_cost_usd": 0.14051,
+      "evidence": "goals/receipts/dispatch-events/claude-real-003.json"
+    }
+  ],
+  "closure": "goals/receipts/loop-evidence/closure-ready-2026-08-17.json（status=READY）"
+}
