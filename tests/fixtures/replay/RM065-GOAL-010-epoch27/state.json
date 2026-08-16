@@ -1,0 +1,86 @@
+{
+    "schema_version":  2,
+    "run_id":  "RM065-GOAL-010-20260814T024648Z-480e0ef0",
+    "goal_id":  "RM065-GOAL-010",
+    "goal_path":  "D:\\意向项目\\spec\\roadmaps\\planning\\rm-065\\goals\\RM065-GOAL-010.md",
+    "assignment_epoch":  27,
+    "parent_role":  "parent_reviewer",
+    "executor_role":  "backend_executor",
+    "actor_bindings":  {
+                           "backend_executor":  {
+                                                    "adapter_id":  "pi",
+                                                    "model_profile":  "pi/deepseek-v4-pro",
+                                                    "instance_id":  "executor-pi-deepseek-rm065-goal010-20260814-27",
+                                                    "mailbox_path":  ".agent-bridge/TO_BACKEND_EXECUTOR.md",
+                                                    "lane_path":  "spec/roadmaps/planning/current/backend-executor-rm065-goal-010-epoch27.md",
+                                                    "executable":  "C:/Program Files/nodejs/node.exe",
+                                                    "arguments":  [
+                                                                      "D:/npm-global/node_modules/@earendil-works/pi-coding-agent/dist/cli.js",
+                                                                      "--mode",
+                                                                      "rpc",
+                                                                      "--provider",
+                                                                      "deepseek",
+                                                                      "--model",
+                                                                      "deepseek-v4-pro",
+                                                                      "--no-session"
+                                                                  ],
+                                                    "prompt_transport":  "stdin",
+                                                    "capability_id":  "8DB9BB5CD1C315EEA9579D267E9CB789"
+                                                },
+                           "parent_reviewer":  {
+                                                   "model_profile":  "gpt-5.6-sol",
+                                                   "instance_id":  "parent-sol-rm065-goal010-20260811-01",
+                                                   "mailbox_path":  ".agent-bridge/TO_PARENT_REVIEWER.md",
+                                                   "lane_path":  "spec/roadmaps/planning/current/parent-reviewer-rm065-goal-010-epoch27.md",
+                                                   "executable":  "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+                                                   "arguments":  [
+                                                                     "-NoProfile",
+                                                                     "-Command",
+                                                                     "exit 0"
+                                                                 ],
+                                                   "prompt_transport":  "none",
+                                                   "capability_id":  "27A00230BB5347831308BB3A4BA8DA60"
+                                               }
+                       },
+    "config_digest":  "22622AC0F3B6ED4B96F4F389B4A75F0419A262D0ACDF5953016BA5BB81159F3B",
+    "bootstrap_config_sha256":  "AA12AE26C7D325AE375D0D9C0921799D3A2F9AB4BF79052821569A87E46DA45D",
+    "implementation_owner":  "backend_executor",
+    "review_owner":  "parent_reviewer",
+    "parent_product_edit_policy":  "FORBIDDEN",
+    "parent_product_snapshot":  {
+
+                                },
+    "status":  "WAIT_EXECUTOR",
+    "expected_role":  null,
+    "sequence":  0,
+    "max_full_reviews":  3,
+    "review_phase_limit":  3,
+    "review_phase":  0,
+    "phase_transition_pending":  false,
+    "full_review_count":  0,
+    "finding_recheck_count":  0,
+    "active_finding_ids":  [
+
+                           ],
+    "finding_attempts":  {
+
+                         },
+    "finding_attempt_digests":  {
+
+                                },
+    "dispatch_status":  "UNCERTAIN",
+    "dispatch_role":  "backend_executor",
+    "dispatch_actor_instance_id":  "executor-pi-deepseek-rm065-goal010-20260814-27",
+    "dispatch_sequence":  1,
+    "dispatch_id":  "7d3e96e2343e4ce0955cfb1d2816d417",
+    "dispatch_job_name":  "AgentBridge-6B633FE95CEE202FADC550CE86B5785F",
+    "dispatch_process_id":  29332,
+    "dispatch_process_started_at_utc":  "2026-08-14T02:46:51.4927235Z",
+    "resume_status":  "EXECUTOR_PENDING",
+    "resume_expected_role":  "backend_executor",
+    "last_event_id":  null,
+    "last_packet_path":  null,
+    "run_pause_reason":  null,
+    "terminal_reason":  "PROCESS_START_FAILED:Managed Pi wrapper did not connect to the dispatch endpoint.",
+    "updated_at_utc":  "2026-08-14T02:46:48.1366613Z"
+}

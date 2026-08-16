@@ -1,0 +1,94 @@
+{
+    "schema_version":  2,
+    "run_id":  "RM065-GOAL-010-20260814T130846Z-06a87315",
+    "goal_id":  "RM065-GOAL-010",
+    "goal_path":  "D:\\意向项目\\spec\\roadmaps\\planning\\rm-065\\goals\\RM065-GOAL-010.md",
+    "assignment_epoch":  44,
+    "parent_role":  "parent_reviewer",
+    "executor_role":  "backend_executor",
+    "actor_bindings":  {
+                           "backend_executor":  {
+                                                    "adapter_id":  "claude",
+                                                    "model_profile":  "claude/deepseek-v4-flash",
+                                                    "instance_id":  "executor-claude-deepseek-rm065-goal010-20260814-44",
+                                                    "mailbox_path":  ".agent-bridge/TO_BACKEND_EXECUTOR.md",
+                                                    "lane_path":  "spec/roadmaps/planning/current/backend-executor-rm065-goal-010-epoch44.md",
+                                                    "executable":  "D:\\npm-global\\claude.cmd",
+                                                    "arguments":  [
+                                                                      "--print",
+                                                                      "--model",
+                                                                      "deepseek-v4-flash",
+                                                                      "--output-format",
+                                                                      "json",
+                                                                      "--permission-mode",
+                                                                      "acceptEdits",
+                                                                      "--safe-mode",
+                                                                      "--strict-mcp-config",
+                                                                      "--tools",
+                                                                      "Read",
+                                                                      "Edit",
+                                                                      "Write",
+                                                                      "--no-session-persistence",
+                                                                      "--max-budget-usd",
+                                                                      "5"
+                                                                  ],
+                                                    "prompt_transport":  "stdin",
+                                                    "capability_id":  "3546569DC1D1E738090C1D9780D6820D"
+                                                },
+                           "parent_reviewer":  {
+                                                   "model_profile":  "gpt-5.6-sol",
+                                                   "instance_id":  "parent-sol-rm065-goal010-20260811-01",
+                                                   "mailbox_path":  ".agent-bridge/TO_PARENT_REVIEWER.md",
+                                                   "lane_path":  "spec/roadmaps/planning/current/parent-reviewer.md",
+                                                   "executable":  "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                                                   "arguments":  [
+                                                                     "-NoProfile",
+                                                                     "-Command",
+                                                                     "exit 0"
+                                                                 ],
+                                                   "prompt_transport":  "none",
+                                                   "capability_id":  "C9B15661510B6BB1ABB8C01F5079474D"
+                                               }
+                       },
+    "config_digest":  "722C585A12CF3AB3FE81625A9814530247F1F0F3CDD330D047CB4C51109B35AD",
+    "bootstrap_config_sha256":  "6F3510FC67B52D270F6958A77043C048F73E422F7C1BCFFECB303F16F6ABDFDC",
+    "implementation_owner":  "backend_executor",
+    "review_owner":  "parent_reviewer",
+    "parent_product_edit_policy":  "FORBIDDEN",
+    "parent_product_snapshot":  {
+
+                                },
+    "status":  "WAIT_EXECUTOR",
+    "expected_role":  null,
+    "sequence":  0,
+    "max_full_reviews":  3,
+    "review_phase_limit":  3,
+    "review_phase":  0,
+    "phase_transition_pending":  false,
+    "full_review_count":  0,
+    "finding_recheck_count":  0,
+    "active_finding_ids":  [
+
+                           ],
+    "finding_attempts":  {
+
+                         },
+    "finding_attempt_digests":  {
+
+                                },
+    "dispatch_status":  "UNCERTAIN",
+    "dispatch_role":  "backend_executor",
+    "dispatch_actor_instance_id":  "executor-claude-deepseek-rm065-goal010-20260814-44",
+    "dispatch_sequence":  1,
+    "dispatch_id":  "31819475c0344f6dba5aa70ae327fcc3",
+    "dispatch_job_name":  "AgentBridge-D3491D9D6716B3278728481B1FB05A11",
+    "dispatch_process_id":  21812,
+    "dispatch_process_started_at_utc":  "2026-08-14T13:08:56.5314191Z",
+    "resume_status":  "EXECUTOR_PENDING",
+    "resume_expected_role":  "backend_executor",
+    "last_event_id":  null,
+    "last_packet_path":  null,
+    "run_pause_reason":  null,
+    "terminal_reason":  "MISSING_EVENT:1",
+    "updated_at_utc":  "2026-08-14T13:08:46.8558289Z"
+}

@@ -1,0 +1,324 @@
+{
+    "schema_version":  1,
+    "source_root":  "D:\\意向项目\\.agent-bridge\\runtime\\orchestrator",
+    "generated_at_utc":  "2026-08-16T02:17:16.9282275Z",
+    "epochs":  [
+                   {
+                       "epoch":  21,
+                       "state_present":  true,
+                       "state_sha256":  "221986DF16002432193CB55EE73F4833CEECD0CDDE553120F6542CF1013C72AC",
+                       "run_id":  "RM065-GOAL-010-20260813T162835Z-f9762353",
+                       "sequence":  0,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  22,
+                       "state_present":  true,
+                       "state_sha256":  "3A56873F5B2F4135EEA78B568711D7CBAAD301E2F3A60AE514EFC19B9E6A2C55",
+                       "run_id":  "RM065-GOAL-010-20260813T165528Z-cfb59a61",
+                       "sequence":  0,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  23,
+                       "state_present":  true,
+                       "state_sha256":  "2F9194931A3E5388829ED99B57E6057275EF46BAE3CFD044A383909B126EE66B",
+                       "run_id":  "RM065-GOAL-010-20260813T171935Z-77a14350",
+                       "sequence":  0,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  24,
+                       "state_present":  true,
+                       "state_sha256":  "6DEB928D7A7C70833230013C871DD013532C8C59360F777F8FE22C3AE69A9111",
+                       "run_id":  "RM065-GOAL-010-20260814T012413Z-574e7621",
+                       "sequence":  0,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  25,
+                       "state_present":  true,
+                       "state_sha256":  "71579E86CB14B6C7B9F688BF9343209C09C64A401AA5BC75422218D7BDCFBCF7",
+                       "run_id":  "RM065-GOAL-010-20260814T013055Z-deedf267",
+                       "sequence":  0,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  26,
+                       "state_present":  true,
+                       "state_sha256":  "6E52137DEDCD5E57652C9BEB8A930208933B1B728CCD2DE182816C23F0ABC8C9",
+                       "run_id":  "RM065-GOAL-010-20260814T015635Z-c1e17a41",
+                       "sequence":  0,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  27,
+                       "state_present":  true,
+                       "state_sha256":  "8E3942C29A00E26207477715BCC29CEACAF2086915ECA2D832A2C7DD57EC3B74",
+                       "run_id":  "RM065-GOAL-010-20260814T024648Z-480e0ef0",
+                       "sequence":  0,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  28,
+                       "state_present":  false,
+                       "state_sha256":  null,
+                       "run_id":  null,
+                       "sequence":  null,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  29,
+                       "state_present":  true,
+                       "state_sha256":  "D088DAED1B16392AF2215021AB88FF9543D8DBA84C92E8862F85596CAA1BE03F",
+                       "run_id":  "RM065-GOAL-010-20260814T034517Z-0f22c15e",
+                       "sequence":  0,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  30,
+                       "state_present":  false,
+                       "state_sha256":  null,
+                       "run_id":  null,
+                       "sequence":  null,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  31,
+                       "state_present":  false,
+                       "state_sha256":  null,
+                       "run_id":  null,
+                       "sequence":  null,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  33,
+                       "state_present":  false,
+                       "state_sha256":  null,
+                       "run_id":  null,
+                       "sequence":  null,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  35,
+                       "state_present":  true,
+                       "state_sha256":  "EF88B7753ABB1521C2C085E394F61F46D5A4FFE6AF87E13D68FDEB002CF45E78",
+                       "run_id":  "RM065-GOAL-010-20260814T075721Z-6c8313f4",
+                       "sequence":  0,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  36,
+                       "state_present":  false,
+                       "state_sha256":  null,
+                       "run_id":  null,
+                       "sequence":  null,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  37,
+                       "state_present":  false,
+                       "state_sha256":  null,
+                       "run_id":  null,
+                       "sequence":  null,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  38,
+                       "state_present":  false,
+                       "state_sha256":  null,
+                       "run_id":  null,
+                       "sequence":  null,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  39,
+                       "state_present":  true,
+                       "state_sha256":  "8D3E51AAE181ECF438DD86FC5EF6F9E006C8C60E3873D9468D97571BEDD0A5D5",
+                       "run_id":  "RM065-GOAL-010-20260814T094325Z-f887889c",
+                       "sequence":  0,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  40,
+                       "state_present":  false,
+                       "state_sha256":  null,
+                       "run_id":  null,
+                       "sequence":  null,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  41,
+                       "state_present":  true,
+                       "state_sha256":  "17CD0F0843BF3C12C49DD7E5398454C4695F2D4825D51CCAFDA87375D6D7C92F",
+                       "run_id":  "RM065-GOAL-010-20260814T103054Z-8b936b99",
+                       "sequence":  0,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  42,
+                       "state_present":  true,
+                       "state_sha256":  "BFF4561E3E41ADC7504D13246047CB354E378137CF72F6A3588620D40E1C8998",
+                       "run_id":  "RM065-GOAL-010-20260814T120235Z-6cc93e8f",
+                       "sequence":  0,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  43,
+                       "state_present":  true,
+                       "state_sha256":  "D662BE303AA1D80050990DA366E3FB09B5F03157DCE1109048952C2FA142B167",
+                       "run_id":  "RM065-GOAL-010-20260814T120855Z-44f32b7e",
+                       "sequence":  0,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  44,
+                       "state_present":  true,
+                       "state_sha256":  "A6A390519A8A29B1339226AF402A6AC0098C5B0641D3C6CA96E6A3655A9AD1D7",
+                       "run_id":  "RM065-GOAL-010-20260814T130846Z-06a87315",
+                       "sequence":  0,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  45,
+                       "state_present":  false,
+                       "state_sha256":  null,
+                       "run_id":  null,
+                       "sequence":  null,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  46,
+                       "state_present":  true,
+                       "state_sha256":  "B63B48D7E5D873DB66E2F3565A778DC15620BEB6112C756C4B66E72865B54BB0",
+                       "run_id":  "RM065-GOAL-010-20260814T133800Z-80172093",
+                       "sequence":  0,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  47,
+                       "state_present":  false,
+                       "state_sha256":  null,
+                       "run_id":  null,
+                       "sequence":  null,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  48,
+                       "state_present":  true,
+                       "state_sha256":  "2BE83E8CD869CAE7DCA3B7A824B67F69FE107EC233E409D5CF7D5B8227E729AA",
+                       "run_id":  "RM065-GOAL-010-20260815T094859Z-28972771",
+                       "sequence":  0,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  49,
+                       "state_present":  true,
+                       "state_sha256":  "CAB1AFFC07661C4362CDEC25FC536518A1D9F1BB29D9451DEAB64382761CFE77",
+                       "run_id":  "RM065-GOAL-010-20260815T102236Z-a5a5eeaf",
+                       "sequence":  0,
+                       "event_files":  [
+
+                                       ],
+                       "events_available":  0
+                   },
+                   {
+                       "epoch":  50,
+                       "state_present":  true,
+                       "state_sha256":  "78929EF44E2C8000FAE8CD979A2083B0E6E42B03C9A549CB35F03789E095E14E",
+                       "run_id":  "RM065-GOAL-010-20260815T104802Z-dffbb6f9",
+                       "sequence":  2,
+                       "event_files":  [
+                                           {
+                                               "file":  "000001-ce85e797c58f476898f75ebc3b890342.json",
+                                               "sha256":  "0BBEA327EC9A22FB2FF4F2354506DD5BAB864C8E2FB2E1B2460AAAD3420ED1C8",
+                                               "source":  "D:\\意向项目\\.agent-bridge\\runtime\\orchestrator\\RM065-GOAL-010-epoch50\\events\\active\\000001-ce85e797c58f476898f75ebc3b890342.json"
+                                           },
+                                           {
+                                               "file":  "000002-7bb36410abdc40f59de0e626c8845312.json",
+                                               "sha256":  "EE3C46A1A398284A88A8884C7B2A90371273FB980A5EF1CDA1DCA31EB7D1E555",
+                                               "source":  "D:\\意向项目\\.agent-bridge\\runtime\\orchestrator\\RM065-GOAL-010-epoch50\\events\\active\\000002-7bb36410abdc40f59de0e626c8845312.json"
+                                           }
+                                       ],
+                       "events_available":  2
+                   }
+               ]
+}

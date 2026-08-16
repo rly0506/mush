@@ -1,0 +1,90 @@
+{
+    "schema_version":  2,
+    "run_id":  "RM065-GOAL-010-20260814T012413Z-574e7621",
+    "goal_id":  "RM065-GOAL-010",
+    "goal_path":  "D:\\意向项目\\spec\\roadmaps\\planning\\rm-065\\goals\\RM065-GOAL-010.md",
+    "assignment_epoch":  24,
+    "parent_role":  "parent_reviewer",
+    "executor_role":  "backend_executor",
+    "actor_bindings":  {
+                           "backend_executor":  {
+                                                    "adapter_id":  "pi",
+                                                    "model_profile":  "pi/deepseek-v4-pro",
+                                                    "instance_id":  "executor-pi-deepseek-rm065-goal010-20260814-24",
+                                                    "mailbox_path":  ".agent-bridge/TO_BACKEND_EXECUTOR.md",
+                                                    "lane_path":  "spec/roadmaps/planning/current/backend-executor-rm065-goal-010-epoch24.md",
+                                                    "executable":  "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+                                                    "arguments":  [
+                                                                      "-NoProfile",
+                                                                      "-ExecutionPolicy",
+                                                                      "Bypass",
+                                                                      "-File",
+                                                                      "D:/npm-global/pi.ps1",
+                                                                      "--mode",
+                                                                      "rpc",
+                                                                      "--provider",
+                                                                      "deepseek",
+                                                                      "--model",
+                                                                      "deepseek-v4-pro",
+                                                                      "--no-session"
+                                                                  ],
+                                                    "prompt_transport":  "stdin",
+                                                    "capability_id":  "2471A83AEE23D30BD9166C423D5FEDDF"
+                                                },
+                           "parent_reviewer":  {
+                                                   "model_profile":  "gpt-5.6-sol",
+                                                   "instance_id":  "parent-sol-rm065-goal010-20260811-01",
+                                                   "mailbox_path":  ".agent-bridge/TO_PARENT_REVIEWER.md",
+                                                   "lane_path":  "spec/roadmaps/planning/current/parent-reviewer-rm065-goal-010-epoch24.md",
+                                                   "executable":  "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+                                                   "arguments":  [
+                                                                     "-NoProfile",
+                                                                     "-Command",
+                                                                     "exit 0"
+                                                                 ],
+                                                   "prompt_transport":  "none",
+                                                   "capability_id":  "FE71171AEFC42BA34239604D96973F01"
+                                               }
+                       },
+    "config_digest":  "FE658F034411A7EB5394E940206A8911882A9C5B971713E5E3DA46D784F49674",
+    "bootstrap_config_sha256":  "3DB3A7F81864949DA0D3CF42B9E2A074BB3B9F840F6BB0472CA9FFA3A15FF9DE",
+    "implementation_owner":  "backend_executor",
+    "review_owner":  "parent_reviewer",
+    "parent_product_edit_policy":  "FORBIDDEN",
+    "parent_product_snapshot":  {
+
+                                },
+    "status":  "WAIT_EXECUTOR",
+    "expected_role":  null,
+    "sequence":  0,
+    "max_full_reviews":  3,
+    "review_phase_limit":  3,
+    "review_phase":  0,
+    "phase_transition_pending":  false,
+    "full_review_count":  0,
+    "finding_recheck_count":  0,
+    "active_finding_ids":  [
+
+                           ],
+    "finding_attempts":  {
+
+                         },
+    "finding_attempt_digests":  {
+
+                                },
+    "dispatch_status":  "UNCERTAIN",
+    "dispatch_role":  "backend_executor",
+    "dispatch_actor_instance_id":  "executor-pi-deepseek-rm065-goal010-20260814-24",
+    "dispatch_sequence":  1,
+    "dispatch_id":  "4da0c51eb4d945ccb912bc14ed608156",
+    "dispatch_job_name":  "AgentBridge-FC037709B8238A4A221570F48DECDE3B",
+    "dispatch_process_id":  13940,
+    "dispatch_process_started_at_utc":  "2026-08-14T01:24:16.7355103Z",
+    "resume_status":  "EXECUTOR_PENDING",
+    "resume_expected_role":  "backend_executor",
+    "last_event_id":  null,
+    "last_packet_path":  null,
+    "run_pause_reason":  null,
+    "terminal_reason":  "ipc-event-missing-or-invalid:63",
+    "updated_at_utc":  "2026-08-14T01:24:13.7184662Z"
+}

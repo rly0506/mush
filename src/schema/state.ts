@@ -52,8 +52,8 @@ export interface OrchestratorStateV2 {
   dispatch_process_started_at_utc: string | null;
   resume_status: string | null;
   resume_expected_role: string | null;
-  last_event_id: string;
-  last_packet_path: string;
+  last_event_id: string | null;
+  last_packet_path: string | null;
   run_pause_reason: string | null;
   terminal_reason: string | null;
   updated_at_utc: string;
@@ -128,8 +128,8 @@ export function parseOrchestratorStateV2(input: unknown): OrchestratorStateV2 {
     throw new Error("orchestrator state 'assignment_epoch' must be an integer >= 1");
   }
   const sequence = input.sequence;
-  if (typeof sequence !== 'number' || !Number.isInteger(sequence) || sequence < 1) {
-    throw new Error("orchestrator state 'sequence' must be an integer >= 1");
+  if (typeof sequence !== 'number' || !Number.isInteger(sequence) || sequence < 0) {
+    throw new Error("orchestrator state 'sequence' must be an integer >= 0");
   }
 
   const updatedAtUtc = requireString(input, 'updated_at_utc');
@@ -180,8 +180,8 @@ export function parseOrchestratorStateV2(input: unknown): OrchestratorStateV2 {
     dispatch_process_started_at_utc: nullableString(input.dispatch_process_started_at_utc),
     resume_status: nullableString(input.resume_status),
     resume_expected_role: nullableString(input.resume_expected_role),
-    last_event_id: requireHex(input, 'last_event_id', 32),
-    last_packet_path: requireString(input, 'last_packet_path'),
+    last_event_id: input.last_event_id === null ? null : requireHex(input, 'last_event_id', 32),
+    last_packet_path: nullableString(input.last_packet_path),
     run_pause_reason: nullableString(input.run_pause_reason),
     terminal_reason: nullableString(input.terminal_reason),
     updated_at_utc: updatedAtUtc,
