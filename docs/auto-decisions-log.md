@@ -289,3 +289,15 @@ b47afd7c0fd93fdead7b48392b3dcc1e9e46791d991776330e49a83540d91403  .test-fixtures
   **owner 早期那次派发实际成功**，只是落错了地方——D1 修复后不再复发。
 - **新 finding F-39（小）**：workspaces 列表同路径双条目（`D:\…` 与 `D:/…`
   形态未归一化）——known-workspaces 读写时统一 path.resolve，下批顺手修。
+
+## AD-20 · RM-002 DoD「owner 实操全流程」落袋（2026-08-17）
+
+- **owner 亲手在看板完成干净全流程**：选犬（deepseek-dsh）→ 写任务（"1+1等于几"）
+  → effort/cap/real → 派发 → 卡片实时反馈 → detail 输出预览（"1+1等于2。"）
+  → 完整生命周期（ADMISSION→EXECUTE→REPORT→REVIEW 全 PASS）。
+- **证据锚点**：dispatch_id `eaaad0820d8d4fee90ff8d941bcf5419`，回执
+  `D:\mush-playground\.mush-receipts\dispatch-eaaad082….json`
+  （sha256 92b88d80…4b9cff0，exit 0，real=true）。
+- **意义**：GOAL-007B 四项修复经 owner 实操确认；workspace 正确落在
+  playground（D1 修复验证）；RM-002 DoD 剩余：意向项目收官任务（owner 指定）
+  + 扩编犬 nonce 补跑（普通环境）。
