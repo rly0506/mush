@@ -1,0 +1,34 @@
+{
+  "batch": "BATCH-30",
+  "unit": "G8-U2",
+  "goal_id": "MUSH-GOAL-008",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "dsh/deepseek headless",
+  "changed_paths": [
+    "goals/receipts/dispatch-events/codex-real-001.json",
+    "goals/receipts/dispatch-events/codex-real-002.json",
+    "goals/receipts/dispatch-events/opencode-real-001.json",
+    "goals/receipts/BATCH-30-test-output.txt",
+    "goals/receipts/BATCH-30-completion.json"
+  ],
+  "tests_run": "真实 nonce 注册尝试（D22 预授权）：codex 2 次、opencode 1 次，均环境失败；跟踪面测试基线不变（211/211，见 BATCH-29）。",
+  "test_output_summary": "codex/opencode 真实探测 FAIL（沙箱 EPERM 类环境阻断），证据落盘；未烧第二次以上",
+  "ps_source_trace": [
+    "D22：codex/opencode nonce 探测一揽子预授权（每犬一次有界；渠道异常记 finding 停）",
+    "GOAL-008 任务1/2 凭据边界：mush 只调 executable，不注入/不读取/不存储密钥"
+  ],
+  "ported_assertions": [],
+  "open_findings": [
+    {
+      "id": "F-34",
+      "severity": "warn",
+      "detail": "codex 真实 nonce 注册 BLOCKED_ENV：沙箱内 codex 无法初始化 in-process app-server 客户端（EPERM：~/.codex arg0 临时目录拒绝访问），2 次尝试后按 D22 停止。codex 保持 T1 合同在册（fake/录制级），真实注册待普通环境。"
+    },
+    {
+      "id": "F-35",
+      "severity": "warn",
+      "detail": "opencode 真实 nonce 注册 BLOCKED_ENV：1 次尝试 exit 1、无机器可读输出（沙箱环境阻断）。按 D22 停止，opencode 保持 T1 合同在册（fake/录制级），真实注册待普通环境。"
+    }
+  ],
+  "spent_estimate_usd": 0.05
+}

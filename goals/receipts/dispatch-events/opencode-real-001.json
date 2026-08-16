@@ -1,0 +1,21 @@
+{
+    "schema_version":  1,
+    "dispatch_id":  "opencode-real-001",
+    "adapter_id":  "opencode",
+    "owner_approval":  "D22 一揽子预授权",
+    "started_at_utc":  "2026-08-16T06:50:45.7412669Z",
+    "finished_at_utc":  "2026-08-16T06:50:47.8645973Z",
+    "provider":  "opencode",
+    "model_id":  "UNKNOWN",
+    "identity_proven":  false,
+    "nonce":  "4ce73b38dc374ef28a5bd45500bdd59f",
+    "expected_sha256":  "e296830f9cdc1d3d9c92864097b4b185e8dd0a87fd89f2f6cb8b4c4164896be5",
+    "observed":  null,
+    "marker_ok":  false,
+    "nonce_matched":  false,
+    "exit_code":  1,
+    "timed_out":  false,
+    "stdout_sha256":  "3D09718B8C080F185714DAE106CF87E895A1A38B671BDF60BC6F50AB83029406",
+    "stdout_len":  486,
+    "status":  "FAIL"
+}

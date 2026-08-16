@@ -1,0 +1,21 @@
+{
+    "schema_version":  1,
+    "dispatch_id":  "codex-real-001",
+    "adapter_id":  "codex",
+    "owner_approval":  "D22 一揽子预授权",
+    "started_at_utc":  "2026-08-16T06:49:57.1228335Z",
+    "finished_at_utc":  "2026-08-16T06:49:59.6424431Z",
+    "provider":  "openai",
+    "model_id":  "UNKNOWN",
+    "identity_proven":  false,
+    "nonce":  "ecd7822e36834011879f9e8d2f593094",
+    "expected_sha256":  "3c9edb4cc18d6df1044e8e1946717f3b313fde105736a37612f7dd490658b39d",
+    "observed":  null,
+    "marker_ok":  false,
+    "nonce_matched":  false,
+    "exit_code":  1,
+    "timed_out":  false,
+    "stdout_sha256":  "FF5B7082406FBEC592AD14DA09D5329CA91378F8E44BCD3DA865596BCE5F7750",
+    "stdout_len":  712,
+    "status":  "FAIL"
+}
