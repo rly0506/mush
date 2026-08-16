@@ -1,0 +1,34 @@
+{
+  "batch": "BATCH-29",
+  "unit": "G6-U2",
+  "goal_id": "MUSH-GOAL-006",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "dsh/deepseek headless",
+  "changed_paths": [
+    "src/web/dispatch.ts",
+    "src/web/server.ts",
+    "src/core/budget.ts",
+    "tests/web-dispatch.test.ts",
+    "goals/receipts/BATCH-29-test-output.txt",
+    "goals/receipts/BATCH-29-completion.json"
+  ],
+  "tests_run": "git 跟踪测试文件 + 本批新增真实执行：tests 211 / pass 211 / fail 0 / exit 0（基线 204 + 本批 7）；完整输出见 BATCH-29-test-output.txt",
+  "test_output_summary": "211/211 全绿；全量 glob 仍受 kimi 在途未跟踪前端测试影响（F-32），跟踪面为权威基线",
+  "ps_source_trace": [
+    "src/web/api-contract.md v1（POST /api/dispatch、GET /api/dispatch/:id、workspaces、budget）",
+    "GOAL-006 任务2/3/4/5（派发管线/workspace API/USD 台账/生命周期事件）",
+    "GOAL-002 src/core/budget.ts（UsdBudgetLedger 复用）"
+  ],
+  "ported_assertions": [
+    {
+      "test": "web-dispatch.test.ts（7 tests：schema fail-closed/dry-run 全生命周期/402 超预算门/real 审批门/workspace 持久化/budget 投影/HTTP 端点契约）",
+      "ps_source": "api-contract.md v1 + GOAL-006",
+      "assertions": 37
+    }
+  ],
+  "open_findings": [
+    "F-33 src/core/budget.ts 增加 UsdBudgetLedger.allEntries()（最小投影辅助，无行为变更）；按 GOAL-006 边界说明：本 Goal 对 core 仅此一处只读消费侧扩展。",
+    "F-32（沿用）kimi 前端未跟踪测试在途，全量 glob 暂红；跟踪面 211/211 为权威。"
+  ],
+  "spent_estimate_usd": 0.03
+}

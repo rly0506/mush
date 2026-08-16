@@ -15,6 +15,7 @@ import { EventLog } from '../core/event-log.ts';
 import { parseBridgeEventV2 } from '../schema/events.ts';
 import { collectBoardSnapshot } from './sources.ts';
 import { renderBoardPage } from './page.ts';
+import { DispatchPipeline, InputError } from './dispatch.ts';
 
 export interface BoardServerOptions {
   approvalRoot: string;
@@ -24,6 +25,10 @@ export interface BoardServerOptions {
   port?: number;
   /** 预载事件日志（如 loop 接线时传入既有日志）；缺省新建空日志。 */
   eventLog?: EventLog;
+  /** 派发管线（G006）；缺省按 workspaceRoot/approvalRoot 自建。 */
+  dispatch?: DispatchPipeline;
+  workspaceRoot?: string;
+  ledgerPath?: string;
 }
 
 export interface BoardServer {
@@ -58,6 +63,14 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
   const port = options.port ?? 0;
   const approvalRoot = path.resolve(options.approvalRoot);
   const log = options.eventLog ?? new EventLog(options.runId, options.assignmentEpoch);
+  const dispatch =
+    options.dispatch ??
+    new DispatchPipeline({
+      workspaceRoot: options.workspaceRoot ?? process.cwd(),
+      approvalRoot,
+      ledgerPath: options.ledgerPath ?? path.join(process.cwd(), 'runtime', 'budget-ledger.jsonl'),
+      onEvent: (event) => broadcast(event),
+    });
   const sseClients = new Set<ServerResponse>();
 
   function broadcast(payload: Record<string, unknown>): void {
@@ -167,6 +180,77 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     }
     if (route === 'POST /api/approvals/respond') {
       void handleApprovalRespond(request, response);
+      return;
+    }
+    if (route === 'POST /api/dispatch') {
+      void (async () => {
+        let body: unknown;
+        try {
+          body = JSON.parse(await readBody(request));
+        } catch {
+          sendJson(response, 400, { ok: false, error: 'body must be JSON' });
+          return;
+        }
+        let record;
+        try {
+          record = await dispatch.dispatch(body);
+        } catch (error) {
+          if (error instanceof InputError) {
+            sendJson(response, 400, { ok: false, error: error.message });
+          } else {
+            sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+          }
+          return;
+        }
+        const status = record.admission?.decision === 'DENIED' ? 402 : 202;
+        sendJson(response, status, {
+          ok: true,
+          dispatch_id: record.dispatch_id,
+          status: record.status,
+          admission: record.admission,
+        });
+      })();
+      return;
+    }
+    const dispatchGet = /^\/api\/dispatch\/([0-9a-f]{32})$/.exec(url.pathname);
+    if (request.method === 'GET' && dispatchGet !== null) {
+      const record = dispatch.get(dispatchGet[1]);
+      if (record === null) {
+        sendJson(response, 404, { ok: false, error: `dispatch not found: ${dispatchGet[1]}` });
+      } else {
+        sendJson(response, 200, { ok: true, dispatch: record });
+      }
+      return;
+    }
+    if (route === 'GET /api/workspaces') {
+      sendJson(response, 200, { ok: true, workspaces: dispatch.listWorkspaces() });
+      return;
+    }
+    if (route === 'POST /api/workspaces/select') {
+      void (async () => {
+        let body: Record<string, unknown>;
+        try {
+          body = JSON.parse(await readBody(request)) as Record<string, unknown>;
+        } catch {
+          sendJson(response, 400, { ok: false, error: 'body must be JSON' });
+          return;
+        }
+        if (typeof body.path !== 'string' || body.path.trim() === '') {
+          sendJson(response, 400, { ok: false, error: "field 'path' is required" });
+          return;
+        }
+        try {
+          const selected = dispatch.selectWorkspace(body.path);
+          sendJson(response, 201, { ok: true, selected });
+        } catch (error) {
+          if (error instanceof InputError) sendJson(response, 400, { ok: false, error: error.message });
+          else sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+        }
+      })();
+      return;
+    }
+    if (route === 'GET /api/budget') {
+      sendJson(response, 200, { ok: true, ...dispatch.budgetProjection() });
       return;
     }
     if (route === 'GET /api/stream') {

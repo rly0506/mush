@@ -141,6 +141,14 @@ export class UsdBudgetLedger {
     return Object.freeze([...(this.ledgers.get(actorId) ?? [])]);
   }
 
+  /** 全部 actor 的 admission 事件（按落账顺序合并）。 */
+  allEntries(): UsdAdmissionEntry[] {
+    const all: UsdAdmissionEntry[] = [];
+    for (const entries of this.ledgers.values()) all.push(...entries);
+    all.sort((a, b) => a.atUtc.localeCompare(b.atUtc));
+    return all;
+  }
+
   /** 重算 admission 事件哈希链。 */
   verify(actorId: string): void {
     let previous: string | null = null;
