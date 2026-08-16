@@ -26,6 +26,7 @@ export type DispatchStatus =
   | 'BLOCKED_WAITING_OWNER'
   | 'BLOCKED_ENV'
   | 'TIMEOUT'
+  | 'INTERRUPTED'
   | 'FAIL'
   | 'PASS';
 
@@ -205,6 +206,31 @@ export class DispatchPipeline {
     // GP-03：重启回放——已落盘的派发记录重新入内存（recent() 跨重启可用）。
     for (const record of this.persistence?.loadDispatchRecords() ?? []) {
       this.records.set(record.dispatch_id, record);
+    }
+    // DEF-09：僵尸派发回收——上个实例若在 EXECUTE 中途被杀（重启/崩溃），
+    // 记录会永远停在 ADMITTED（ee34f331 事故：头犬重启误杀 owner 在途派发）。
+    // 回放时对"非终态且止步 EXECUTE"的记录追加 INTERRUPTED 报告，如实可见。
+    const TERMINAL = new Set<DispatchStatus>(['PASS', 'FAIL', 'DRY_RUN', 'TIMEOUT', 'BLOCKED_WAITING_OWNER', 'BLOCKED_ENV', 'INTERRUPTED']);
+    for (const record of this.records.values()) {
+      const lastPhase = record.events.length > 0 ? record.events[record.events.length - 1].phase : null;
+      if (!TERMINAL.has(record.status) && lastPhase === 'EXECUTE') {
+        record.status = 'INTERRUPTED';
+        const event: DispatchLifecycleEvent = {
+          kind: 'dispatch',
+          phase: 'REPORT',
+          status: 'INTERRUPTED',
+          adapter_id: record.adapter_id,
+          dispatch_id: record.dispatch_id,
+          at_utc: this.now().toISOString(),
+          payload: { reason: 'server restarted during EXECUTE (DEF-09 zombie reconciliation)' },
+        };
+        record.events.push(event);
+        try {
+          this.persistence?.appendDispatchEvent(record, event);
+        } catch {
+          // 回收事件落盘失败不阻断内存回收（重启幂等由终态判断保证）。
+        }
+      }
     }
     this.runAdapter =
       options.runAdapter ??

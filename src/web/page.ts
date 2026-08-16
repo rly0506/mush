@@ -309,7 +309,7 @@ export function renderBoardPage(): string {
   }
 
   /* ---------- 派发跟踪卡片（G7B-D2：upsert 更新 + 已耗时计时 + 完成 toast） ---------- */
-  var TERMINAL_STATUSES = { DRY_RUN: 1, PASS: 1, FAIL: 1, BLOCKED_WAITING_OWNER: 1, BLOCKED_ENV: 1 };
+  var TERMINAL_STATUSES = { DRY_RUN: 1, PASS: 1, FAIL: 1, BLOCKED_WAITING_OWNER: 1, BLOCKED_ENV: 1, TIMEOUT: 1, INTERRUPTED: 1 };
 
   function trackDispatch(dispatchId, adapterId, status) {
     if (!dispatchId) return;
