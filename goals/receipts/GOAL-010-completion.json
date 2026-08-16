@@ -1,6 +1,6 @@
 {
   "goal_id": "MUSH-GOAL-010",
-  "status": "COMPLETE_REQUESTED",
+  "status": "AUTO_ACCEPTED",
   "executor": "dsh/deepseek headless",
   "changed_paths": [
     "src/adapters/ccswitch-probe.ts",
@@ -27,5 +27,10 @@
     "F-37 kimi 在途前端 triage 测试使全量 npm test 暂红；跟踪面为权威",
     "DEF-02 补强：沙箱同步 EPERM spawn 失败路径已纳入 BLOCKED_ENV 受控收尾（环境自适应）"
   ],
-  "spent_estimate_usd": 0.03
+  "spent_estimate_usd": 0.03,
+  "acceptance": {
+    "mode": "D15",
+    "applied": "2026-08-17",
+    "machine_checks": "head verified: tracked 9/9, full 242/242, registry clean, roster live 19/61/2/2 (AD-18)"
+  }
 }

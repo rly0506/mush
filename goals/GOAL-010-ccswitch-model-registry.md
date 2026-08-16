@@ -1,6 +1,6 @@
 ---
 goal_id: MUSH-GOAL-010
-status: QUEUED（与 GOAL-007-B 并行；文件面不相交）
+status: AUTO_ACCEPTED（D15，2026-08-17；DONE 待 owner 转正）
 mode: LIGHT（触发门照常生效）
 rm: RM-002 / D20 完整落地
 executor_model_profile: deepseek-dsh（后端）

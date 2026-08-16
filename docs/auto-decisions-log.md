@@ -257,3 +257,16 @@ b47afd7c0fd93fdead7b48392b3dcc1e9e46791d991776330e49a83540d91403  .test-fixtures
   处置正确（恢复他犬文件、保留己方改动、全绿再提交）——并行拓扑首次真实
   摩擦，无损失；后续并行派发包应错开批次号段（改进项记 M5+）。
 - **RM-002 进度**：G006+G007 收口 → **G009（试验田）编排前置就绪**。
+
+## AD-18 · GOAL-010 验收（2026-08-17，头犬 zcode 会话）
+
+- **机检**：跟踪面独立复跑 9/9（web-dispatch + ccswitch-probe）；全量 242/242
+  （首跑 1 fail 复跑即过——F-29 同族超时竞态 flaky，继续观察）。
+- **产物核验**：`runtime/capability-registry.json` 生成（probed_at 时间戳在案）；
+  **脱敏扫描 clean**（无 sk-/token/api_key）；roster 活体验证：claude-code
+  19 变体、codex 61、opencode 2、deepseek-dsh 2——cc-switch 实测枚举生效。
+- **验收**：GOAL-010 升 **AUTO_ACCEPTED**（executor deepseek-dsh，commit 4d2440f）。
+  D20"实测注册"自此落地：变体=可调用候选（verified:false），身份仍以 nonce
+  实测为准（D13）。
+- **并行协作**：kimi 在途文件（page.ts/api-contract.md/utils 新件）在工作树，
+  属 GOAL-007-B 未完工作，头犬验收不触碰；其提交后全量自然恢复绿。
