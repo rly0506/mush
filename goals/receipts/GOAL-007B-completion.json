@@ -1,0 +1,42 @@
+{
+  "goal_id": "MUSH-GOAL-007B",
+  "rm": "RM-002 / 看板前端错误排查与优化（owner 实测反馈）",
+  "status": "COMPLETE_REQUESTED",
+  "semantics": "D15：机检验收规格全绿 + live 冒烟真实执行，请求 AUTO_ACCEPTED；DONE 与否决权仍归 owner",
+  "executor": "kimi-k3 (goal mode, dispatch packet docs/dispatch/006-kimi-frontend-triage.md)",
+  "completed_at_utc": "2026-08-16T08:30:00Z",
+  "batches": ["BATCH-32"],
+  "commits": [
+    "561eb4e fix(G7B): owner-feedback triage — workspace selected echo (E2), dispatch upsert/RUNNING card/elapsed timer/completion toast (D2), stdout_tail detail (E1), roster recent-dispatch column (D3), variant hint (D4); contract v1.1 (242/242 green)"
+  ],
+  "defects_fixed": {
+    "D1_workspace_feedback": "listWorkspaces 增 selected 字段（E2）+ 前端歧义空项改'（未选择，默认服务目录）'+ 选中项 selected 属性 + header 高亮联动 + select 后重拉重渲染",
+    "D2_status_stall": "trackDispatch upsert（SSE 后续帧刷新既有卡片）+ started_ms 已耗时每秒刷新 + RUNNING 呼吸点徽章 + 终态 toast '完成：PASS/FAIL' + detail 显示 stdout_tail/stderr_tail（E1）与事件时间线",
+    "D3_roster_activity": "roster 回退视图新增'最近派发'列：snapshot.dispatches 按 adapter_id 聚合（次数+状态徽章+时间），无活动保持'（未活动，注册在册）'",
+    "D4_variant_hint": "变体下拉 hint'变体 = 身份期望（合同声明），非实时能力清单'；cc-switch 实时枚举归 GOAL-010（后端），未越界实现",
+    "E1": "GET /api/dispatch/:id 增 stdout_tail（末 2048 字符）/ stderr_tail（256B），截断标记 truncated，REPORT 前 null",
+    "E2": "GET /api/workspaces 条目增 selected: boolean"
+  },
+  "verification": {
+    "npm_test": "242/242 全绿，fail 0，exit code 0（真实执行；goals/receipts/BATCH-32-test-output.txt）",
+    "new_tests": "web-board-triage.test.ts 3 项（E2 selected 标记、E1 截断语义含 2KB/256B 边界与短输出不截断）+ web-board-triage-page.test.ts 5 项（D1 文案/selected 联动、D2 upsert/计时/完成 toast/detail 截断渲染、D3 聚合列、D4 hint）",
+    "live_smoke": "node bin/mush board 真实起服冒烟：playground select 201 且 GET 回显 selected=true；fake-t1 dry-run 202→终态+回执+detail tail 字段；snapshot dispatches 与 roster（6 犬）正常；冒烟后进程已终止",
+    "contract": "src/web/api-contract.md 升 v1.1（向后兼容扩展，同 commit）"
+  },
+  "evidence_paths_and_hashes": [
+    { "path": "src/web/page.ts", "sha256": "F156F4DB995ADC050F0D0C42D217E395515ED8D87F6D962725F503105B99CD05" },
+    { "path": "src/web/dispatch.ts", "sha256": "CE4AF4D842A6B761664766DAD3355573BAADC26470EA19A2BB142A51F4477EF1" },
+    { "path": "src/web/api-contract.md", "sha256": "A53B4EAC661230B3348B799B85A225A34A4B9FF03537BBC7849C508AA37F39D3" },
+    { "path": "tests/web-board-triage.test.ts", "sha256": "B7DAAB444030495FE86C67308A8525F3D83FAF71B227D21EAF1CCC7DA510CD89" },
+    { "path": "tests/web-board-triage-page.test.ts", "sha256": "7437029981B4E175E7B5AD0881D288A139968F578466F52F1E07A96EDC3C449E" },
+    { "path": "goals/receipts/BATCH-32-test-output.txt", "sha256": "AF40B9296C22BA6C840E61344E306DA37BB169293A8340526368F1E57BB015E2" }
+  ],
+  "open_findings": [
+    "F-G7B-01 页面 RUNNING 感知依赖 SSE 时序（server 端 dispatch 同步执行，EXECUTE 帧先于响应）；server 异步化派发属管线改动，超出本包边界，记 finding",
+    "F-G7B-02 D4 模型变体实时枚举属 GOAL-010（packet 007，后端），本 Goal 只加 hint 防误读",
+    "F-G7B-03 冒烟 fake-t1 dry-run 终态 FAIL（fake.exe 不存在，exit 1），管线语义正确；非空输出 tail 截断路径由单测覆盖",
+    "F-G7B-04 工作区存在他犬未跟踪文件（src/utils.ts、tests/utils.test.ts、.mush/），不属于本包范围，未提交未改动"
+  ],
+  "spent_estimate_usd_total": 0.6,
+  "per_actor_cap_usd": 5
+}
