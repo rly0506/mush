@@ -1,6 +1,6 @@
 ---
 goal_id: MUSH-GOAL-011
-status: QUEUED（RM-003 / M1；与 GOAL-012 契约先行并行，F-45 worktree）
+status: AUTO_ACCEPTED（D15，2026-08-17；两轮真实聊天验收 PASS，AD-26）
 mode: LIGHT
 rm: RM-003 / M1 头犬核心
 executor_model_profile: deepseek-dsh（后端）

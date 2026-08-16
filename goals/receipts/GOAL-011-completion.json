@@ -1,6 +1,6 @@
 {
   "goal_id": "MUSH-GOAL-011",
-  "status": "COMPLETE_REQUESTED",
+  "status": "AUTO_ACCEPTED",
   "executor": "dsh/deepseek headless",
   "worktree_branch": "g011-deepseek",
   "changed_paths": [
@@ -43,5 +43,10 @@
     "F-41 dsh headless 无 --resume，真实多轮冒烟待 dsh 支持或换 claude 通道",
     "F-42 g011 分支被 kimi 占用，本犬使用 g011-deepseek（隔离等价）"
   ],
-  "spent_estimate_usd": 0.06
+  "spent_estimate_usd": 0.06,
+  "acceptance": {
+    "mode": "D15",
+    "applied": "2026-08-17",
+    "machine_checks": "260/260; merged to master; head 2-round live chat PASS (context stitch proven); F-48 patched"
+  }
 }

@@ -362,3 +362,19 @@ GOAL-001 / 002 / 003 / 004 / 005 / 007B / GP-02 / GP-03 / GOAL-010 全部
 AUTO_ACCEPTED → **DONE**（goal 文件与 completion 回执同步更新）。至此
 RM-001、RM-002 全部构件正式收官。另：派发包编号改带 RM 前缀（rm003-pNN），
 杜绝 Goal 号/包号歧义（GOAL-010 重复领单教训）。
+
+## AD-26 · GOAL-011 验收 + 合并（2026-08-17，头犬 zcode 会话）
+
+- **隔离验证**：worktree g011-deepseek 260/260 全绿（255+5）。
+- **合并**：F-45 首次实战——master 合入 g011-deepseek（chat API/head-dog
+  适配器/角色注册/DEF-10/会话续跑机制）。
+- **F-48（执行者记为 F-41，编号撞车特此归正）**：dsh 0.1.0 headless 不支持
+  --resume。头犬补丁：① dsh/head-dog 合同摘除 resume_flag 声明（诚实）；
+  ② chat.ts 改**上下文缝合**（近 12 轮织入 prompt，任何通道可用）；
+  ③ chat 默认 real=true（聊天无 dry-run 意义）+ timeout 300s。
+- **真实验收（合并后 master，头犬亲测）**：两轮聊天全 PASS——round 2 逐字
+  引用 round 1 提问（多轮上下文实证）；头犬对在册犬的回答准确（5 只 +
+  kimi 待补编）。
+- **验收**：GOAL-011 **AUTO_ACCEPTED**（executor deepseek-dsh，分支
+  g011-deepseek @ a300083 + 头犬 F-48 补丁）。
+- 深seek worktree 已合并待清；kimi g012 在途。

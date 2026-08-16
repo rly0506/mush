@@ -23,7 +23,8 @@ export function buildHeadDogContract(): AdapterContract {
     expected_provider: 'deepseek',
     expected_model_id: 'deepseek-v4-flash',
     role: 'head',
-    resume_flag: '--resume',
+    // F-48：dsh 0.1.0 headless 实测不支持 --resume（unknown option）——声明
+    // 摘除，多轮上下文经 chat.ts 的 prompt 缝合实现；通道支持后恢复。
   });
 }
 
