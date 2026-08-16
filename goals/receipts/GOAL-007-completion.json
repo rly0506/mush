@@ -1,0 +1,44 @@
+{
+  "goal_id": "MUSH-GOAL-007",
+  "rm": "RM-002 / 看板前端调度入口",
+  "status": "COMPLETE_REQUESTED",
+  "semantics": "D15：机检验收规格全绿，请求 AUTO_ACCEPTED；DONE 与否决权仍归 owner",
+  "executor": "kimi-k3 (goal mode, dispatch packet docs/dispatch/005-kimi-rm002-frontend.md)",
+  "completed_at_utc": "2026-08-16T06:56:41Z",
+  "batches": ["BATCH-29"],
+  "commits": [
+    "379774a feat(G7-U1-U4): board dispatch console — dispatch form, workspace selector, tracking cards, real budget view + fake dry-run e2e smoke (222/222 green)",
+    "0f848f5 docs(G7): BATCH-29 completion receipt"
+  ],
+  "deliverables": {
+    "dispatch_form": "调度视图：犬只下拉（快照 actors 在册投影 + provider/model 身份证明徽章，不硬编码名单）/ 任务文本域（≤64000）/ effort 档位 LOW|HIGH|XHIGH / cap_usd / dry-run|real 切换（real 显示'需 approval 在案'提示）→ POST /api/dispatch，展示 dispatch_id 与状态",
+    "workspace_selector": "GET /api/workspaces 列表（git/mush_managed 徽章）+ POST /api/workspaces/select 持久化；当前 workspace 全局高亮（header 徽章）",
+    "dispatch_tracking": "派发跟踪卡片：状态徽章（ADMITTED/DRY_RUN/PASS/RUNNING/BLOCKED_*/FAIL）+ SSE kind=dispatch 实时更新 + 点击展开 GET /api/dispatch/:id（回执锚点 receipt_path + 生命周期事件）",
+    "budget_view": "消费 GET /api/budget：per-actor 花费/cap 进度条（>80% 转红）+ 最近 5 条台账条目，替换 GOAL-005 静态 BUDGET_GATE 展示"
+  },
+  "verification": {
+    "npm_test": "222/222 全绿，fail 0，exit code 0（真实执行，输出 goals/receipts/BATCH-29-test-output.txt，✔ 行计数 222）",
+    "page_structure_tests": "tests/web-board-page.test.ts 7 项：派发表单字段/契约字段/犬只下拉来源快照 actors/workspace 选择器三要素/跟踪卡片徽章与展开/预算视图契约字段/SSE dispatch 类型/零外链+无凭据渲染",
+    "e2e_smoke": "tests/web-board-e2e.test.ts 2 项：fake-t1 dry-run 全链（workspaces→select 201→dispatch 202 DRY_RUN→detail 回执锚点→budget 入账→snapshot dispatches→SSE dispatch 帧）；real 无 approval → BLOCKED_WAITING_OWNER（D6 门完整）",
+    "dod_check": {
+      "npm_test_green": true,
+      "fake_dryrun_e2e": true,
+      "completion_receipt": true
+    }
+  },
+  "evidence_paths_and_hashes": [
+    { "path": "src/web/page.ts", "sha256": "D7B54BB81E27C040F02F6A3C5CCCCC8E6193A06432ECE9434C00E9DBEC1F6395" },
+    { "path": "tests/web-board-page.test.ts", "sha256": "41C66B493ECFE189CEF56975DB0500A425B9B7E44BF73CB9B9B0F25718848666" },
+    { "path": "tests/web-board-e2e.test.ts", "sha256": "7ED130975D085F605B4B158054D8CC6C36E9F400CF18A99276A12E594C61076B" },
+    { "path": "goals/receipts/BATCH-29-test-output.txt", "sha256": "46614C09D5F61795525F9353BBF36F727E683C3635BE3322D00DF6B4B9C185CE" },
+    { "path": "goals/receipts/BATCH-29-completion.json", "sha256": "E3335B611B4865304413D81D408B9BCE810E2C40BDBB5DB95DFAA724298BA529" }
+  ],
+  "open_findings": [
+    "F-G7-01 snapshot dispatches 扩展由 G006（cdeb57d）在 server 侧落地，本 Goal 仅消费契约字段，未动 server 端点逻辑（边界遵守）",
+    "F-G7-02 预算视图 cap_usd 为管线投影值（当前固定 5），随台账演进真实化",
+    "F-G7-03 犬只下拉来源为快照 actors 事件流投影；能力注册表 API 落盘后可切换为注册表直读（向后兼容扩展）",
+    "F-G7-04 BATCH-28 编号与并行 G008 批次撞号（其回执先落盘），本 Goal 批次改用 BATCH-29"
+  ],
+  "spent_estimate_usd_total": 0.55,
+  "per_actor_cap_usd": 5
+}
