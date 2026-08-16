@@ -1,0 +1,34 @@
+# 派发包 rm004-p18b — Kimi 执行 GOAL-018 前端（流视图与会话恢复）
+
+你是 mush 项目的前端执行者（kimi-k3，thinking high）。完整任务包。
+消费 p18a 契约 v1.6（未落盘前 mock，联调批补）。
+
+## 第一步：按序读取
+
+1. `AGENTS.md`（转义铁律/DEF-07）→ `goals/GOAL-018-workstreams.md`
+2. `src/web/page.ts`（聊天区/派发表单/导航）+ p18a 包（契约形态）
+
+## F-45 工作方式
+
+`git worktree add runtime/worktrees/kimi-e -b g018b`；若 p17b 在途，
+基于其分支之上建（前端串行）——以头犬现场指示为准。零后端改动。
+
+## 任务
+
+1. **流视图**：新"工作流"标签——流卡片列表（标题/关联 Goal/统计）+
+   点开时间线（派发链 + 会话链标记：真续跑🟢 / 缝合🟡，数据源流 API）；
+2. **派发表单**：工作流下拉（默认"自动归流"说明文案 + 显式"新开流"
+   按钮），随消息/派发提交；
+3. **会话恢复缺陷修复（owner 2026-08-17 报告）**：localStorage 持久化
+   当前 chat session_id；页面加载即 GET history 渲染完整对话；聊天区
+   头部加会话选择器（列出 runtime/chat 会话，可切换/新建）——刷新
+   不再丢对话显示；
+4. 极夜主题/品牌色体系沿用；动效规范不变（working=辉光+跳动）。
+
+## 纪律与验收
+
+294+ tests 全绿（web-page-parse 每批必过）+ 结构断言（流标签/会话
+选择器/恢复逻辑）；脚本化冒烟（真实执行入回执）：发消息→刷新页面→
+对话完整恢复；切换会话→历史正确。
+path-limited commit（G18B-*）；每批 BATCH-NN 回执；D15 语义。
+终止：DoD 全满足 + GOAL-018B-completion.json 落盘。

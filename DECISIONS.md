@@ -86,3 +86,9 @@
 | D26 | RM-004 增补 M3 任务池 | dashi-taskboard 式任务板（append-only tasks.jsonl + CRUD/状态机 API + 三泳道 UI + 派发回链 + GP 项迁移；自动认领留二期接口）。markdown 目标池转归档 | owner 2026-08-17："需要创建一个任务池，就像 dashi-taskboard" |
 
 | D27 | RM-004 增补 M4 调度自由 | owner 复验六项入册：犬只注册表 CRUD、头犬即角色（harness→模型级联，VERIFIED 方可任头犬）、徽章链、品牌色+运行边缘辉光、预算面板计数与可编辑 cap；**F-50：codex Poke API 通道 nonce 双次失败，禁任头犬直至换通道** | owner 2026-08-17 复验反馈 + 头犬 codex nonce 实测（codex-real-002） |
+
+## 2026-08-17 第十批决议（owner grilling 定稿）
+
+| # | 决策点 | 决议 | 依据 |
+| --- | --- | --- | --- |
+| D28 | GOAL-018 工作流与会话延续 | work-stream 模型（自动归流+显式新开+流视图含缓存指标）；通道混合续跑（kimi/claude/zcode 真 resume + dsh 稳定前缀缝合 + pi 复活另立池项 + dsh web API 只读探测）；看板刷新会话恢复缺陷随批修复；验收=cache_read 前后对比。dsh-TUI 判定：TUI 视觉插件，不解决 headless resume（其时间回溯实现记为 GP-08 参考） | owner grilling："d"+"c"+"c"+"确认" |

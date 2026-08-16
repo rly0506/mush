@@ -66,3 +66,5 @@
 
 | GP-27 | DEF-10：派发默认工作区取持久化选择（.mush/workspace.json 启动恢复）；GP-18 完成通知升级 | owner 2026-08-17 | 中 | idea | — | 头犬派发漏字段的教训 + 等待无反馈诉求 |
 | GP-28 | Linux 对照续：dsh 凭据容器化方案（最小凭据挂载或 env 注入，密钥不进命令行/日志）；完成后补 Linux nonce 基线与对照结论 | AD-27 | 低 | idea | — | 副线，Windows 原生已够用 |
+| GP-29 | pi 通道复活：pi-rpc runner 接入派发管线（core 状态机已移植），deepseek 真会话终局 | D28 | 中 | idea | G018 后 | dsh 真续跑的正路 |
+| GP-30 | dsh 上游版本观察：headless 加 --resume 即重探（机会性） | D28④ | 低 | idea | — | 被动受益 |
