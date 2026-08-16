@@ -1,0 +1,42 @@
+{
+  "batch": "BATCH-35",
+  "unit": "G11-U1",
+  "goal_id": "MUSH-GOAL-011",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "dsh/deepseek headless",
+  "worktree": "runtime/worktrees/deepseek (branch g011-deepseek)",
+  "changed_paths": [
+    "src/adapters/head-dog.ts",
+    "src/adapters/contract.ts",
+    "src/web/chat.ts",
+    "src/web/dispatch.ts",
+    "src/web/server.ts",
+    "src/web/persistence.ts",
+    "src/web/api-contract.md",
+    "tests/g011-core.test.ts",
+    "scripts/head-dog-chat-smoke.ps1",
+    "goals/receipts/chat-smoke/head-dog-chat-smoke-2026-08-17.json",
+    "goals/receipts/chat-smoke/head-dog-chat-smoke-addendum.json",
+    "goals/receipts/BATCH-35-test-output.txt",
+    "goals/receipts/BATCH-35-completion.json"
+  ],
+  "tests_run": "npm test 真实执行：tests 260 / pass 260 / fail 0 / exit 0（基线 255 + 本批 5）",
+  "test_output_summary": "260/260 全绿；G11 核心 5 tests：session_id 解析/head-dog 合同与章程/roster role/ChatService 持久化两轮/DEF-10 默认工作区",
+  "ps_source_trace": [
+    "docs/rm-003-conversation.md M1（会话续跑/head-dog/聊天 API/角色注册/DEF-10）",
+    "GOAL-011 任务 1-5",
+    "src/web/api-contract.md 聊天节（v1.3）"
+  ],
+  "ported_assertions": [
+    {
+      "test": "g011-core.test.ts（5 tests）",
+      "ps_source": "RM-003 M1 + GOAL-011",
+      "assertions": 18
+    }
+  ],
+  "open_findings": [
+    "F-41 dsh headless 无 --resume：真实两轮聊天冒烟 BLOCKED_FEATURE（round1 PASS/round2 无法续跑）；resume_flag 机制与 ChatService 已有测试覆盖，待 dsh 支持或 head-dog 换 claude 通道后补跑",
+    "F-42 分支说明：g011 已被 kimi worktree 占用，本犬用 g011-deepseek 分支（F-45 隔离目的不变）"
+  ],
+  "spent_estimate_usd": 0.06
+}

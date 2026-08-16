@@ -1,0 +1,47 @@
+{
+  "goal_id": "MUSH-GOAL-011",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "dsh/deepseek headless",
+  "worktree_branch": "g011-deepseek",
+  "changed_paths": [
+    "src/adapters/head-dog.ts",
+    "src/adapters/contract.ts",
+    "src/web/chat.ts",
+    "src/web/dispatch.ts",
+    "src/web/server.ts",
+    "src/web/persistence.ts",
+    "src/web/api-contract.md",
+    "tests/g011-core.test.ts",
+    "scripts/head-dog-chat-smoke.ps1",
+    "goals/receipts/BATCH-35-*",
+    "goals/receipts/chat-smoke/*"
+  ],
+  "tests_run": "npm test：tests 260 / pass 260 / fail 0 / exit 0。",
+  "evidence": [
+    {
+      "item": "会话续跑机制",
+      "result": "AdapterContract.resume_flag + dispatch resume_session 注入 + DispatchRecord.session_id 从 stdout 解析；测试在案（dsh --resume 实测不支持，见 F-41）"
+    },
+    {
+      "item": "head-dog 适配器",
+      "result": "role=head、dsh 通道、HEAD_DOG_CHARTER 章程注入；roster 增 role 字段"
+    },
+    {
+      "item": "聊天 API",
+      "result": "POST /api/chat + GET /api/chat/history 实现；runtime/chat/<session>.jsonl append-only；契约 v1.3 先行（api-contract.md 聊天节）"
+    },
+    {
+      "item": "DEF-10",
+      "result": "DispatchPipeline.defaultWorkspace() 恢复 .mush/workspace.json 持久化选择，测试在案"
+    },
+    {
+      "item": "真实两轮聊天冒烟",
+      "result": "FAIL/BLOCKED_FEATURE：round1 dsh PASS；round2 因 dsh headless 不支持 --resume 无法验证上下文延续（证据 head-dog-chat-smoke*.json）"
+    }
+  ],
+  "open_findings": [
+    "F-41 dsh headless 无 --resume，真实多轮冒烟待 dsh 支持或换 claude 通道",
+    "F-42 g011 分支被 kimi 占用，本犬使用 g011-deepseek（隔离等价）"
+  ],
+  "spent_estimate_usd": 0.06
+}

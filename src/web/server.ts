@@ -17,6 +17,7 @@ import { collectBoardSnapshot } from './sources.ts';
 import { renderBoardPage } from './page.ts';
 import { DispatchPipeline, InputError } from './dispatch.ts';
 import { BoardPersistence } from './persistence.ts';
+import { ChatService } from './chat.ts';
 
 export interface BoardServerOptions {
   approvalRoot: string;
@@ -33,6 +34,8 @@ export interface BoardServerOptions {
   /** GP-03：持久化与锁；缺省 <workspaceRoot>/runtime。 */
   runtimeRoot?: string;
   persistence?: BoardPersistence;
+  /** G011：聊天服务；缺省按 dispatch + runtimeRoot 自建。 */
+  chat?: ChatService;
 }
 
 export interface BoardServer {
@@ -101,9 +104,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
   }
   // 注入管线也要把生命周期事件推 SSE（构造期 onEvent 无法前向引用 broadcast）。
   dispatch.setEventListener((event) => broadcast(event));
-
-  // 无论 pipeline 是外部注入还是自建，生命周期事件一律进 SSE。
-  dispatch.setEventListener((event) => broadcast(event));
+  const chat = options.chat ?? new ChatService({ pipeline: dispatch, runtimeRoot });
 
   async function handleEventPost(request: IncomingMessage, response: ServerResponse): Promise<void> {
     let raw: string;
@@ -323,6 +324,39 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     }
     if (route === 'GET /api/budget') {
       sendJson(response, 200, { ok: true, ...dispatch.budgetProjection() });
+      return;
+    }
+    if (route === 'POST /api/chat') {
+      void (async () => {
+        let body: Record<string, unknown>;
+        try {
+          body = JSON.parse(await readBody(request)) as Record<string, unknown>;
+        } catch {
+          sendJson(response, 400, { ok: false, error: 'body must be JSON' });
+          return;
+        }
+        try {
+          const result = await chat.post({
+            message: typeof body.message === 'string' ? body.message : '',
+            resume: typeof body.resume === 'string' ? body.resume : undefined,
+          });
+          sendJson(response, 202, { ok: true, ...result });
+        } catch (error) {
+          sendJson(response, 400, { ok: false, error: error instanceof Error ? error.message : String(error) });
+        }
+      })();
+      return;
+    }
+    if (route === 'GET /api/chat/history') {
+      void (async () => {
+        const session = url.searchParams.get('session') ?? '';
+        const limit = Number(url.searchParams.get('limit') ?? '50');
+        if (session === '') {
+          sendJson(response, 400, { ok: false, error: 'session query param is required' });
+          return;
+        }
+        sendJson(response, 200, { ok: true, ...(await chat.history(session, Number.isFinite(limit) ? limit : 50)) });
+      })();
       return;
     }
     if (route === 'GET /api/stream') {

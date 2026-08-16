@@ -17,6 +17,7 @@ import { buildClaudeContract } from '../adapters/claude.ts';
 import { buildZcodeContract } from '../adapters/zcode.ts';
 import { buildCodexContract } from '../adapters/codex.ts';
 import { buildOpencodeContract } from '../adapters/opencode.ts';
+import { buildHeadDogContract, extractSessionId } from '../adapters/head-dog.ts';
 import { runT1, type SpawnFn } from '../adapters/t1-runner.ts';
 import type { BoardPersistence } from './persistence.ts';
 
@@ -51,6 +52,8 @@ export interface DispatchRecord {
   /** G7B-E1（契约 v1.1 向后兼容新增）：只读输出摘要，REPORT 后填充。 */
   stdout_tail: { text: string; truncated: boolean } | null;
   stderr_tail: { text: string; truncated: boolean } | null;
+  /** G011：犬侧会话 id（会话续跑锚点）。 */
+  session_id: string | null;
 }
 
 /** 尾部截断（UTF-8 字符安全）：超长保留末段并标记 truncated。 */
@@ -115,6 +118,7 @@ function baseContracts(): Record<string, AdapterContract> {
     zcode: buildZcodeContract(),
     codex: buildCodexContract(),
     opencode: buildOpencodeContract(),
+    'head-dog': buildHeadDogContract(),
   };
 }
 
@@ -325,6 +329,18 @@ export class DispatchPipeline {
       }
       effectiveContract = applyModelVariant(contract, modelId);
     }
+    // G011：会话续跑——resume_flag 通道追加 <flag> <session_id>（dsh --resume 等）。
+    if (body.resume_session !== undefined) {
+      const resumeSession = String(body.resume_session);
+      if (resumeSession.trim() === '') throw new InputError('resume_session must be non-blank when present');
+      if (effectiveContract.resume_flag === undefined) {
+        throw new InputError(`adapter ${adapterId} does not support resume_session`);
+      }
+      effectiveContract = validateAdapterContract({
+        ...effectiveContract,
+        arguments: [...effectiveContract.arguments, effectiveContract.resume_flag, resumeSession],
+      });
+    }
     const prompt = typeof body.prompt === 'string' ? body.prompt : '';
     if (prompt.trim() === '' || prompt.length > 64000) throw new InputError('prompt must be 1..64000 chars');
     const effort = body.effort === undefined ? 'LOW' : String(body.effort).toUpperCase();
@@ -340,7 +356,7 @@ export class DispatchPipeline {
       throw new InputError('timeout_s must be 5..3600 seconds');
     }
     const real = body.real === true;
-    const workspace = typeof body.workspace === 'string' && body.workspace.trim() !== '' ? path.resolve(body.workspace) : this.workspaceRoot;
+    const workspace = typeof body.workspace === 'string' && body.workspace.trim() !== '' ? path.resolve(body.workspace) : this.defaultWorkspace();
     if (!existsSync(workspace)) throw new InputError(`workspace does not exist: ${workspace}`);
     // F-41（安全审查 2026-08-17）：workspace 白名单——dispatch 只允许落在
     // 服务根目录或已登记（known-workspaces/当前选中）的工作区，防止任意
@@ -360,6 +376,7 @@ export class DispatchPipeline {
       error: null,
       stdout_tail: null,
       stderr_tail: null,
+      session_id: null,
     };
 
     const admission = this.ledger.admit({
@@ -406,6 +423,7 @@ export class DispatchPipeline {
     record.receipt_path = receiptPath;
     record.stdout_tail = tailOf(run.stdout, 2048);
     record.stderr_tail = tailOf(run.stderr, 256);
+    record.session_id = extractSessionId(run.stdout);
     const receipt = {
       schema_version: 1,
       dispatch_id: dispatchId,
@@ -437,7 +455,7 @@ export class DispatchPipeline {
    * 只含身份字段，不含 executable 路径等敏感细节。
    * 测试假犬（fake-t1）不进名册——owner 2026-08-17 反馈：生产下拉不应出现
    * 测试夹具；合同表保留（测试/开发冒烟仍可显式 dispatch）。 */
-  roster(): Array<{ adapter_id: string; protocol: string; expected_provider: string; expected_model_id: string; variants?: string[]; model_flag?: string }> {
+  roster(): Array<{ adapter_id: string; protocol: string; expected_provider: string; expected_model_id: string; variants?: string[]; model_flag?: string; role: 'head' | 'executor' }> {
     return Object.values(this.contracts)
       .filter((contract) => contract.adapter_id !== 'fake-t1' || process.env.MUSH_INCLUDE_FAKE_ROSTER === '1')
       .map((contract) => ({
@@ -445,9 +463,26 @@ export class DispatchPipeline {
         protocol: contract.protocol,
         expected_provider: contract.expected_provider,
         expected_model_id: contract.expected_model_id,
+        role: contract.role ?? 'executor',
         ...(contract.variants !== undefined ? { variants: [...contract.variants] } : {}),
         ...(contract.model_flag !== undefined ? { model_flag: contract.model_flag } : {}),
       }));
+  }
+
+  /** G011 / DEF-10：默认工作区优先取 .mush/workspace.json 持久化选择。 */
+  defaultWorkspace(): string {
+    const file = path.join(this.workspaceRoot, '.mush', 'workspace.json');
+    try {
+      if (existsSync(file)) {
+        const parsed = JSON.parse(readFileSync(file, 'utf8')) as { selected?: unknown };
+        if (typeof parsed.selected === 'string' && parsed.selected.trim() !== '' && existsSync(path.resolve(parsed.selected))) {
+          return path.resolve(parsed.selected);
+        }
+      }
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
+    }
+    return this.workspaceRoot;
   }
 
   recent(limit = 20): DispatchRecord[] {

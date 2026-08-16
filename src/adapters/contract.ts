@@ -23,6 +23,10 @@ export interface AdapterContract {
   /** G009：变体切换的 CLI 注入旗标（如 claude 的 '--model'）；缺省 = 该通道
    * 不支持命令行变体切换（变体仅作为身份期望记录）。 */
   readonly model_flag?: string;
+  /** G011：犬只角色（head/executor）；roster 据此暴露角色列。 */
+  readonly role?: 'head' | 'executor';
+  /** G011：会话续跑注入旗标（如 dsh 的 '--resume'）。 */
+  readonly resume_flag?: string;
 }
 
 const PROTOCOLS: readonly string[] = ['t1', 'pi-rpc', 'stream-json'];
@@ -59,6 +63,12 @@ export function validateAdapterContract(input: unknown): AdapterContract {
   if (record.model_flag !== undefined && (typeof record.model_flag !== 'string' || record.model_flag.trim() === '')) {
     throw new Error("adapter contract 'model_flag' must be a non-blank string when present");
   }
+  if (record.role !== undefined && record.role !== 'head' && record.role !== 'executor') {
+    throw new Error("adapter contract 'role' must be 'head' or 'executor' when present");
+  }
+  if (record.resume_flag !== undefined && (typeof record.resume_flag !== 'string' || record.resume_flag.trim() === '')) {
+    throw new Error("adapter contract 'resume_flag' must be a non-blank string when present");
+  }
   return {
     adapter_id: record.adapter_id as string,
     executable: record.executable as string,
@@ -69,5 +79,7 @@ export function validateAdapterContract(input: unknown): AdapterContract {
     expected_model_id: (record.expected_model_id as string).trim(),
     ...(record.variants !== undefined ? { variants: [...(record.variants as string[])] } : {}),
     ...(record.model_flag !== undefined ? { model_flag: (record.model_flag as string).trim() } : {}),
+    ...(record.role !== undefined ? { role: record.role } : {}),
+    ...(record.resume_flag !== undefined ? { resume_flag: (record.resume_flag as string).trim() } : {}),
   };
 }

@@ -56,6 +56,7 @@ export class BoardPersistence {
       error: record.error,
       stdout_tail: record.stdout_tail,
       stderr_tail: record.stderr_tail,
+      session_id: record.session_id,
     };
     writeFileSync(file, JSON.stringify(header) + '\n', 'utf8');
   }
@@ -97,6 +98,7 @@ export class BoardPersistence {
         error: typeof header.error === 'string' ? header.error : null,
         stdout_tail: (header.stdout_tail as DispatchRecord['stdout_tail']) ?? null,
         stderr_tail: (header.stderr_tail as DispatchRecord['stderr_tail']) ?? null,
+        session_id: typeof header.session_id === 'string' ? header.session_id : null,
         events,
       });
     }

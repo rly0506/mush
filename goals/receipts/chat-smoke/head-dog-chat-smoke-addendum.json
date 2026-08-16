@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "kind": "head-dog chat smoke addendum (append-only)",
+  "written_at_utc": "2026-08-16T13:15:00Z",
+  "result": "FAIL",
+  "reasons": [
+    "round1 dsh headless exit 0（reply OK），但 stdout 不暴露 session id（out1len=5）",
+    "round2 经 .dsh-home/sessions 目录发现 session 名后重试 dsh --profile headless --resume <session>，dsh 0.1.0 报 unknown option '--resume'——headless 通道不支持会话续跑",
+    "claude 通道支持 --continue（合同 resume_flag 预留），head-dog 当前走 dsh 通道因此真实两轮上下文延续无法在沙箱验证"
+  ],
+  "status": "BLOCKED_FEATURE",
+  "finding": "F-41 dsh headless 无 --resume；会话续跑注入对 dsh 通道不可用。ChatService/resume_flag 机制已实现并有测试覆盖；真实多轮冒烟待 dsh 支持或 head-dog 换 claude 通道后补跑。"
+}
