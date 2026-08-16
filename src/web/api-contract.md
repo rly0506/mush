@@ -1,10 +1,16 @@
 # mush Board API 契约 v1
 
-- 状态：`v1`（2026-08-17 定稿，GOAL-006 首交付物；GOAL-007 消费本契约）
+- 状态：`v1.1`（2026-08-17 定稿，GOAL-006 首交付物；GOAL-007 消费；GOAL-007B 追加 v1.1 向后兼容扩展，见下）
 - 宿主：`src/web/`（node:http，零依赖）；默认只绑 `127.0.0.1`（对外暴露 = 触发门 4，不实现）
 - 序列化：JSON（UTF-8，LF 结尾）；SSE 用 `text/event-stream`，帧格式 `data: <json>\n\n`
 - 错误约定：失败响应一律 `{ "ok": false, "error": "<human-readable>" }`
 - 版本演进：v1 字段**只能向后兼容新增**；删除/改义/改型 = 破坏性变更，需头犬批准并同步 GOAL-007
+
+### v1.1 向后兼容扩展（GOAL-007B，2026-08-17）
+
+- `GET /api/dispatch/:id` 的 `dispatch` 新增 `stdout_tail` / `stderr_tail`：
+  `{ text: string, truncated: boolean } | null`（REPORT 前为 null；stdout 末 2048 字符、stderr 末 256 字符，超长截断并 `truncated: true`；只读补充字段，不改管线语义）；
+- `GET /api/workspaces` 的条目新增 `selected: boolean`（当前选中 workspace 标记，缺省 false）。
 
 ## 端点总览
 
@@ -47,14 +53,15 @@
 
 ## GET /api/dispatch/:id
 
-`{ "ok": true, "dispatch": { "dispatch_id", "status", "adapter_id", "receipt_path", "events": [ {kind, at_utc, payload} ] } }`
-不存在 → `404`。
+`{ "ok": true, "dispatch": { "dispatch_id", "status", "adapter_id", "receipt_path", "events": [ {kind, at_utc, payload} ], "stdout_tail"?, "stderr_tail"? } }`
+不存在 → `404`。（`stdout_tail`/`stderr_tail` 为 v1.1 新增，见文首扩展说明。）
 
 ## GET /api/workspaces
 
-`{ "ok": true, "workspaces": [ { "path", "is_git": bool, "mush_managed": bool } ] }`
+`{ "ok": true, "workspaces": [ { "path", "is_git": bool, "mush_managed": bool, "selected": bool } ] }`
 - 输入为最近用过的候选列表（持久化文件 + 内建默认）；不存在/不可读目录直接不入列表。
 - 路径穿越（`..` 逃逸候选根）fail-closed，不返回。
+- `selected` 为 v1.1 新增（当前选中项 true，其余 false）。
 
 ## POST /api/workspaces/select
 

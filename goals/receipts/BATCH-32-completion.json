@@ -1,40 +1,34 @@
 {
   "batch": "BATCH-32",
-  "unit": "G10-U1",
-  "goal_id": "MUSH-GOAL-010",
+  "unit": "G7B-D1+D2+D3+D4+E1+E2",
+  "goal_id": "MUSH-GOAL-007B",
   "status": "COMPLETE_REQUESTED",
-  "executor": "dsh/deepseek headless",
+  "executor": "kimi-k3 (goal mode, dispatch packet 006)",
   "changed_paths": [
-    "src/adapters/ccswitch-probe.ts",
+    "src/web/page.ts",
     "src/web/dispatch.ts",
-    "src/adapters/t1-runner.ts",
-    "tests/ccswitch-probe.test.ts",
-    "tests/adapters-t1-runner.test.ts",
+    "src/web/api-contract.md",
+    "tests/web-board-triage.test.ts",
+    "tests/web-board-triage-page.test.ts",
     "goals/receipts/BATCH-32-test-output.txt",
-    "goals/receipts/BATCH-32-completion.json",
-    "goals/receipts/GOAL-010-completion.json"
+    "goals/receipts/BATCH-32-completion.json"
   ],
-  "tests_run": "git 跟踪测试 + 本批新增真实执行：tests 228 / pass 228 / fail 0 / exit 0（含密钥列白名单断言 5 tests）；全量 glob 仍受 kimi 在途 triage 测试影响（F-37）",
-  "test_output_summary": "228/228 全绿；真实探测 runtime/capability-registry.json 生成：providers=32、recent=500、pricing=189、adapters=3（claude 18 模型 / codex 61 / opencode 2），grep 脱敏核验 clean",
-  "ps_source_trace": [
-    "DECISIONS D20/D22 + GOAL-010 任务1-5",
-    "头犬 AD-13 附带 cc-switch DB 表结构实录"
-  ],
-  "ported_assertions": [
-    {
-      "test": "ccswitch-probe.test.ts（5 tests：列白名单/枚举脱敏/注册分组/合同合成回退/输出无密钥材料）",
-      "ps_source": "D20 + GOAL-010 + 宪法 §3",
-      "assertions": 20
-    },
-    {
-      "test": "DEF-02 环境自适应回归（EPERM 同步 spawn 失败受控收尾）",
-      "ps_source": "AD-02 + DEF-02",
-      "assertions": 3
-    }
-  ],
+  "tests_run": "npm test 真实执行：tests 242 / pass 242 / fail 0 / exit code 0（新增 8：web-board-triage 3 服务端 E1/E2 + web-board-triage-page 5 前端结构断言）；完整输出见 BATCH-32-test-output.txt",
+  "test_output_summary": "242/242 全绿：selected 字段标记/截断语义（stdout 2KB、stderr 256B、truncated 标记、短输出不截断）/ trackDispatch upsert / 计时刷新 / roster 最近派发聚合 / 变体 hint / 歧义文案移除",
+  "fixes": {
+    "D1": "dispatch.ts listWorkspaces 增 selected 字段（E2）；前端删歧义空项改'（未选择，默认服务目录）'，无选中时才插入空项；POST select 成功后 loadWorkspaces 立即重拉重渲染（G7 已有，保留）",
+    "D2": "trackDispatch 改 upsert（既有卡片更新 status/at_utc + 完成 toast 一次）；卡片含 started_ms 本地计时，RUNNING 徽章呼吸点动画 + 每秒刷新；detail 展开显示 stdout_tail/stderr_tail（截断标记）+ 事件时间线（phase/status/at_utc）",
+    "D3": "roster 回退视图'最近派发'列：snapshot.dispatches 按 adapter_id 聚合（次数+最近状态徽章+时间），无活动保持'（未活动，注册在册）'",
+    "D4": "变体下拉下加 hint'变体 = 身份期望（合同声明），非实时能力清单'；未实现 cc-switch 读取（后端范畴+凭据红线，归 GOAL-010）",
+    "E1": "DispatchRecord 增 stdout_tail/stderr_tail（tailOf 截断：2048/256 字符，REPORT 后填充，REPORT 前 null）",
+    "E2": "WorkspaceInfo 增 selected: boolean",
+    "contract": "api-contract.md 升 v1.1（文首扩展说明 + 两端点条目标注，向后兼容）"
+  },
+  "live_smoke": "node bin/mush board 真实起服（127.0.0.1）：① POST workspaces/select playground → 201，GET workspaces 回显 D:\\mush-playground selected=true；② fake-t1 dry-run 派发 → 202 ADMITTED → 终态 FAIL + receipt 落盘 + detail 返回 stdout_tail/stderr_tail 字段 + events 4 条；③ snapshot dispatches=[fake-t1:FAIL]、roster=6 犬在册。冒烟后服务进程已终止（000）。注：fake-t1 真实 spawn fake.exe 不存在 → exit 1 → FAIL，行为符合管线语义（E1 字段存在性已由单测覆盖非空输出路径）",
   "open_findings": [
-    "F-37 kimi 在途 untracked 测试（web-board-triage.test.ts 等）使全量 glob 暂红；跟踪面 228/228 为权威",
-    "runtime/capability-registry.json 为 gitignore 产物，不入库；真实重生成命令已实测"
+    "F-G7B-01 页面内 RUNNING 即时卡片的实际感知依赖 SSE 时序（server 端 dispatch 同步执行，EXECUTE 帧在响应前推送；本端 upsert 保证最终一致）。server 异步化派发属管线改动，超出本包边界，记 finding 不动",
+    "F-G7B-02 D4 模型变体实时枚举属 GOAL-010（packet 007，后端），本 Goal 只加 hint 防误读",
+    "F-G7B-03 冒烟 fake-t1 dry-run 终态 FAIL（fake.exe 不存在），管线语义正确；owner 视角的'完成 toast'对 FAIL 也会触发（红色 toast），符合预期"
   ],
-  "spent_estimate_usd": 0.03
+  "spent_estimate_usd": 0.6
 }

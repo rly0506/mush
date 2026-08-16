@@ -39,6 +39,9 @@ export function renderBoardPage(): string {
   .badge.DRY_RUN { color: #56d364; border-color: #56d364; }
   .badge.PASS { color: #56d364; border-color: #56d364; }
   .badge.RUNNING { color: #6fb3d8; border-color: #6fb3d8; }
+  .badge.RUNNING::before { content: '●'; display: inline-block; margin-right: 4px; animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+  .elapsed { font-size: 11px; color: #7c8791; margin-left: 6px; }
   .badge.BLOCKED_WAITING_OWNER, .badge.BLOCKED_ENV { color: #e3b341; border-color: #e3b341; }
   .badge.FAIL { color: #f85149; border-color: #f85149; }
   .badge.ok { color: #56d364; border-color: #56d364; }
@@ -106,6 +109,7 @@ export function renderBoardPage(): string {
         <div id="dispatch-model-wrap" style="display:none">
           <label for="dispatch-model">模型变体</label>
           <select id="dispatch-model"></select>
+          <div class="hint">变体 = 身份期望（合同声明），非实时能力清单。</div>
         </div>
         <div>
           <label for="workspace-select">workspace</label>
@@ -223,14 +227,15 @@ export function renderBoardPage(): string {
     select.innerHTML = variants.map(function (v) { return '<option value="' + esc(v) + '">' + esc(v) + '</option>'; }).join('');
   }
 
-  /* ---------- workspace 选择器 ---------- */
+  /* ---------- workspace 选择器（G7B-D1：歧义空项改为明确文案；selected 联动 header） ---------- */
   function renderWorkspaces() {
     var select = document.getElementById('workspace-select');
     if (workspaces.length === 0) {
-      select.innerHTML = '<option value="">（默认：服务 cwd）</option>';
+      select.innerHTML = '<option value="">（未选择，默认服务目录）</option>';
       return;
     }
-    select.innerHTML = '<option value="">（默认：当前已选）</option>' + workspaces.map(function (w) {
+    var hasSelected = workspaces.some(function (w) { return w.selected; });
+    select.innerHTML = workspaces.map(function (w) {
       var tags = [];
       if (w.is_git) tags.push('git');
       if (w.mush_managed) tags.push('mush');
@@ -238,6 +243,9 @@ export function renderBoardPage(): string {
       return '<option value="' + esc(w.path) + '"' + (w.selected ? ' selected' : '') + '>' +
         esc(w.path) + (tags.length ? ' [' + tags.join(', ') + ']' : '') + '</option>';
     }).join('');
+    if (!hasSelected) {
+      select.insertAdjacentHTML('afterbegin', '<option value="" selected>（未选择，默认服务目录）</option>');
+    }
     var current = workspaces.filter(function (w) { return w.selected; })[0];
     document.getElementById('workspace-current').textContent = current ? current.path : 'workspace: 服务 cwd';
   }
@@ -260,10 +268,11 @@ export function renderBoardPage(): string {
     postJson('/api/dispatch', body).then(function (result) {
       var data = result.body;
       if (result.status === 202 && data.ok) {
+        // G7B-D2：响应到达即有 dispatch_id，卡片即时可见；生命周期靠 SSE upsert 刷新。
+        trackDispatch(data.dispatch_id, adapterId, data.status);
         toast('派发已受理：' + data.status + ' ' + (data.dispatch_id || ''), true);
         document.getElementById('dispatch-result').textContent =
           'dispatch_id=' + data.dispatch_id + ' status=' + data.status;
-        trackDispatch(data.dispatch_id, adapterId, data.status);
         refresh();
       } else if (result.status === 402) {
         toast('超预算门（DENIED）：' + (data.error || ''), false);
@@ -273,13 +282,41 @@ export function renderBoardPage(): string {
     }).catch(function (error) { toast('派发失败：' + error, false); });
   }
 
-  /* ---------- 派发跟踪卡片 ---------- */
+  /* ---------- 派发跟踪卡片（G7B-D2：upsert 更新 + 已耗时计时 + 完成 toast） ---------- */
+  var TERMINAL_STATUSES = { DRY_RUN: 1, PASS: 1, FAIL: 1, BLOCKED_WAITING_OWNER: 1, BLOCKED_ENV: 1 };
+
   function trackDispatch(dispatchId, adapterId, status) {
     if (!dispatchId) return;
-    if (trackedDispatches.some(function (d) { return d.dispatch_id === dispatchId; })) return;
-    trackedDispatches.unshift({ dispatch_id: dispatchId, adapter_id: adapterId, status: status, at_utc: new Date().toISOString() });
+    var existing = null;
+    for (var i = 0; i < trackedDispatches.length; i += 1) {
+      if (trackedDispatches[i].dispatch_id === dispatchId) { existing = trackedDispatches[i]; break; }
+    }
+    if (existing !== null) {
+      // upsert：SSE 后续帧（EXECUTE/REPORT/PASS）必须刷新既有卡片。
+      var wasTerminal = TERMINAL_STATUSES[existing.status] === 1;
+      existing.status = status;
+      existing.at_utc = new Date().toISOString();
+      renderDispatches();
+      if (!wasTerminal && TERMINAL_STATUSES[status] === 1) {
+        toast('完成：' + status + '（' + adapterId + '）', status === 'PASS' || status === 'DRY_RUN');
+      }
+      return;
+    }
+    trackedDispatches.unshift({
+      dispatch_id: dispatchId,
+      adapter_id: adapterId,
+      status: status,
+      at_utc: new Date().toISOString(),
+      started_ms: Date.now(),
+    });
     trackedDispatches = trackedDispatches.slice(0, 20);
     renderDispatches();
+  }
+
+  function elapsedText(d) {
+    if (!d.started_ms) return '';
+    var seconds = Math.max(0, Math.round((Date.now() - d.started_ms) / 1000));
+    return seconds + 's';
   }
 
   function renderDispatches() {
@@ -291,10 +328,12 @@ export function renderBoardPage(): string {
     var list = Object.keys(known).map(function (id) { return known[id]; });
     if (list.length === 0) { el.innerHTML = '<div class="empty">暂无派发记录</div>'; return; }
     el.innerHTML = list.map(function (d) {
+      var elapsed = elapsedText(d);
       return '<div class="dispatch-card" data-dispatch="' + esc(d.dispatch_id) + '">' +
         '<span class="badge ' + esc(d.status) + '">' + esc(d.status) + '</span> ' +
         '<span class="mono">' + esc(String(d.dispatch_id).slice(0, 12)) + '…</span> ' +
         esc(d.adapter_id || '') + ' <span class="meta">' + esc(d.at_utc || '') + '</span>' +
+        (elapsed ? '<span class="elapsed">' + elapsed + '</span>' : '') +
         '<div class="detail">加载中…</div></div>';
     }).join('');
     el.querySelectorAll('.dispatch-card').forEach(function (card) {
@@ -311,29 +350,54 @@ export function renderBoardPage(): string {
       if (!data.ok || !data.dispatch) { detail.innerHTML = '<span class="hash">' + esc(data.error || '无详情') + '</span>'; return; }
       var d = data.dispatch;
       var events = (d.events || []).map(function (ev) {
-        return '<tr><td>' + esc(ev.kind || '') + '</td><td class="mono">' + esc(ev.at_utc || '') + '</td></tr>';
+        return '<tr><td>' + esc(ev.phase || ev.kind || '') + '</td><td>' + esc(ev.status || '') + '</td><td class="mono">' + esc(ev.at_utc || '') + '</td></tr>';
       }).join('');
+      var stdoutBlock = '';
+      if (d.stdout_tail && d.stdout_tail.text) {
+        stdoutBlock = '<dt style="color:#7c8791">任务输出（末段' + (d.stdout_tail.truncated ? '，已截断' : '') + '）</dt>' +
+          '<dd><pre class="mono" style="white-space:pre-wrap;max-height:200px;overflow:auto;margin:4px 0">' + esc(d.stdout_tail.text) + '</pre></dd>';
+      }
+      if (d.stderr_tail && d.stderr_tail.text) {
+        stdoutBlock += '<dt style="color:#7c8791">stderr（末段' + (d.stderr_tail.truncated ? '，已截断' : '') + '）</dt>' +
+          '<dd><pre class="mono" style="white-space:pre-wrap;max-height:120px;overflow:auto;margin:4px 0">' + esc(d.stderr_tail.text) + '</pre></dd>';
+      }
       detail.innerHTML = '<dl style="margin:0">' +
         '<dt style="color:#7c8791">状态</dt><dd><span class="badge ' + esc(d.status) + '">' + esc(d.status) + '</span></dd>' +
-        '<dt style="color:#7c8791">回执锚点</dt><dd class="mono hash">' + esc(d.receipt_path || '（未落盘）') + '</dd></dl>' +
+        '<dt style="color:#7c8791">回执锚点</dt><dd class="mono hash">' + esc(d.receipt_path || '（未落盘）') + '</dd>' +
+        stdoutBlock + '</dl>' +
         (events ? '<table><tbody>' + events + '</tbody></table>' : '');
     }).catch(function (error) { detail.textContent = '加载失败：' + error; });
   }
 
-  /* ---------- 犬队状态（G009：活动为空时回退 roster 名册） ---------- */
+  /* ---------- 犬队状态（G009：活动为空时回退 roster 名册；G7B-D3：roster 行聚合最近派发） ---------- */
   function renderDogs() {
     var el = document.getElementById('view-dogs');
     var actors = snapshot.actors;
+    var dispatches = snapshot.dispatches || [];
+    function dispatchStats(adapterId) {
+      var count = 0;
+      var latest = null;
+      for (var i = 0; i < dispatches.length; i += 1) {
+        if (dispatches[i].adapter_id !== adapterId) continue;
+        count += 1;
+        if (latest === null || String(dispatches[i].at_utc || '') > String(latest.at_utc || '')) latest = dispatches[i];
+      }
+      return { count: count, latest: latest };
+    }
     if (actors.length === 0) {
       var roster = snapshot.roster || [];
       if (roster.length === 0) { el.innerHTML = '<div class="empty">暂无在册犬只</div>'; return; }
       var rr = roster.map(function (r) {
+        var stats = dispatchStats(r.adapter_id);
+        var activity = stats.count === 0
+          ? '（未活动，注册在册）'
+          : stats.count + ' 次 · <span class="badge ' + esc(stats.latest.status) + '">' + esc(stats.latest.status) + '</span> <span class="mono">' + esc(stats.latest.at_utc || '') + '</span>';
         return '<tr><td class="mono">' + esc(r.adapter_id) + '</td><td>—</td>' +
           '<td>' + esc(r.expected_provider) + '</td><td>' + esc(r.expected_model_id) + '</td>' +
           '<td class="mono">' + esc((r.variants || []).join(' | ')) + '</td>' +
-          '<td>0</td><td>（未活动，注册在册）</td></tr>';
+          '<td>' + activity + '</td></tr>';
       }).join('');
-      el.innerHTML = '<table><thead><tr><th>犬（合同）</th><th>角色</th><th>provider</th><th>model</th><th>变体</th><th>事件数</th><th>最近事件</th></tr></thead><tbody>' + rr + '</tbody></table>';
+      el.innerHTML = '<table><thead><tr><th>犬（合同）</th><th>角色</th><th>provider</th><th>model</th><th>变体</th><th>最近派发</th></tr></thead><tbody>' + rr + '</tbody></table>';
       return;
     }
     var rows = actors.map(function (a) {
@@ -497,6 +561,12 @@ export function renderBoardPage(): string {
   document.getElementById('btn-cancel').addEventListener('click', function () {
     document.getElementById('approval-dialog').close();
   });
+
+  // G7B-D2：RUNNING 卡片已耗时每秒刷新（本地时钟，无需后端）。
+  setInterval(function () {
+    var hasRunning = trackedDispatches.some(function (d) { return !TERMINAL_STATUSES[d.status]; });
+    if (hasRunning) renderDispatches();
+  }, 1000);
 
   function loadWorkspaces() {
     return getJson('/api/workspaces').then(function (data) {
