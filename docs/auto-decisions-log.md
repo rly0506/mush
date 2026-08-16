@@ -270,3 +270,22 @@ b47afd7c0fd93fdead7b48392b3dcc1e9e46791d991776330e49a83540d91403  .test-fixtures
   实测为准（D13）。
 - **并行协作**：kimi 在途文件（page.ts/api-contract.md/utils 新件）在工作树，
   属 GOAL-007-B 未完工作，头犬验收不触碰；其提交后全量自然恢复绿。
+
+## AD-19 · GOAL-007B 验收 + 错位交付归位（2026-08-17，头犬 zcode 会话）
+
+- **机检**：全量 242/242（kimi 交付基线）；清理错位副本后 236/236（-6 为
+  dateFmt 测试随迁 playground）。
+- **活体验证**：select playground → `selected=true` 回显 ✓；dispatch detail
+  含 stdout_tail/stderr_tail ✓；fake-t1 终态 FAIL 为无 exe 的诚实结果
+  （DEF-02 受控）。四项 owner 缺陷（D1-D4）修复确认。
+- **验收**：GOAL-007B 升 **AUTO_ACCEPTED**（executor kimi-k3，commits
+  561eb4e/969f463）。
+- **悬案 F-38 破案与归位**：`src/utils.ts`/`tests/utils.test.ts`（mush 仓内
+  未跟踪）= owner 早期真实派发的 dateFmt 任务产物——当时 workspace 选择存在
+  D1 缺陷，犬在错误仓库（D:\mush）执行。处置：交付物已归位
+  `D:\mush-playground`（utils.ts 合并 + tests/datefmt.test.ts，playground
+  10/10 绿，commit 34d0e47——即恢复路径）；mush 侧副本按 D16 清理，哈希
+  锚点：utils.ts a94abb28…4ce9a80d、utils.test.ts 93a91a3d…19ac530。
+  **owner 早期那次派发实际成功**，只是落错了地方——D1 修复后不再复发。
+- **新 finding F-39（小）**：workspaces 列表同路径双条目（`D:\…` 与 `D:/…`
+  形态未归一化）——known-workspaces 读写时统一 path.resolve，下批顺手修。

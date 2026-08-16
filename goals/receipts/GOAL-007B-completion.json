@@ -1,11 +1,13 @@
 {
   "goal_id": "MUSH-GOAL-007B",
   "rm": "RM-002 / 看板前端错误排查与优化（owner 实测反馈）",
-  "status": "COMPLETE_REQUESTED",
+  "status": "AUTO_ACCEPTED",
   "semantics": "D15：机检验收规格全绿 + live 冒烟真实执行，请求 AUTO_ACCEPTED；DONE 与否决权仍归 owner",
   "executor": "kimi-k3 (goal mode, dispatch packet docs/dispatch/006-kimi-frontend-triage.md)",
   "completed_at_utc": "2026-08-16T08:30:00Z",
-  "batches": ["BATCH-32"],
+  "batches": [
+    "BATCH-32"
+  ],
   "commits": [
     "561eb4e fix(G7B): owner-feedback triage — workspace selected echo (E2), dispatch upsert/RUNNING card/elapsed timer/completion toast (D2), stdout_tail detail (E1), roster recent-dispatch column (D3), variant hint (D4); contract v1.1 (242/242 green)"
   ],
@@ -24,12 +26,30 @@
     "contract": "src/web/api-contract.md 升 v1.1（向后兼容扩展，同 commit）"
   },
   "evidence_paths_and_hashes": [
-    { "path": "src/web/page.ts", "sha256": "F156F4DB995ADC050F0D0C42D217E395515ED8D87F6D962725F503105B99CD05" },
-    { "path": "src/web/dispatch.ts", "sha256": "CE4AF4D842A6B761664766DAD3355573BAADC26470EA19A2BB142A51F4477EF1" },
-    { "path": "src/web/api-contract.md", "sha256": "A53B4EAC661230B3348B799B85A225A34A4B9FF03537BBC7849C508AA37F39D3" },
-    { "path": "tests/web-board-triage.test.ts", "sha256": "B7DAAB444030495FE86C67308A8525F3D83FAF71B227D21EAF1CCC7DA510CD89" },
-    { "path": "tests/web-board-triage-page.test.ts", "sha256": "7437029981B4E175E7B5AD0881D288A139968F578466F52F1E07A96EDC3C449E" },
-    { "path": "goals/receipts/BATCH-32-test-output.txt", "sha256": "AF40B9296C22BA6C840E61344E306DA37BB169293A8340526368F1E57BB015E2" }
+    {
+      "path": "src/web/page.ts",
+      "sha256": "F156F4DB995ADC050F0D0C42D217E395515ED8D87F6D962725F503105B99CD05"
+    },
+    {
+      "path": "src/web/dispatch.ts",
+      "sha256": "CE4AF4D842A6B761664766DAD3355573BAADC26470EA19A2BB142A51F4477EF1"
+    },
+    {
+      "path": "src/web/api-contract.md",
+      "sha256": "A53B4EAC661230B3348B799B85A225A34A4B9FF03537BBC7849C508AA37F39D3"
+    },
+    {
+      "path": "tests/web-board-triage.test.ts",
+      "sha256": "B7DAAB444030495FE86C67308A8525F3D83FAF71B227D21EAF1CCC7DA510CD89"
+    },
+    {
+      "path": "tests/web-board-triage-page.test.ts",
+      "sha256": "7437029981B4E175E7B5AD0881D288A139968F578466F52F1E07A96EDC3C449E"
+    },
+    {
+      "path": "goals/receipts/BATCH-32-test-output.txt",
+      "sha256": "AF40B9296C22BA6C840E61344E306DA37BB169293A8340526368F1E57BB015E2"
+    }
   ],
   "open_findings": [
     "F-G7B-01 页面 RUNNING 感知依赖 SSE 时序（server 端 dispatch 同步执行，EXECUTE 帧先于响应）；server 异步化派发属管线改动，超出本包边界，记 finding",
@@ -38,5 +58,10 @@
     "F-G7B-04 工作区存在他犬未跟踪文件（src/utils.ts、tests/utils.test.ts、.mush/），不属于本包范围，未提交未改动"
   ],
   "spent_estimate_usd_total": 0.6,
-  "per_actor_cap_usd": 5
+  "per_actor_cap_usd": 5,
+  "acceptance": {
+    "mode": "D15",
+    "applied": "2026-08-17",
+    "machine_checks": "head verified live: selected/tail/upsert all working (AD-19)"
+  }
 }
