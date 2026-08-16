@@ -1,0 +1,90 @@
+# mush Board API 契约 v1
+
+- 状态：`v1`（2026-08-17 定稿，GOAL-006 首交付物；GOAL-007 消费本契约）
+- 宿主：`src/web/`（node:http，零依赖）；默认只绑 `127.0.0.1`（对外暴露 = 触发门 4，不实现）
+- 序列化：JSON（UTF-8，LF 结尾）；SSE 用 `text/event-stream`，帧格式 `data: <json>\n\n`
+- 错误约定：失败响应一律 `{ "ok": false, "error": "<human-readable>" }`
+- 版本演进：v1 字段**只能向后兼容新增**；删除/改义/改型 = 破坏性变更，需头犬批准并同步 GOAL-007
+
+## 端点总览
+
+| 方法/路径 | 作用 | v1 状态 |
+| --- | --- | --- |
+| `GET /` | 看板页面（HTML） | 既有 |
+| `GET /api/snapshot` | 只读快照（事件链/审批/最近派发） | 既有，v1 扩展 dispatches |
+| `POST /api/events` | 追加 bridge 事件（schema v2 校验） | 既有 |
+| `GET /api/stream` | SSE：事件、审批、派发生命周期 | 既有，v1 新增 dispatch 类型 |
+| `POST /api/approvals/respond` | owner 审批应答（append-only） | 既有 |
+| `POST /api/dispatch` | **新**：派发（dry-run 默认 / real 走 approval） | v1 |
+| `GET /api/dispatch/:id` | **新**：派发状态与事件 | v1 |
+| `GET /api/workspaces` | **新**：workspace 列表/校验 | v1 |
+| `POST /api/workspaces/select` | **新**：持久化当前 workspace | v1 |
+| `GET /api/budget` | **新**：USD 台账投影 | v1 |
+
+## POST /api/dispatch
+
+请求：
+
+```json
+{
+  "adapter_id": "fake-t1 | deepseek-dsh | claude-code | zcode | codex | opencode",
+  "prompt": "string (1..64000)",
+  "workspace": "string? (缺省=已选 workspace 或服务 cwd)",
+  "effort": "LOW | HIGH | XHIGH?（缺省 LOW；D20 档位）",
+  "cap_usd": "number?（缺省 5；>0）",
+  "amount_usd": "number?（缺省 0=估算后记账）",
+  "real": "boolean?（缺省 false=dry-run）"
+}
+```
+
+响应（按状态码）：
+
+- `202`：已受理（dry-run 或 real 已执行/后台执行）
+  `{ "ok": true, "dispatch_id": "<32hex>", "status": "ADMITTED | DRY_RUN | BLOCKED_WAITING_OWNER", "admission": { "decision": "ADMITTED|DENIED", "remaining_usd": number } }`
+- `400`：schema fail-closed（字段缺失/类型错/adapter 未知/workspace 不存在或越界）
+- `402`：超预算门（admission DENIED；事件仍入台账）
+- `500`：runner 内部错误（回执已落盘，status FAIL）
+
+## GET /api/dispatch/:id
+
+`{ "ok": true, "dispatch": { "dispatch_id", "status", "adapter_id", "receipt_path", "events": [ {kind, at_utc, payload} ] } }`
+不存在 → `404`。
+
+## GET /api/workspaces
+
+`{ "ok": true, "workspaces": [ { "path", "is_git": bool, "mush_managed": bool } ] }`
+- 输入为最近用过的候选列表（持久化文件 + 内建默认）；不存在/不可读目录直接不入列表。
+- 路径穿越（`..` 逃逸候选根）fail-closed，不返回。
+
+## POST /api/workspaces/select
+
+请求 `{ "path": "/abs/path" }` → `201 { "ok": true, "selected": path }`
+- 路径必须存在且为目录；否则 `400`。
+- 持久化到 `<workspace>/.mush/workspace.json`（BOM-free JSON；写入前目录校验）。
+
+## GET /api/budget
+
+`{ "ok": true, "actors": [ { "actor_id", "spent_usd", "cap_usd", "entries": [ {at_utc, decision, amount_usd, remaining_usd, meta} ] } ] }`
+- 投影源：`runtime/budget-ledger.jsonl`（append-only，每行一条 admission/spend 事件，
+  与 `src/core/budget.ts` UsdBudgetLedger 同构）。
+
+## GET /api/snapshot（v1 扩展）
+
+既有字段不变，新增 `"dispatches": [ 最近 20 条 {dispatch_id, adapter_id, status, at_utc, receipt_path} ]`。
+
+## SSE 事件类型（`GET /api/stream`）
+
+| kind | payload | 触发 |
+| --- | --- | --- |
+| `event` | bridge event entry（sequence/sha256/event） | POST /api/events |
+| `approval` | {request_file, decision} | owner 应答 |
+| `dispatch` | {dispatch_id, phase, status, adapter_id, receipt_path?, error?} | 派发生命周期 |
+| `loop` | {run_id, sequence, from, to, sha256} | loop 状态机迁移（G006 接线后） |
+
+`dispatch` 生命周期 phase 顺序：`ADMISSION → EXECUTE → REPORT → REVIEW`；终态
+status ∈ `DRY_RUN | ADMITTED | BLOCKED_WAITING_OWNER | BLOCKED_ENV | FAIL | PASS`。
+
+## 实现与契约一致性
+
+- `src/web/api-contract.md` 为本文件；实现改动必须同步本文件（同 commit）。
+- 契约测试：对每个 v1 端点至少一条 fake 路径测试（含错误码分支）。
