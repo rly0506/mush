@@ -38,8 +38,8 @@ mush 是个人跨 harness 多 agent 编排工具（雪橇队）。你在本仓�
 
 ## 当前状态
 
-**RM-001 DONE；RM-002 DONE（2026-08-17 owner 收官）。** 下一阶段待立（目标池
-GP-04/05/14/18/21-27 待选）。基线 255 tests 全绿；看板 127.0.0.1:4790（桌面
+**RM-001 DONE；RM-002 DONE（2026-08-17 owner 收官）。** RM-003「对话化与体验」ACTIVE（D24，A+B 组合）：M1 头犬核心
+（GOAL-011 deepseek）、M2 对话面板（GOAL-012 kimi）、M3 犬力批（GOAL-013）。基线 255 tests 全绿；看板 127.0.0.1:4790（桌面
 快捷方式）；五犬在册（deepseek/claude/zcode/codex/opencode，kimi 待入册）。
 findings 默认裁决：docs/auto-decisions-log.md（D16）。
 GitHub 私有远端同步为常规动作（D19）；无人值守调度器仍默认关（D8）。
