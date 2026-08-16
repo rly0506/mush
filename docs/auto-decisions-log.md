@@ -435,3 +435,15 @@ RM-001、RM-002 全部构件正式收官。另：派发包编号改带 RM 前缀
 - **验收**：GOAL-013 **AUTO_ACCEPTED**（executor deepseek-dsh，g013 @ 1bcf8df）。
   profile/effort 合同/rerun/kimi 合同全部落库；契约 v1.4。
 - RM-003 进度：M1 ✅ M2 ✅ M3 ✅（待 p13 图标动效合并后收官）。
+
+## AD-31 · GOAL-013L 验收 + 合并（2026-08-17，头犬 zcode 会话）
+
+- **隔离验证**：worktree 284/284（+5）；**web-page-parse 防线首次实战立功**
+  ——当场抓获 onerror 内嵌 JS 的模板转义陷阱（DEF-07 回归测试的价值实证）。
+- **合并**：契约版本行冲突合流；kimi 的 BATCH-40 撞名回执改名
+  BATCH-40L-kimi-logo.json（双方保全）；master **294/294 全绿**。
+- **活体验证**：/assets/brands/deepseek.svg 200（svg）；路径穿越 404；
+  页面含品牌引用与 logo-hop 动效类 ×5。
+- **验收**：GOAL-013L **AUTO_ACCEPTED**（executor kimi-k3，g013-logo @ d84513a）。
+- **RM-003 全部构件齐**：M1+M2+M3+三补丁包（12B/13/13L/14）合并完毕。
+  收官余项（owner 侧）：① 复验聊天+图标+动效；② 一次真实弹审批应答。

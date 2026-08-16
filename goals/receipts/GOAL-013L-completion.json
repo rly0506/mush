@@ -1,7 +1,7 @@
 {
   "goal_id": "MUSH-GOAL-013L",
   "title": "官方品牌图标接线 + 三态动效（派发包 rm003-p13）",
-  "status": "AUTO_ACCEPTED_PENDING_OWNER",
+  "status": "AUTO_ACCEPTED",
   "branch": "g013-logo",
   "worktree": "runtime/worktrees/kimi-c",
   "executor": "kimi-k3 (thinking high)",
@@ -24,5 +24,10 @@
     "后端改动唯一授权处（server.ts 资产路由）；零框架/零构建/零外链（资产在仓自供）",
     "127.0.0.1 不变；凭据永不渲染；模板转义陷阱（onerror 内嵌引号）被 DEF-07 防线抓获并以 &quot; 方案修复"
   ],
-  "acceptance_semantics": "D15：机检全绿 + 冒烟真实执行 → AUTO_ACCEPTED；DONE 与否决权归 owner。待头犬（zcode）审核验收 + owner 显式接受。"
+  "acceptance_semantics": "D15：机检全绿 + 冒烟真实执行 → AUTO_ACCEPTED；DONE 与否决权归 owner。待头犬（zcode）审核验收 + owner 显式接受。",
+  "acceptance": {
+    "mode": "D15",
+    "applied": "2026-08-17",
+    "machine_checks": "284/284 worktree; merged 294/294; asset route 200 + traversal 404 live (AD-31)"
+  }
 }
