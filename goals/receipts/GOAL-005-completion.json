@@ -1,0 +1,50 @@
+{
+  "goal_id": "MUSH-GOAL-005",
+  "rm": "RM-001 / M5 Web 看板最小版",
+  "status": "COMPLETE_REQUESTED",
+  "semantics": "D15：机检验收规格全绿，请求 AUTO_ACCEPTED；DONE 与否决权仍归 owner",
+  "executor": "kimi-k3 (goal mode)",
+  "completed_at_utc": "2026-08-16T05:46:00Z",
+  "batches": ["BATCH-24", "BATCH-25", "BATCH-26"],
+  "commits": [
+    "a652e91 feat(G5-U1): board data-source projection layer",
+    "208b03a docs(G5-U1): BATCH-24 completion receipt",
+    "c7895e3 feat(G5-U2+U3): zero-dep node:http board server + SSE + approval respond + static page",
+    "7c289e5 feat(G5-U4): bin/mush board subcommand"
+  ],
+  "deliverables": {
+    "src_web": "src/web/{sources,server,page}.ts — 零依赖 node:http + SSE；只读消费事件流/审批目录，无第二状态源",
+    "page": "单页静态 HTML，无框架/无构建/无 CDN 外链（服务端测试断言无 http(s) 外链）；四视图：犬队状态/epoch 哈希链/预算消耗/审批弹窗",
+    "approval_loop": "POST /api/approvals/respond → 写 append-only owner-response 文件（schema_version 1，与 approval-requests 现有流程同构）；已应答 409、未知 404、路径穿越 400 fail-closed",
+    "cli": "bin/mush board [--port N] [--approval-root dir]：起服务 + 打印访问地址；host 硬绑 127.0.0.1 无对外开关（门 4）",
+    "security": "默认只绑 127.0.0.1；actor 投影只含身份/角色字段（测试断言字段集），页面永不显示凭据"
+  },
+  "verification": {
+    "npm_test": "199/199 全绿，fail 0，exit code 0（基线 183 → +16 新测试：web-sources 6 + web-server 7 + web-board-cli 3）",
+    "live_smoke": "node bin/mush board 真实起服：GET / → 200 text/html；GET /api/snapshot → 200 且读出真实 approval-requests（GOAL-004 预算门记录）；GET /api/stream → 200 text/event-stream；冒烟后进程已终止",
+    "dod_check": {
+      "npm_test_green": true,
+      "board_four_views": true,
+      "approval_respond_integration": true,
+      "completion_receipt": true
+    }
+  },
+  "evidence_paths_and_hashes": [
+    { "path": "src/web/sources.ts", "sha256": "F879F7DA17143853790F40BA954996AB246EF278FCCD5CEED22A9768E910E5C8" },
+    { "path": "src/web/server.ts", "sha256": "F76C30F76CE2967AA5794C8B822EDB8CE72E3D8CAD56E4E10CB08B6183A73363" },
+    { "path": "src/web/page.ts", "sha256": "2855D8953179F7CDD5877C3E096701D89ACC447B3FBC15B94B34C37F77EC5814" },
+    { "path": "src/cli.ts", "sha256": "537836876944D196E380EE7E68E6675C4547976A0DAF483EFE8BCD8D27BE7CE2" },
+    { "path": "bin/mush", "sha256": "341FB84B66B749F9496B8D75709B400D5F76CD8EE20BA6795D76128CE9168320" },
+    { "path": "tests/web-sources.test.ts", "sha256": "661052C75B79C9570228F86E6CE1D38C6E4F4068B0CD7A4356488F175AF4AEA9" },
+    { "path": "tests/web-server.test.ts", "sha256": "8E6A346693750DD0CDF4B364B8B55D93FFA203C311D062A372BA4ED7A1AAA99E" },
+    { "path": "tests/web-board-cli.test.ts", "sha256": "BF581D5AFF7A4205BBFCD0036B7563F4758BCDD8C53EEDA65847051A899BDE72" },
+    { "path": "goals/receipts/BATCH-26-test-output.txt", "sha256": "7D858AD8A8C8CD94AA95A9EF0409CFD556A7E683E2A80A8C8F1744BE2E76D4B6" }
+  ],
+  "open_findings": [
+    "F-G5-01 goals/receipts/dispatch-events/swap-deepseek-real-001.json.t1-receipt.json 为 GOAL-004 遗留未跟踪文件，不属本 Goal 范围，未动（范围纪律）",
+    "F-G5-02 预算视图当前消费 BUDGET_GATE 审批记录；UsdBudgetLedger 为内存态台账，落盘持久化与 loop 事件流推送接线属 M5+ 范围（看板已具备 POST /api/events + SSE 通道）",
+    "F-G5-03 看板对外暴露（局域网手机访问）属触发门 4，未实现开关，待 owner 明确开启"
+  ],
+  "spent_estimate_usd_total": 1.05,
+  "per_actor_cap_usd": 5
+}
