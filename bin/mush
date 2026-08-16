@@ -1,0 +1,10 @@
+#!/usr/bin/env node
+// mush CLI 入口（D21）：零依赖薄壳，转发到 src/cli.ts 的同一 runCli 函数。
+import('../src/cli.ts').then(async ({ runCli }) => {
+  const result = await runCli(process.argv.slice(2));
+  process.stdout.write(result.stdout.endsWith('\n') ? result.stdout : result.stdout + '\n');
+  process.exitCode = result.exitCode;
+}).catch((error) => {
+  process.stderr.write(String((error instanceof Error ? error.message : error)) + '\n');
+  process.exitCode = 70;
+});

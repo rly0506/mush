@@ -9,6 +9,10 @@
   },
   "scripts": {
     "test": "node --test --test-isolation=none tests/*.test.ts",
-    "test:isolated": "node --test tests/*.test.ts"
+    "test:isolated": "node --test tests/*.test.ts",
+    "mush": "node bin/mush"
+  },
+  "bin": {
+    "mush": "bin/mush"
   }
 }
