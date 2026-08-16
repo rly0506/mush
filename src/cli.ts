@@ -11,6 +11,7 @@ import { UsdBudgetLedger } from './core/budget.ts';
 import { validateAdapterContract, type AdapterContract } from './adapters/contract.ts';
 import { buildDeepSeekContract } from './adapters/deepseek.ts';
 import { buildClaudeContract } from './adapters/claude.ts';
+import { startBoardServer } from './web/server.ts';
 
 export interface CliResult {
   exitCode: number;
@@ -75,7 +76,47 @@ export async function runCli(argv: string[]): Promise<CliResult> {
   const { positionals, flags } = parseArgs(argv);
   const command = positionals[0];
   if (command === undefined) {
-    return { exitCode: 64, stdout: jsonLine({ ok: false, usage: 'mush <status|dispatch|review> [--workspace <dir>] [options]' }) };
+    return { exitCode: 64, stdout: jsonLine({ ok: false, usage: 'mush <status|dispatch|review|board> [--workspace <dir>] [options]' }) };
+  }
+
+  if (command === 'board') {
+    // GOAL-005：本地看板。默认 127.0.0.1（触发门 4：对外暴露需 owner 明确开启）。
+    const workspace = resolveWorkspace(flags);
+    const approvalRoot =
+      typeof flags['approval-root'] === 'string'
+        ? path.resolve(flags['approval-root'])
+        : path.join(workspace, 'goals', 'receipts', 'approval-requests');
+    const port = typeof flags.port === 'string' ? Number(flags.port) : 0;
+    if (!Number.isInteger(port) || port < 0 || port > 65535) return fail('--port must be an integer 0-65535', 64);
+    const host = '127.0.0.1'; // 硬绑定 loopback；不设 --host 开关（门 4）
+    const server = await startBoardServer({
+      approvalRoot,
+      runId: `board-${workspace === process.cwd() ? 'mush' : path.basename(workspace)}`,
+      assignmentEpoch: 1,
+      host,
+      port,
+    });
+    const url = `http://${host}:${server.port}/`;
+    const payload = {
+      ok: true,
+      command: 'board',
+      url,
+      host,
+      port: server.port,
+      approval_root: approvalRoot,
+    };
+    if (flags.once === true) {
+      // 探测模式：绑定成功打印地址即退出（测试用）。
+      await server.close();
+      return { exitCode: 0, stdout: jsonLine({ ...payload, once: true }) };
+    }
+    process.stdout.write(`mush 看板已启动：${url}\n审批目录：${approvalRoot}\nCtrl+C 停止。\n`);
+    await new Promise<void>((resolve) => {
+      process.on('SIGINT', () => resolve());
+      process.on('SIGTERM', () => resolve());
+    });
+    await server.close();
+    return { exitCode: 0, stdout: jsonLine({ ...payload, stopped: true }) };
   }
 
   if (command === 'status') {

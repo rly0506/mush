@@ -1,0 +1,25 @@
+{
+  "batch": "BATCH-26",
+  "unit": "G5-U4",
+  "goal_id": "MUSH-GOAL-005",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "kimi-k3 (goal mode)",
+  "changed_paths": [
+    "src/cli.ts",
+    "bin/mush",
+    "tests/web-board-cli.test.ts",
+    "goals/receipts/BATCH-26-test-output.txt",
+    "goals/receipts/BATCH-26-completion.json"
+  ],
+  "tests_run": "npm test 真实执行：tests 199 / pass 199 / fail 0 / exit code 0（较 BATCH-25 新增 3：board --once 绑定/端口/usage）；完整输出见 BATCH-26-test-output.txt",
+  "test_output_summary": "199/199 全绿：board 子命令默认绑 127.0.0.1、打印 http://127.0.0.1:<port>/ 访问地址、approval_root 指向 goals/receipts/approval-requests",
+  "ps_source_trace": [
+    "GOAL-005 任务 5：bin/mush 增加 board 子命令（起服务 + 打印访问地址）",
+    "CONSTITUTION.md §1 触发门 4：host 硬绑 127.0.0.1，不提供对外开关"
+  ],
+  "open_findings": [
+    "goals/receipts/dispatch-events/swap-deepseek-real-001.json.t1-receipt.json 为 GOAL-004 遗留未跟踪文件，不属本 Goal 范围，不动",
+    "bin/mush 薄壳改为：常驻命令 stdout 为空时不补写换行（board 常驻模式在退出前自行打印访问信息）"
+  ],
+  "spent_estimate_usd": 0.2
+}
