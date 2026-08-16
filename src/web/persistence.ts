@@ -16,6 +16,8 @@ export interface LockState {
   pid: number;
   acquired_at_utc: string;
   released_at_utc: string | null;
+  /** DEF-06：监听端口（listen 后回填），供第二实例拒绝时提示访问地址。 */
+  port?: number;
 }
 
 export class LockError extends Error {}
@@ -218,13 +220,33 @@ export class BoardPersistence {
         return existing as LockState;
       }
       if (!released && Number.isInteger(pid) && pid > 0 && this.isAlive(pid)) {
-        throw new LockError(`board server already running (pid ${pid}); refusing second instance`);
+        // DEF-06：拒绝时带上旧实例的监听端口（若可得）与处置指引——
+        // owner 曾因旧实例残留误以为看板坏了。
+        let portHint = '';
+        if (typeof existing.port === 'number' && existing.port > 0) {
+          portHint = `, serving http://127.0.0.1:${existing.port}`;
+        }
+        throw new LockError(
+          `board server already running (pid ${pid}${portHint}); refusing second instance` +
+            ` — 用已有实例，或结束旧进程（taskkill /PID ${pid} /F）后重启`,
+        );
       }
       // 陈锁：PID 已不存在 → 接管。
     }
     const lock: LockState = { pid: process.pid, acquired_at_utc: now, released_at_utc: null };
     writeFileSync(file, JSON.stringify(lock) + '\n', 'utf8');
     return lock;
+  }
+
+  /** DEF-06：listen 后回填端口到锁文件（原子重写，保留其余字段）。 */
+  recordLockPort(port: number): void {
+    const file = this.lockPath();
+    try {
+      const existing = JSON.parse(readFileSync(file, 'utf8')) as LockState;
+      writeFileSync(file, JSON.stringify({ ...existing, port }) + '\n', 'utf8');
+    } catch {
+      // 锁不可读/不存在：静默跳过（提示功能尽力而为，不阻塞服务）。
+    }
   }
 
   releaseLock(): void {

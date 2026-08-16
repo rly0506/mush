@@ -347,6 +347,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
   });
   const address = server.address();
   const boundPort = typeof address === 'object' && address !== null ? address.port : port;
+  persistence.recordLockPort(boundPort); // DEF-06：锁内回填端口供重复启动提示
 
   // GP-03 / F-42：SIGINT 优雅释放锁（CLI 的 SIGINT 会调 close）。
   const release = (): void => {
