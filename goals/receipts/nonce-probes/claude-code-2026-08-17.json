@@ -1,0 +1,16 @@
+{
+    "schema_version":  1,
+    "adapter_id":  "claude-code",
+    "channel":  "stream-json",
+    "probe_at_utc":  "2026-08-16T02:33:05.8851112Z",
+    "provider":  "anthropic",
+    "model_id":  "UNKNOWN",
+    "identity_proven":  false,
+    "nonce":  "06e53ad048814b3a89ecdddddb82a66e",
+    "expected_sha256":  "6a92bddaccb0266c38653c11198488312a705c4872dd1c9183b124f91bff8238",
+    "observed":  null,
+    "matched":  false,
+    "total_cost_usd":  null,
+    "exit_code":  1,
+    "stdout_sha256":  "6108E381B5E0D039982C594437CA37C7FC82E0E9CB9E7D602BD61AEBB7F9A9A7"
+}

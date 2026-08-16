@@ -1,0 +1,35 @@
+{
+  "batch": "BATCH-14",
+  "unit": "U3",
+  "goal_id": "MUSH-GOAL-003",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "dsh/deepseek headless",
+  "changed_paths": [
+    "tests/adapters-claude.test.ts",
+    "src/adapters/claude.ts",
+    "goals/receipts/nonce-probes/claude-code-2026-08-17.json",
+    "goals/receipts/BATCH-14-test-output.txt",
+    "goals/receipts/BATCH-14-completion.json"
+  ],
+  "tests_run": "npm test 真实执行：tests 147 / pass 147 / fail 0 / exit code 0（本批新增 6 tests / 29 断言，基线 141 保持全绿）；完整输出见 BATCH-14-test-output.txt",
+  "test_output_summary": "147/147 全绿，0 fail，0 skipped，duration ~1.11s；sha256 E29DF606D93D9D022C8503F30698A408758A86C60F0B9623FFC648DAD5F6BB55",
+  "ps_source_trace": [
+    "harness-landscape-2026-08-16.md claude 行：-p/--print 非交互；--output-format stream-json（配 --print）",
+    "D13：nonce 身份探测 fail-closed；UNKNOWN 诚实记录"
+  ],
+  "ported_assertions": [
+    {
+      "test": "adapters-claude.test.ts（6 tests：stream-json 解析/成本/身份/nonce 证据/verify）",
+      "ps_source": "harness-landscape claude 行 + D13",
+      "assertions": 29
+    }
+  ],
+  "open_findings": [
+    {
+      "id": "F-19",
+      "severity": "warn",
+      "detail": "真实 claude nonce 探测在本环境 exit 1、无 stream 输出；claude doctor 显示使用自定义 ANTHROPIC_BASE_URL 且未连接 api.anthropic.com / claude.ai 未登录。证据文件诚实记录 model=UNKNOWN、matched=false；协议解析与 fail-closed 断言由 fake/录制流测试覆盖。真实探测与真实 dispatch 一起待 owner 确认 + 可用凭据环境。"
+    }
+  ],
+  "spent_estimate_usd": 0.02
+}
