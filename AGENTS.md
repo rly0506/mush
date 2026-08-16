@@ -28,10 +28,11 @@ mush 是个人跨 harness 多 agent 编排工具（雪橇队）。你在本仓�
 
 ## 当前状态
 
-M1–M3 完成（158 tests 全绿；GOAL-001/002/003 均 AUTO_ACCEPTED）。真实 dispatch
-已获 owner 批准但因凭据环境 BLOCKED_ENV（缺 DEEPSEEK_API_KEY、claude 未登录——
-owner 侧动作，mush 不代做）。
-下一步 GOAL-004（M4 dogfood live loop，已排队）：前置 = 凭据就绪后重跑
-GOAL-003 dispatch 闭环；首任务（M5 看板 vs zcode 接入）待 owner 一句话选定。
-findings 默认裁决记录：docs/auto-decisions-log.md（D16）。
+**RM-001（移植与 dogfood 自举）全部 DoD 满足，整单 COMPLETE_REQUESTED——DONE 待
+owner 一句话。** M1–M5 完成链：fixture 199 tests 全绿 → 核心移植 → 四犬在册
+（deepseek/claude/kimi/zcode，三模型家族身份实证）→ dogfood loop 闭环 + 对调
+实验 + 触发门真实弹审批 → Web 看板（`node bin/mush board`，127.0.0.1）。
+看板已可审批弹窗（D14 第一块拼图）。遗留接线项（loop→看板推送、USD 台账
+落盘、局域网暴露）属 M5+，见 auto-decisions-log AD-16。
+findings 默认裁决：docs/auto-decisions-log.md（D16）。
 GitHub 私有远端同步为常规动作（D19）；无人值守调度器仍默认关（D8）。
