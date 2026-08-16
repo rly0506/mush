@@ -235,3 +235,25 @@ b47afd7c0fd93fdead7b48392b3dcc1e9e46791d991776330e49a83540d91403  .test-fixtures
   `BATCH-24-test-output.txt`、`BATCH-25-test-output.txt` 两个新文件；G5 原有
   `BATCH-24-baseline-test-output.txt` 与各 completion 均未受影响。本批规范为
   **BATCH-27**；误建文件保留为历史痕迹，不覆盖任何既有证据。
+
+## AD-17 · GOAL-006/007/008 验收 + DEF-02（2026-08-17，头犬 zcode 会话）
+
+- **机检**：独立复跑 `npm test` = **223/223 pass / exit 0**（222 交付 + 头犬
+  DEF-02 回归测试 1）。
+- **活体验收**：`node bin/mush board` 三端点亲测——workspaces/budget 正常；
+  dispatch 到可执行缺失的适配器（fake-t1）**暴露 DEF-02**（见下），修复后复测：
+  受控 FAIL JSON + 服务存活（GET / 200）。
+- **DEF-02（头犬发现并修复）**：dispatch 管线的 spawn ENOENT 走未处理 error
+  事件 → 看板服务整进程崩溃（一次派错犬 = 看板 DoS）。测试套件未覆盖因全部
+  注入 fake spawn。修复：`t1-runner` 增加 onError 通道，spawn 失败受控收尾
+  （exit 127 + 回执 `spawn_error` 标记 + 抛 BLOCKED_ENV）；回归测试
+  `DEF-02: real spawn ENOENT is contained...`（真实 spawn 路径，非注入）。
+- **验收**：G006 / G007 / G008 均 **AUTO_ACCEPTED**（executor 分别为
+  deepseek-dsh ×2、kimi-k3）。
+- **G008 扩编结果备案**：codex/opencode = REGISTERED-UNVERIFIED（沙箱 EPERM，
+  BLOCKED_ENV 证据在案，普通环境补跑 nonce 即可转正）；zcode headless 三关
+  FAIL 记录在案，交互式在册兜底有效。
+- **并行协作事件备案**：kimi 报告两次工作区批次撞号（BATCH-27/28 文件交错），
+  处置正确（恢复他犬文件、保留己方改动、全绿再提交）——并行拓扑首次真实
+  摩擦，无损失；后续并行派发包应错开批次号段（改进项记 M5+）。
+- **RM-002 进度**：G006+G007 收口 → **G009（试验田）编排前置就绪**。

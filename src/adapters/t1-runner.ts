@@ -19,6 +19,9 @@ export interface ChildProcessLike {
   onStdout(listener: (chunk: Buffer | string) => void): void;
   onStderr(listener: (chunk: Buffer | string) => void): void;
   onExit(listener: (code: number | null) => void): void;
+  /** DEF-02：spawn 失败（ENOENT/EPERM 等）经此送达；缺失即可执行文件不存在，
+   *  必须 fail-closed 为受控结果而非未处理 error 崩溃宿主进程。 */
+  onError?(listener: (err: Error) => void): void;
   kill(): void;
 }
 
@@ -46,6 +49,8 @@ export interface T1Receipt {
   identity_fail_closed: boolean;
   stdout_sha256: string;
   stderr_sha256: string;
+  /** DEF-02：spawn 失败（可执行不存在等）时的受控错误标记。 */
+  spawn_error?: string;
 }
 
 export interface T1RunResult {
@@ -84,6 +89,7 @@ function defaultSpawn(executable: string, args: string[], opts: { cwd: string })
     onStdout: (listener) => child.stdout.on('data', listener),
     onStderr: (listener) => child.stderr.on('data', listener),
     onExit: (listener) => child.on('exit', listener),
+    onError: (listener) => child.on('error', listener),
     kill: () => child.kill(),
   };
 }
@@ -112,6 +118,7 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
   let childKilled = false;
   let exitCode = 124;
   let identityError: Error | null = null;
+  let spawnError: Error | null = null;
 
   child.onStdout((chunk) => {
     stdout += chunk.toString();
@@ -121,6 +128,13 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
   });
 
   await new Promise<void>((resolve) => {
+    let settled = false;
+    const settle = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve();
+    };
     const timer = setTimeout(() => {
       timedOut = true;
       childKilled = true;
@@ -131,9 +145,14 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
       }
     }, options.timeoutMs);
     child.onExit((code) => {
-      clearTimeout(timer);
       exitCode = timedOut ? 124 : (code ?? 124);
-      resolve();
+      settle();
+    });
+    // DEF-02：spawn 失败（可执行不存在/权限）受控收尾，不崩溃宿主。
+    child.onError?.((err) => {
+      spawnError = err;
+      exitCode = 127;
+      settle();
     });
     if (contract.prompt_transport === 'stdin') {
       child.stdinWrite?.(options.prompt);
@@ -160,10 +179,13 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
     identity_fail_closed: identityError !== null,
     stdout_sha256: sha256Hex(stdout),
     stderr_sha256: sha256Hex(stderr),
+    // DEF-02：spawn 失败受控标记（ENOENT/EPERM 等），exit_code=127。
+    ...(spawnError !== null ? { spawn_error: spawnError.message } : {}),
   };
   mkdirSync(path.dirname(path.resolve(options.receiptPath)), { recursive: true });
   writeFileSync(options.receiptPath, JSON.stringify(receipt) + '\n', 'utf8');
 
+  if (spawnError !== null) throw new Error(`spawn failed (BLOCKED_ENV): ${spawnError.message}`);
   if (identityError !== null) throw identityError;
   return {
     exitCode,

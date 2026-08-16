@@ -1,6 +1,6 @@
 {
   "goal_id": "MUSH-GOAL-006",
-  "status": "COMPLETE_REQUESTED",
+  "status": "AUTO_ACCEPTED",
   "executor": "dsh/deepseek headless",
   "changed_paths": [
     "src/web/api-contract.md",
@@ -20,13 +20,24 @@
     }
   ],
   "evidence": [
-    { "path": "goals/receipts/BATCH-31-test-output.txt", "sha256": "见 BATCH-31 提交" },
-    { "path": "src/web/api-contract.md", "sha256": "契约与实现同提交核验" }
+    {
+      "path": "goals/receipts/BATCH-31-test-output.txt",
+      "sha256": "见 BATCH-31 提交"
+    },
+    {
+      "path": "src/web/api-contract.md",
+      "sha256": "契约与实现同提交核验"
+    }
   ],
   "open_findings": [
     "F-33 core/budget.ts 增 allEntries() 最小投影（已回报）",
     "F-36 server.ts 与 kimi 的 snapshot.dispatches 协作改动同批提交",
     "真实 dispatch 走审批门；本 Goal 验收用 fake 路径（D22 要求）"
   ],
-  "spent_estimate_usd": 0.08
+  "spent_estimate_usd": 0.08,
+  "acceptance": {
+    "mode": "standing-default D15",
+    "applied": "2026-08-17",
+    "machine_checks": "head re-verified 223/223; AD-17"
+  }
 }

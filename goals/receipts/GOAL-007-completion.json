@@ -1,11 +1,13 @@
 {
   "goal_id": "MUSH-GOAL-007",
   "rm": "RM-002 / 看板前端调度入口",
-  "status": "COMPLETE_REQUESTED",
+  "status": "AUTO_ACCEPTED",
   "semantics": "D15：机检验收规格全绿，请求 AUTO_ACCEPTED；DONE 与否决权仍归 owner",
   "executor": "kimi-k3 (goal mode, dispatch packet docs/dispatch/005-kimi-rm002-frontend.md)",
   "completed_at_utc": "2026-08-16T06:56:41Z",
-  "batches": ["BATCH-29"],
+  "batches": [
+    "BATCH-29"
+  ],
   "commits": [
     "379774a feat(G7-U1-U4): board dispatch console — dispatch form, workspace selector, tracking cards, real budget view + fake dry-run e2e smoke (222/222 green)",
     "0f848f5 docs(G7): BATCH-29 completion receipt"
@@ -27,11 +29,26 @@
     }
   },
   "evidence_paths_and_hashes": [
-    { "path": "src/web/page.ts", "sha256": "D7B54BB81E27C040F02F6A3C5CCCCC8E6193A06432ECE9434C00E9DBEC1F6395" },
-    { "path": "tests/web-board-page.test.ts", "sha256": "41C66B493ECFE189CEF56975DB0500A425B9B7E44BF73CB9B9B0F25718848666" },
-    { "path": "tests/web-board-e2e.test.ts", "sha256": "7ED130975D085F605B4B158054D8CC6C36E9F400CF18A99276A12E594C61076B" },
-    { "path": "goals/receipts/BATCH-29-test-output.txt", "sha256": "46614C09D5F61795525F9353BBF36F727E683C3635BE3322D00DF6B4B9C185CE" },
-    { "path": "goals/receipts/BATCH-29-completion.json", "sha256": "E3335B611B4865304413D81D408B9BCE810E2C40BDBB5DB95DFAA724298BA529" }
+    {
+      "path": "src/web/page.ts",
+      "sha256": "D7B54BB81E27C040F02F6A3C5CCCCC8E6193A06432ECE9434C00E9DBEC1F6395"
+    },
+    {
+      "path": "tests/web-board-page.test.ts",
+      "sha256": "41C66B493ECFE189CEF56975DB0500A425B9B7E44BF73CB9B9B0F25718848666"
+    },
+    {
+      "path": "tests/web-board-e2e.test.ts",
+      "sha256": "7ED130975D085F605B4B158054D8CC6C36E9F400CF18A99276A12E594C61076B"
+    },
+    {
+      "path": "goals/receipts/BATCH-29-test-output.txt",
+      "sha256": "46614C09D5F61795525F9353BBF36F727E683C3635BE3322D00DF6B4B9C185CE"
+    },
+    {
+      "path": "goals/receipts/BATCH-29-completion.json",
+      "sha256": "E3335B611B4865304413D81D408B9BCE810E2C40BDBB5DB95DFAA724298BA529"
+    }
   ],
   "open_findings": [
     "F-G7-01 snapshot dispatches 扩展由 G006（cdeb57d）在 server 侧落地，本 Goal 仅消费契约字段，未动 server 端点逻辑（边界遵守）",
@@ -40,5 +57,10 @@
     "F-G7-04 BATCH-28 编号与并行 G008 批次撞号（其回执先落盘），本 Goal 批次改用 BATCH-29"
   ],
   "spent_estimate_usd_total": 0.55,
-  "per_actor_cap_usd": 5
+  "per_actor_cap_usd": 5,
+  "acceptance": {
+    "mode": "standing-default D15",
+    "applied": "2026-08-17",
+    "machine_checks": "head re-verified 223/223; AD-17"
+  }
 }

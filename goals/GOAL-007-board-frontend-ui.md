@@ -1,6 +1,6 @@
 ---
 goal_id: MUSH-GOAL-007
-status: QUEUED（RM-002 / D22；契约先行，API v1 落盘即开工，不等 G006 实现完成）
+status: AUTO_ACCEPTED（D15 非阻断验收，2026-08-17；DONE 待 owner 转正）
 mode: LIGHT（触发门照常生效）
 rm: RM-002 / GOAL-007
 executor_model_profile: kimi-code（前端，thinking high 档）

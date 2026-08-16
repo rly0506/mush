@@ -1,6 +1,6 @@
 ---
 goal_id: MUSH-GOAL-008
-status: QUEUED（RM-002 / D22；与 GOAL-006 并行）
+status: AUTO_ACCEPTED（D15 非阻断验收，2026-08-17；DONE 待 owner 转正）
 mode: LIGHT（触发门照常生效；codex/opencode nonce 探测一揽子预授权已含）
 rm: RM-002 / GOAL-008
 executor_model_profile: deepseek-dsh（后端）

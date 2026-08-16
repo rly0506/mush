@@ -210,3 +210,22 @@ test('T1 identity verifier passes matching runtime evidence; non-t1 protocols ar
     /t1/i,
   );
 });
+
+// DEF-02 回归：spawn 失败（可执行不存在，真实 node spawn ENOENT 路径）必须
+// 受控收尾——回执落盘且带 spawn_error 标记、抛 BLOCKED_ENV、宿主进程不崩溃。
+test('DEF-02: real spawn ENOENT is contained as BLOCKED_ENV with spawn_error receipt (no crash)', async () => {
+  const receiptPath = path.join(WORKSPACE, 'def02-spawn-enoent-receipt.json');
+  await assert.rejects(
+    runT1({
+      contract: { ...makeContract(), executable: 'mush-def02-missing-exe-xyz' },
+      prompt: 'probe',
+      workspaceRoot: WORKSPACE,
+      receiptPath,
+      timeoutMs: 5000,
+    }),
+    /spawn failed \(BLOCKED_ENV\)/,
+  );
+  const receipt = JSON.parse(readFileSync(receiptPath, 'utf8')) as { exit_code: number; spawn_error?: string };
+  assert.equal(receipt.exit_code, 127);
+  assert.match(receipt.spawn_error ?? '', /ENOENT|mush-def02-missing-exe-xyz/);
+});

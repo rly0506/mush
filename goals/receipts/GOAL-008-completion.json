@@ -1,6 +1,6 @@
 {
   "goal_id": "MUSH-GOAL-008",
-  "status": "COMPLETE_REQUESTED",
+  "status": "AUTO_ACCEPTED",
   "executor": "dsh/deepseek headless",
   "changed_paths": [
     "src/adapters/codex.ts",
@@ -27,5 +27,10 @@
     "F-30 zcode headless 三关 FAIL，交互式在册兜底（D22 允许）",
     "三犬均 REGISTERED-UNVERIFIED/INTERACTIVE；真实身份证明待普通环境补跑"
   ],
-  "spent_estimate_usd": 0.07
+  "spent_estimate_usd": 0.07,
+  "acceptance": {
+    "mode": "standing-default D15",
+    "applied": "2026-08-17",
+    "machine_checks": "head re-verified 223/223; AD-17"
+  }
 }
