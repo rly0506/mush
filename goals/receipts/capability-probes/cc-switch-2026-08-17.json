@@ -1,0 +1,22 @@
+{
+    "schema_version":  1,
+    "source":  "cc-switch",
+    "probe_at_utc":  "2026-08-16T02:35:07.7868711Z",
+    "available":  false,
+    "providers":  [
+
+                  ],
+    "reason":  "cc-switch CLI not installed; provider enumeration not performed because only credential-bearing files (auth/db/settings) were present and D20 forbids opening them",
+    "records":  [
+                    {
+                        "adapter_id":  "cc-switch",
+                        "provider":  "UNKNOWN",
+                        "model_id":  "UNKNOWN",
+                        "credential_status":  "UNKNOWN",
+                        "identity_source":  "cc-switch-readonly",
+                        "model_tier":  "UNKNOWN",
+                        "thinking_level":  "UNKNOWN",
+                        "checked_at":  "2026-08-16T02:35:07.7928371Z"
+                    }
+                ]
+}
