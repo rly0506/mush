@@ -1,34 +1,29 @@
 {
   "batch": "BATCH-29",
-  "unit": "G6-U2",
-  "goal_id": "MUSH-GOAL-006",
+  "unit": "G7-U1+U2+U3+U4",
+  "goal_id": "MUSH-GOAL-007",
   "status": "COMPLETE_REQUESTED",
-  "executor": "dsh/deepseek headless",
+  "executor": "kimi-k3 (goal mode, dispatch packet 005)",
   "changed_paths": [
-    "src/web/dispatch.ts",
-    "src/web/server.ts",
-    "src/core/budget.ts",
-    "tests/web-dispatch.test.ts",
+    "src/web/page.ts",
+    "tests/web-board-page.test.ts",
+    "tests/web-board-e2e.test.ts",
     "goals/receipts/BATCH-29-test-output.txt",
     "goals/receipts/BATCH-29-completion.json"
   ],
-  "tests_run": "git 跟踪测试文件 + 本批新增真实执行：tests 211 / pass 211 / fail 0 / exit 0（基线 204 + 本批 7）；完整输出见 BATCH-29-test-output.txt",
-  "test_output_summary": "211/211 全绿；全量 glob 仍受 kimi 在途未跟踪前端测试影响（F-32），跟踪面为权威基线",
-  "ps_source_trace": [
-    "src/web/api-contract.md v1（POST /api/dispatch、GET /api/dispatch/:id、workspaces、budget）",
-    "GOAL-006 任务2/3/4/5（派发管线/workspace API/USD 台账/生命周期事件）",
-    "GOAL-002 src/core/budget.ts（UsdBudgetLedger 复用）"
+  "tests_run": "npm test 真实执行：tests 222 / pass 222 / fail 0 / exit code 0；完整输出见 BATCH-29-test-output.txt（222 个 ✔ 行核对）",
+  "test_output_summary": "222/222 全绿：G7 新增 web-board-page 7（结构断言：派发表单/契约字段/workspace 选择器/跟踪卡片徽章/预算视图/SSE dispatch/零外链无凭据）+ web-board-e2e 2（fake dry-run 端到端冒烟 + real 无 approval 门完整）；G006 既有 14 项契约测试同步保持绿",
+  "contract_trace": [
+    "src/web/api-contract.md v1（G006 已定稿）——按约消费：POST /api/dispatch、GET /api/dispatch/:id、GET/POST workspaces、GET /api/budget、snapshot dispatches 扩展、SSE dispatch kind",
+    "docs/rm-002-mobilization.md 附录骨架 + 契约演进规则（向后兼容）",
+    "CONSTITUTION.md §1 触发门 4：127.0.0.1 假设不变；零依赖/零外链/零凭据渲染"
   ],
-  "ported_assertions": [
-    {
-      "test": "web-dispatch.test.ts（7 tests：schema fail-closed/dry-run 全生命周期/402 超预算门/real 审批门/workspace 持久化/budget 投影/HTTP 端点契约）",
-      "ps_source": "api-contract.md v1 + GOAL-006",
-      "assertions": 37
-    }
-  ],
+  "e2e_smoke": "fake-t1 dry-run 全链：workspaces 列表/选择持久化(201) → POST /api/dispatch(202, DRY_RUN, admission ADMITTED) → GET /api/dispatch/:id（状态+回执锚点+生命周期事件）→ GET /api/budget（fake-t1 入账）→ snapshot dispatches 含本次派发 → SSE 收到 kind=dispatch 推送",
   "open_findings": [
-    "F-33 src/core/budget.ts 增加 UsdBudgetLedger.allEntries()（最小投影辅助，无行为变更）；按 GOAL-006 边界说明：本 Goal 对 core 仅此一处只读消费侧扩展。",
-    "F-32（沿用）kimi 前端未跟踪测试在途，全量 glob 暂红；跟踪面 211/211 为权威。"
+    "F-G7-01 snapshot dispatches 扩展由 G006 cdeb57d（G6-U3）在 server 侧落地，本 Goal 仅消费，未动 server 端点逻辑（边界遵守）",
+    "F-G7-02 预算视图 cap_usd 为管线投影值（当前固定 5），随台账演进真实化",
+    "F-G7-03 犬只下拉来源为快照 actors 事件流投影；能力注册表 API 落盘后可切换（向后兼容扩展）"
   ],
-  "spent_estimate_usd": 0.03
+  "note": "BATCH-28 编号与并行 G008 批次撞号（其回执先落盘），本批次改用 BATCH-29；G7 内容以本文件为准",
+  "spent_estimate_usd": 0.55
 }
