@@ -54,3 +54,12 @@
 | 运行历史 | 内存 records | GP-03/GP-10 |
 | 操作留痕 | append-only 回执/AD 日志 ✅ | 保持 |
 | 通知 | 无 | GP-18 |
+
+## 2026-08-17 增补（owner 试用反馈 GP-21..24）
+
+| ID | 标题 | 来源 | 优先 | 状态 | 依赖 | 备注 |
+| --- | --- | --- | --- | --- | --- | --- |
+| GP-21 | dsh preset 切换：dispatch 暴露 profile 字段（--profile 注入），UI 预设下拉；模型切换可经 per-model profile 实现（owner 建 ~/.dsh/profiles/*，F-G9-02 的实操解） | owner Q2 | 中 | idea | — | deepseek 后端 + kimi UI |
+| GP-22 | effort 档位按模型适配：合同声明 effort_levels + 注入方式（flag/env），从各 harness 官方文档核对（GPT 5 档等），UI 按犬渲染 | owner Q3 | 中 | idea | — | 替换硬编码 LOW/HIGH/XHIGH |
+| GP-23 | 前端美化：运行中犬只动效 logo（CSS 动画 + 内联 SVG，零外链红线内）；整体视觉升级 | owner Q4 | 中 | idea | — | kimi |
+| GP-24 | 意向项目登记 UX：冻结区拒绝改为"警示+owner 确认 carve-out"（整树只读默认，owner 圈定范围开放），替代一刀切前端拒绝 | owner Q1 | 中 | idea | GP-14 | 头犬 API 登记已可用的正式化 |
