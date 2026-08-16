@@ -138,3 +138,25 @@ b47afd7c0fd93fdead7b48392b3dcc1e9e46791d991776330e49a83540d91403  .test-fixtures
   owner 侧前置，不代做、不虚构。
 - **验收建议**：GOAL-004 整单暂不升 AUTO_ACCEPTED（DoD 的真实 loop 未闭环）；
   U1–U6 准备单元可按 D15 机检记录，U-REAL 闭环后再转正。
+
+## AD-12 · GOAL-004 实跑轮复核（2026-08-17，头犬 zcode 会话）
+
+- **机检**：头犬独立复跑 `npm test` = **182/182 pass / exit 0**；提交链
+  `99dfca9..2fde05b` 检视无异常；首个 live loop 事件链（zcode-001，
+  SCAN→…→REVIEW(PASS)→ACCEPT，7 事件哈希链）与 owner 选择落盘核验。
+- **验收**：GOAL-004 U-REAL 实跑轮交付 **ACCEPT**，GOAL-004 整单升
+  **AUTO_ACCEPTED**（首个真实 loop 闭环已达成）。
+- **缺陷判定 DEF-01（身份证据矛盾，须修正）**：`claude-real-003` 记录
+  `provider: anthropic` + `model_id: deepseek-v4-flash` + `identity_proven: true`。
+  事实链：owner 明示 claude 犬经 cc-switch 当前 profile（ANTHROPIC_AUTH_TOKEN/
+  BASE_URL）服务——即该通道实际由 DeepSeek 后端响应。**fail-closed（宪法 §3）
+  要求运行时模型身份与合同不符即停**：nonce 匹配只证明"响应来自一个一致后端"，
+  不证明"它是 claude 合同犬"。该 dispatch 应判身份不符而非 PASS。
+  处置：修 `src/adapters/claude.ts` 身份校验（运行时 model_id 必须匹配合同
+  provider 期望，否则 FAIL + 事件化）；之后要么换真实 anthropic 端点重跑，
+  要么把该通道重定义为 deepseek-via-claude-cli 合同。**修前 claude-real-003
+  不得作为"Claude Code 犬可用"的依据**。
+- **F-28**（zcode 真实探测授权）→ 属门 5 + 花钱：**等 owner 一句话**，头犬不代批。
+- **预算门 APPROVAL_REQUEST**（AD-11 小额探测）→ RM DoD"真实弹审批"记录保留
+  OPEN，等 owner 批准/否决（不阻塞队列）。
+- **对调实验真跑** → 真实花钱执行需一次有界 dispatch 确认，随 F-28 一并问 owner。
