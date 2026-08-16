@@ -24,8 +24,18 @@
    映射：deepseek-dsh→deepseek / claude-code→claude / kimi→kimi /
    opencode→opencode / head-dog→deepseek（头犬徽章同源）/ codex、zcode
    →手绘兜底。
-3. **动效保持**：呼吸辉光动画作用于图标容器（img 与手绘同待遇）；
-   极夜主题下以 accent/ember 着色验证（浅色路径不存在，主题即深色）。
+3. **动效升级（owner 2026-08-17 增补：运行时必须"跳动/抖动"让人一眼看出
+   谁在工作）**：动画分三态，作用于图标容器（img 与手绘同待遇）：
+   - **working**：小跳/抖动循环（建议 keyframes hop：translateY 弹跳 +
+     轻微 squash 缩放，~1.1-1.3s 循环，ease-in-out）+ 现有辉光呼吸叠加
+     ——犬在跑的意象，极夜主题下不可刺眼（幅度 ≤6px）；
+   - **idle**：静止（仅悬停微反馈）；
+   - **terminal-flash**：终态到达时一次 settle 动画（落定感，PASS 绿闪/
+     FAIL 红闪一次即停）。
+   应用位置：roster 行（该犬有非终态 dispatch 时 working）、派发卡
+   （RUNNING 时）、聊天"思考中"指示器（与 p12-D2 的呼吸点合并为
+   跳动头犬徽章）、页头当前头犬徽章（处理中时）。
+   prefers-reduced-motion 媒体查询降级为辉光呼吸（无位移）。
 4. **加载失败兜底**：`<img>` onerror 静默回退手绘（不留破图）。
 
 ## 纪律与验收（DoD）
