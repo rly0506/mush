@@ -45,3 +45,25 @@ p12/p13/p14 合并 + owner 复验聊天 + 一次真实弹审批应答）
 不动：GP-14 quarantine、GP-08 倒回（C 方向留 RM-005+ 议）；对外暴露
 （门 4）与无人值守（D8）维持关闭；意向项目侧治理（人类授权切片制）
 原样尊重。
+
+### M3 任务池（GOAL-016，deepseek 后端 + kimi 前端；owner 2026-08-17 增补）
+
+对标 dashi-taskboard 的任务板能力，取代 markdown 版目标池：
+
+- **数据模型**：task{id, title, detail, priority, status
+  （backlog→queued→active→done|dropped，留痕式流转）, assignee（犬）,
+  tags, linked_dispatch_ids[], created_by, timestamps}；
+  持久化 `runtime/tasks.jsonl`（append-only，哈希锚点同台账纪律）；
+- **API**：GET /api/tasks（过滤/排序）、POST /api/tasks、
+  PATCH /api/tasks/:id（status/assignee；状态机校验 fail-closed）；
+  派发记录自动回链（dispatch 完成 → linked_dispatch_ids 追加）；
+- **看板 UI**：新"任务池"标签——三泳道（待办/进行中/已完成）+ 卡片
+  （优先级色边、认领犬徽章、关联派发数徽标）；建任务/流转/认领操作；
+  头犬聊天可建任务（章程增补一句）；
+- **迁移**：docs/goal-pool.md 现存 GP 项一次性导入（脚本，原文件转为
+  归档只读）；
+- **自动认领（dashi 签名特性，二期）**：队列自续从池中取材
+  （status=queued + 优先级排序）——本里程碑先留接口与数据基础。
+
+DoD：池 CRUD+流转测试全绿；GP 项导入完整可核；看板三泳道可用；
+至少 1 个真实任务经池全程流转（与 M1 实战联动）。
