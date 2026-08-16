@@ -17,6 +17,20 @@
 `git worktree add runtime/worktrees/kimi -b g012`；全部提交落 g012 分支；
 禁止动 master 工作树。与 deepseek（GOAL-011）并行隔离。
 
+## 设计准则（owner 指定 2026-08-17：美化必须经这两个 skill 约束）
+
+**开工前必读**（只读，作为设计约束内化）：
+
+1. `C:\Users\任锂帅\.agents\skills\frontend-design\SKILL.md` — **主准则**：
+   独特、有意图的视觉设计（不做模板脸；有立场的配色/字体/布局选择）；
+2. `C:\Users\任锂帅\.agents\skills\design-taste-frontend\SKILL.md` — **次准则**
+   （anti-slop）：其自我范围注明"非 dashboard"，规则均为上下文相关——
+   **只取适用部分**（预检清单、避免廉价模式等）。
+
+产出要求：看板要有不可错认的视觉身份（雪橇队/多犬协同的主题可作设计
+母题）；动效 logo 与整体风格统一；在 BATCH 回执中说明设计取向与两 skill
+的具体影响（哪条规则被采纳/为何舍弃）。
+
 ## 交付物
 
 聊天面板（消息流/动作卡/审批直通/当前头犬标识/角色列）+ 完成通知

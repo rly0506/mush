@@ -19,7 +19,9 @@ owner_decision: D24（A+B 组合）
    开关，默认开 toast / Notification 需用户授权）；
 3. **动效 logo**（GP-23）：运行中犬只 CSS 动画标识（内联 SVG 手绘各家族
    标识：DeepSeek 鲸鱼蓝/Claude 橙/GPT 绿/GLM 紫/Kimi 月亮等意象化处理，
-   零外链）+ 整体视觉升级；
+   零外链）+ 整体视觉升级——**设计准则：owner 全局 skill
+   `frontend-design`（主）+ `design-taste-frontend`（次，取适用部分）**，
+   派发包 011 有加载说明与产出要求；
 4. 消费 M1 聊天契约（runtime 落盘的 api-contract 增补节；未落盘前按
    charter 描述以 mock 开发，联调批补）。
 
