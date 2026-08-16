@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "adapter_id": "kimi-code",
+  "approved_by": "owner",
+  "scope": "one bounded nonce registration dispatch (GOAL-013 U3)",
+  "approved_at": "2026-08-17",
+  "via": "owner kimi usage mandate (充值并开工) + D22 bounded-probe precedent"
+}
