@@ -28,3 +28,4 @@ Thumbs.db
 
 # M1 fixture-reference runtime artifacts (written by tests, never committed)
 .test-fixtures/
+.mush-receipts/
