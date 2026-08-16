@@ -1,8 +1,14 @@
 /**
- * mush Web 看板（GOAL-005 U3 + GOAL-007）— 单页静态 HTML。
- * 无框架、无构建、无 CDN 外链；视图：调度（派发+workspace+跟踪）/ 犬队状态 /
+ * mush Web 看板（GOAL-005 U3 + GOAL-007 + GOAL-012）— 单页静态 HTML。
+ * 无框架、无构建、无 CDN 外链；视图：对话（聊天面板+动作卡+审批直通）/
+ * 调度（派发+workspace+跟踪）/ 犬队状态（roster 角色列+动效 logo）/
  * epoch 事件链 / 预算消耗（GET /api/budget 真实数据）/ 审批弹窗。
- * 契约：src/web/api-contract.md v1。密钥红线：永不渲染凭据材料。
+ * 契约：src/web/api-contract.md v1（v1.3 聊天节先行落盘，联调批补）。
+ * 密钥红线：永不渲染凭据材料。
+ *
+ * 设计母题（GOAL-012）：「极夜雪橇队」——极夜蓝黑雪原 + 极光青辉 +
+ * 琥珀营地火；CSS 变量令牌化；动效 logo 为内联手绘 SVG（各模型家族
+ * 意象：DeepSeek 鲸 / Claude 日冕 / OpenAI 花结 / GLM 星 / Kimi 新月）。
  */
 
 export function renderBoardPage(): string {
@@ -11,94 +17,215 @@ export function renderBoardPage(): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>mush 看板</title>
+<title>mush 看板 · 雪橇队指挥台</title>
 <style>
-  :root { color-scheme: dark; }
+  :root {
+    color-scheme: dark;
+    /* 设计令牌：极夜雪橇队母题（GOAL-012，frontend-design 准则） */
+    --bg: #0a0f16;
+    --panel: #101823;
+    --panel-hi: #16202e;
+    --line: #22303f;
+    --ink: #dbe6f0;
+    --ink-dim: #8a9cb0;
+    --ink-faint: #5a6b7d;
+    --accent: #62d8c9;        /* 极光青：雪原夜空中的极光辉 */
+    --accent-deep: #1c3f3a;
+    --ember: #e8a94c;         /* 营地火琥珀：营地灯与篝火 */
+    --danger: #f0665a;
+    --ok: #5fd08a;
+    --info: #7fb8e8;
+    --whale: #4d9fe8;         /* DeepSeek 鲸蓝 */
+    --sun: #e8975a;           /* Claude 日冕橙 */
+    --knot: #6fd3a5;          /* OpenAI 花结绿 */
+    --star: #a98ae8;          /* GLM 星紫 */
+    --moon: #8fb7d8;          /* Kimi 新月银蓝 */
+    --font-body: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    --font-mono: Consolas, "Courier New", monospace;
+  }
   * { box-sizing: border-box; }
-  body { margin: 0; font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; background: #101418; color: #d7dde3; }
-  header { padding: 12px 20px; border-bottom: 1px solid #2a3138; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-  header h1 { font-size: 16px; margin: 0; letter-spacing: 1px; }
-  header .meta { font-size: 12px; color: #7c8791; }
-  #workspace-current { font-size: 12px; color: #e3b341; border: 1px solid #e3b341; border-radius: 10px; padding: 1px 10px; }
-  nav { display: flex; gap: 4px; padding: 8px 20px 0; }
-  nav button { background: #1a2027; color: #aeb8c2; border: 1px solid #2a3138; border-bottom: none; padding: 8px 16px; cursor: pointer; font-size: 13px; border-radius: 6px 6px 0 0; }
-  nav button.active { background: #101418; color: #ffffff; border-color: #4a5560; }
-  main { padding: 16px 20px; border-top: 1px solid #2a3138; }
+  body { margin: 0; font-family: var(--font-body); background: var(--bg); color: var(--ink); }
+  header {
+    padding: 14px 22px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    background: linear-gradient(180deg, #0d1420 0%, var(--bg) 100%);
+  }
+  header .brand { display: flex; align-items: center; gap: 10px; }
+  header .brand svg { display: block; }
+  header h1 { font-size: 15px; margin: 0; letter-spacing: 3px; font-weight: 600; color: var(--ink); }
+  header .meta { font-size: 12px; color: var(--ink-dim); }
+  #workspace-current {
+    font-size: 12px; color: var(--ember); border: 1px solid var(--ember);
+    border-radius: 10px; padding: 1px 10px;
+  }
+  #head-dog-badge {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12px; color: var(--accent);
+    border: 1px solid var(--accent-deep); background: #0e1f1c;
+    border-radius: 10px; padding: 3px 11px 3px 5px;
+  }
+  #head-dog-badge .logo-slot { display: inline-flex; width: 20px; height: 20px; }
+  #head-dog-badge .logo-slot svg { width: 20px; height: 20px; }
+  nav { display: flex; gap: 4px; padding: 10px 22px 0; }
+  nav button {
+    background: var(--panel); color: var(--ink-dim); border: 1px solid var(--line);
+    border-bottom: none; padding: 8px 18px; cursor: pointer; font-size: 13px;
+    border-radius: 6px 6px 0 0; font-family: inherit;
+  }
+  nav button.active { background: var(--bg); color: #ffffff; border-color: var(--accent-deep); box-shadow: inset 0 2px 0 var(--accent); }
+  main { padding: 18px 22px; border-top: 1px solid var(--line); max-width: 1280px; }
   section.view { display: none; }
   section.view.active { display: block; }
   table { border-collapse: collapse; width: 100%; font-size: 13px; }
-  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #232a31; vertical-align: top; }
-  th { color: #7c8791; font-weight: 600; }
-  code, .mono { font-family: Consolas, "Courier New", monospace; font-size: 12px; }
-  .hash { color: #6fb3d8; word-break: break-all; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #1a2531; vertical-align: top; }
+  th { color: var(--ink-dim); font-weight: 600; }
+  code, .mono { font-family: var(--font-mono); font-size: 12px; }
+  .hash { color: var(--info); word-break: break-all; }
   .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; border: 1px solid; }
-  .badge.WAITING { color: #e3b341; border-color: #e3b341; }
-  .badge.APPROVED { color: #56d364; border-color: #56d364; }
-  .badge.REJECTED { color: #f85149; border-color: #f85149; }
-  .badge.ADMITTED { color: #6fb3d8; border-color: #6fb3d8; }
-  .badge.DRY_RUN { color: #56d364; border-color: #56d364; }
-  .badge.PASS { color: #56d364; border-color: #56d364; }
-  .badge.RUNNING { color: #6fb3d8; border-color: #6fb3d8; }
+  .badge.WAITING { color: var(--ember); border-color: var(--ember); }
+  .badge.APPROVED { color: var(--ok); border-color: var(--ok); }
+  .badge.REJECTED { color: var(--danger); border-color: var(--danger); }
+  .badge.ADMITTED { color: var(--info); border-color: var(--info); }
+  .badge.DRY_RUN { color: var(--ok); border-color: var(--ok); }
+  .badge.PASS { color: var(--ok); border-color: var(--ok); }
+  .badge.RUNNING { color: var(--info); border-color: var(--info); }
   .badge.RUNNING::before { content: '●'; display: inline-block; margin-right: 4px; animation: pulse 1.2s ease-in-out infinite; }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
-  .elapsed { font-size: 11px; color: #7c8791; margin-left: 6px; }
-  .badge.BLOCKED_WAITING_OWNER, .badge.BLOCKED_ENV { color: #e3b341; border-color: #e3b341; }
-  .badge.FAIL { color: #f85149; border-color: #f85149; }
-  .badge.ok { color: #56d364; border-color: #56d364; }
-  .badge.broken { color: #f85149; border-color: #f85149; }
-  .card { background: #161b21; border: 1px solid #2a3138; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; }
-  .card h3 { margin: 0 0 8px; font-size: 13px; color: #9aa6b0; }
-  .empty { color: #5c6670; font-size: 13px; padding: 24px 0; text-align: center; }
+  .elapsed { font-size: 11px; color: var(--ink-dim); margin-left: 6px; }
+  .badge.BLOCKED_WAITING_OWNER, .badge.BLOCKED_ENV { color: var(--ember); border-color: var(--ember); }
+  .badge.FAIL { color: var(--danger); border-color: var(--danger); }
+  .badge.ok { color: var(--ok); border-color: var(--ok); }
+  .badge.broken { color: var(--danger); border-color: var(--danger); }
+  .badge.role-head { color: var(--accent); border-color: var(--accent); }
+  .badge.role-executor { color: var(--ink-dim); border-color: var(--ink-faint); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; }
+  .card h3 { margin: 0 0 8px; font-size: 13px; color: var(--ink-dim); }
+  .empty { color: var(--ink-faint); font-size: 13px; padding: 24px 0; text-align: center; }
   #sse-status { font-size: 11px; }
-  #sse-status.live { color: #56d364; }
-  #sse-status.down { color: #f85149; }
+  #sse-status.live { color: var(--ok); }
+  #sse-status.down { color: var(--danger); }
   form#dispatch-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
-  form#dispatch-form label { font-size: 12px; color: #7c8791; display: block; margin-bottom: 4px; }
+  form#dispatch-form label { font-size: 12px; color: var(--ink-dim); display: block; margin-bottom: 4px; }
   form#dispatch-form .full { grid-column: 1 / -1; }
-  select, input[type=number], textarea { width: 100%; background: #0c1014; color: #d7dde3; border: 1px solid #2a3138; border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: inherit; }
+  select, input[type=number], input[type=text], textarea {
+    width: 100%; background: #0b1119; color: var(--ink); border: 1px solid var(--line);
+    border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: inherit;
+  }
   textarea { min-height: 90px; resize: vertical; }
-  .hint { font-size: 11px; color: #5c6670; margin-top: 4px; }
-  #real-hint { color: #e3b341; display: none; }
-  button.primary { background: #1d3323; color: #56d364; border: 1px solid #56d364; border-radius: 6px; padding: 9px 22px; font-size: 13px; cursor: pointer; }
-  .dispatch-card { background: #161b21; border: 1px solid #2a3138; border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; font-size: 13px; cursor: pointer; }
-  .dispatch-card:hover { border-color: #4a5560; }
-  .dispatch-card .detail { display: none; margin-top: 8px; border-top: 1px solid #232a31; padding-top: 8px; }
+  .hint { font-size: 11px; color: var(--ink-faint); margin-top: 4px; }
+  #real-hint { color: var(--ember); display: none; }
+  button.primary {
+    background: var(--accent-deep); color: var(--accent); border: 1px solid var(--accent);
+    border-radius: 6px; padding: 9px 22px; font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  button.primary:disabled { opacity: 0.45; cursor: default; }
+  .dispatch-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; font-size: 13px; cursor: pointer; }
+  .dispatch-card:hover { border-color: var(--accent-deep); }
+  .dispatch-card .detail { display: none; margin-top: 8px; border-top: 1px solid #1a2531; padding-top: 8px; }
   .dispatch-card.open .detail { display: block; }
-  dialog { background: #161b21; color: #d7dde3; border: 1px solid #4a5560; border-radius: 8px; padding: 20px; max-width: 560px; width: 90%; }
-  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog { background: var(--panel-hi); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 20px; max-width: 560px; width: 90%; }
+  dialog::backdrop { background: rgba(0,0,0,.65); }
   dialog h2 { font-size: 15px; margin: 0 0 12px; }
   dialog dl { font-size: 13px; }
-  dialog dt { color: #7c8791; margin-top: 8px; }
+  dialog dt { color: var(--ink-dim); margin-top: 8px; }
   dialog dd { margin: 2px 0 0; word-break: break-all; }
   dialog .actions { margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end; }
-  button.act { padding: 8px 18px; border-radius: 6px; border: 1px solid; cursor: pointer; font-size: 13px; background: transparent; }
-  button.act.approve { color: #56d364; border-color: #56d364; }
-  button.act.reject { color: #f85149; border-color: #f85149; }
-  button.act.cancel { color: #aeb8c2; border-color: #4a5560; }
-  #toast { position: fixed; bottom: 16px; right: 16px; padding: 10px 16px; border-radius: 6px; font-size: 13px; display: none; }
-  #toast.ok { display: block; background: #1d3323; color: #56d364; border: 1px solid #56d364; }
-  #toast.err { display: block; background: #3d1d1d; color: #f85149; border: 1px solid #f85149; }
-  .bar { height: 8px; background: #232a31; border-radius: 4px; overflow: hidden; min-width: 120px; }
-  .bar > div { height: 100%; background: #56d364; }
-  .bar.hot > div { background: #f85149; }
+  button.act { padding: 8px 18px; border-radius: 6px; border: 1px solid; cursor: pointer; font-size: 13px; background: transparent; font-family: inherit; }
+  button.act.approve { color: var(--ok); border-color: var(--ok); }
+  button.act.reject { color: var(--danger); border-color: var(--danger); }
+  button.act.cancel { color: var(--ink-dim); border-color: var(--line); }
+  /* 通知栈（GP-18）：多条 toast 叠放，终态成功/失败分色 */
+  #toast-stack { position: fixed; bottom: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 99; }
+  .toast { padding: 10px 16px; border-radius: 6px; font-size: 13px; max-width: 420px; animation: toast-in .18s ease-out; }
+  .toast.ok { background: #14261c; color: var(--ok); border: 1px solid var(--ok); }
+  .toast.err { background: #2a1616; color: var(--danger); border: 1px solid var(--danger); }
+  @keyframes toast-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .bar { height: 8px; background: #1a2531; border-radius: 4px; overflow: hidden; min-width: 120px; }
+  .bar > div { height: 100%; background: var(--ok); }
+  .bar.hot > div { background: var(--danger); }
+  /* ---------- GOAL-012：聊天面板（对话视图 = 北极星界面） ---------- */
+  #view-chat { display: none; }
+  #view-chat.active { display: flex; flex-direction: column; height: calc(100vh - 130px); min-height: 420px; }
+  .chat-toolbar { display: flex; align-items: center; gap: 14px; padding-bottom: 10px; font-size: 12px; color: var(--ink-dim); flex-wrap: wrap; }
+  .chat-toolbar label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  #chat-stream {
+    flex: 1; overflow-y: auto; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .chat-row { display: flex; gap: 10px; max-width: 88%; }
+  .chat-row .avatar { flex: none; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
+  .chat-row .avatar svg { width: 30px; height: 30px; }
+  .chat-row .bubble {
+    background: var(--panel-hi); border: 1px solid var(--line); border-radius: 10px;
+    padding: 9px 13px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word;
+  }
+  .chat-row .who { font-size: 11px; color: var(--ink-faint); margin-bottom: 3px; }
+  .chat-row.user { align-self: flex-end; flex-direction: row-reverse; }
+  .chat-row.user .bubble { background: #1a2c26; border-color: var(--accent-deep); }
+  .chat-row.user .who { text-align: right; color: var(--accent); }
+  .chat-row.head .who { color: var(--ember); }
+  .chat-action-card {
+    align-self: stretch; margin-left: 40px; background: #0e1620; border: 1px dashed var(--accent-deep);
+    border-radius: 8px; padding: 8px 12px; font-size: 12px; color: var(--ink-dim);
+  }
+  .chat-action-card .mono { color: var(--info); }
+  #chat-composer { display: flex; gap: 10px; padding-top: 12px; }
+  #chat-input { flex: 1; min-height: 44px; max-height: 160px; }
+  #chat-send { flex: none; align-self: flex-end; }
+  /* ---------- GOAL-012：动效 logo（内联 SVG，运行中带 logo-anim 呼吸动画） ---------- */
+  .dog-logo { display: inline-flex; vertical-align: middle; }
+  .dog-logo svg { width: 22px; height: 22px; display: block; }
+  .dog-logo.running svg { animation: logo-anim 1.4s ease-in-out infinite; transform-origin: 50% 50%; }
+  @keyframes logo-anim {
+    0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 transparent); }
+    50% { transform: scale(1.12); filter: drop-shadow(0 0 4px currentColor); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dog-logo.running svg, .badge.RUNNING::before, .toast { animation: none; }
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>mush 看板</h1>
+  <span class="brand">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M2 18h20" stroke="#62d8c9" stroke-width="1.4" stroke-linecap="round"/>
+      <path d="M4 18c0-2 1.5-3 3-3" stroke="#62d8c9" stroke-width="1.4" stroke-linecap="round"/>
+      <circle cx="9" cy="12" r="2.2" stroke="#e8a94c" stroke-width="1.4"/>
+      <circle cx="14" cy="12" r="2.2" stroke="#8fb7d8" stroke-width="1.4"/>
+      <circle cx="19" cy="12" r="2.2" stroke="#a98ae8" stroke-width="1.4"/>
+      <path d="M8 10l-3-4M13 10l-1-5M18 10l2-4" stroke="#8a9cb0" stroke-width="1.1" stroke-linecap="round"/>
+    </svg>
+    <h1>mush · 雪橇队指挥台</h1>
+  </span>
+  <span id="head-dog-badge" title="当前头犬（role: head）"><span class="logo-slot" id="head-dog-logo"></span><span id="head-dog-name">当前头犬：…</span></span>
   <span id="workspace-current" title="当前 workspace">…</span>
   <span class="meta" id="generated"></span>
   <span class="meta" id="sse-status">SSE 连接中…</span>
 </header>
 <nav>
-  <button data-view="dispatch" class="active">调度</button>
+  <button data-view="chat" class="active">对话</button>
+  <button data-view="dispatch">调度</button>
   <button data-view="dogs">犬队状态</button>
   <button data-view="epochs">事件链</button>
   <button data-view="budget">预算消耗</button>
   <button data-view="approvals">审批 <span id="waiting-count"></span></button>
 </nav>
 <main>
-  <section id="view-dispatch" class="view active">
+  <section id="view-chat" class="view active">
+    <div class="chat-toolbar">
+      <span>你只和头犬说话 —— 它自主派活、审核回报，触发门会弹回这里。</span>
+      <span class="mono" id="chat-session-label"></span>
+      <label><input type="checkbox" id="notify-toggle"> 浏览器通知（派发终态，需授权）</label>
+      <button class="act cancel" id="chat-new-session" type="button" style="padding:3px 10px;font-size:12px">新会话</button>
+    </div>
+    <div id="chat-stream"><div class="empty">向头犬下达第一条指令，开始对话。</div></div>
+    <div id="chat-composer">
+      <textarea id="chat-input" maxlength="64000" placeholder="写给头犬的指令…（Enter 发送，Shift+Enter 换行）"></textarea>
+      <button class="primary" id="chat-send">发送</button>
+    </div>
+  </section>
+  <section id="view-dispatch" class="view">
     <div class="card">
       <h3>派发任务</h3>
       <form id="dispatch-form">
@@ -115,7 +242,7 @@ export function renderBoardPage(): string {
           <label for="workspace-select">workspace</label>
           <select id="workspace-select"></select>
           <div style="display:flex;gap:6px;margin-top:6px">
-            <input type="text" id="workspace-register-path" placeholder="登记新路径，如 D:\\mush-playground" style="flex:1;background:#0c1014;color:#d7dde3;border:1px solid #2a3138;border-radius:6px;padding:6px 10px;font-size:12px;font-family:Consolas,monospace">
+            <input type="text" id="workspace-register-path" placeholder="登记新路径，如 D:\\mush-playground" style="flex:1;font-family:Consolas,monospace;font-size:12px">
             <button type="button" class="act approve" id="btn-workspace-register">登记</button>
           </div>
         </div>
@@ -143,7 +270,7 @@ export function renderBoardPage(): string {
       </form>
       <div class="hint" id="dispatch-result"></div>
     </div>
-    <h3 style="font-size:13px;color:#9aa6b0">派发跟踪</h3>
+    <h3 style="font-size:13px;color:var(--ink-dim)">派发跟踪</h3>
     <div id="dispatch-list"><div class="empty">暂无派发记录</div></div>
   </section>
   <section id="view-dogs" class="view"></section>
@@ -164,13 +291,13 @@ export function renderBoardPage(): string {
   <h2>新建 workspace</h2>
   <p style="font-size:13px">目录不存在，是否新建并登记？</p>
   <p class="mono" id="workspace-create-path" style="word-break:break-all"></p>
-  <p class="hint" style="color:#e3b341">登记后此目录将对犬队开放写入。</p>
+  <p class="hint" style="color:var(--ember)">登记后此目录将对犬队开放写入。</p>
   <div class="actions">
     <button class="act cancel" id="btn-create-cancel">取消</button>
     <button class="act approve" id="btn-create-confirm">新建并登记</button>
   </div>
 </dialog>
-<div id="toast"></div>
+<div id="toast-stack"></div>
 <script>
 (function () {
   'use strict';
@@ -197,13 +324,46 @@ export function renderBoardPage(): string {
     });
   }
   function shortHash(hash) { return hash ? esc(hash.slice(0, 12)) + '…' : '—'; }
-  function toast(message, ok) {
-    var el = document.getElementById('toast');
-    el.textContent = message;
-    el.className = ok ? 'ok' : 'err';
-    el.style.display = 'block';
-    setTimeout(function () { el.className = ''; el.style.display = 'none'; }, 4000);
+
+  /* ---------- GOAL-012 / GP-18：通知栈（toast 默认开；Notification 需授权开关） ---------- */
+  var notifyPref = { toast: true, browser: false };
+  try {
+    var saved = JSON.parse(localStorage.getItem('mush.notify') || 'null');
+    if (saved && typeof saved === 'object') {
+      notifyPref.toast = saved.toast !== false;
+      notifyPref.browser = saved.browser === true;
+    }
+  } catch (e) { /* 损坏偏好按默认 */ }
+
+  function saveNotifyPref() {
+    try { localStorage.setItem('mush.notify', JSON.stringify(notifyPref)); } catch (e) { /* 隐私模式忽略 */ }
   }
+
+  function toast(message, ok) {
+    if (!notifyPref.toast) return;
+    var stack = document.getElementById('toast-stack');
+    var el = document.createElement('div');
+    el.className = 'toast ' + (ok ? 'ok' : 'err');
+    el.textContent = message;
+    stack.appendChild(el);
+    while (stack.children.length > 4) stack.removeChild(stack.firstChild);
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 4500);
+  }
+
+  // 派发终态浏览器通知：仅在用户显式开启且授权后触发；页面可见时不打扰。
+  function notifyTerminal(status, adapterId) {
+    if (!notifyPref.browser) return;
+    if (typeof Notification === 'undefined') return;
+    if (Notification.permission !== 'granted') return;
+    if (!document.hidden) return;
+    var good = status === 'PASS' || status === 'DRY_RUN';
+    try {
+      new Notification(good ? 'mush：派发完成' : 'mush：派发终态', {
+        body: status + '（' + adapterId + '）'
+      });
+    } catch (e) { /* 某些环境构造受限，静默 */ }
+  }
+
   function getJson(url) {
     return fetch(url).then(function (res) { return res.json(); });
   }
@@ -215,6 +375,58 @@ export function renderBoardPage(): string {
     }).then(function (res) {
       return res.json().then(function (data) { return { status: res.status, body: data }; });
     });
+  }
+
+  /* ---------- GOAL-012 / GP-23：动效 logo（内联 SVG，各模型家族意象） ---------- */
+  // 返回 { family, svg }；family 供 CSS currentColor 发光配色。
+  // 意象：DeepSeek 鲸 / Claude 日冕 / OpenAI 花结 / GLM 四角星 / Kimi 新月 crescent / 通用雪橇犬爪。
+  var FAMILY_COLORS = { whale: '#4d9fe8', sun: '#e8975a', knot: '#6fd3a5', star: '#a98ae8', moon: '#8fb7d8', paw: '#8a9cb0' };
+
+  function detectFamily(text) {
+    var t = String(text || '').toLowerCase();
+    if (t.indexOf('deepseek') >= 0) return 'whale';
+    if (t.indexOf('claude') >= 0 || t.indexOf('anthropic') >= 0) return 'sun';
+    if (t.indexOf('kimi') >= 0 || t.indexOf('moonshot') >= 0) return 'moon';
+    if (t.indexOf('glm') >= 0 || t.indexOf('zhipu') >= 0 || t.indexOf('zcode') >= 0) return 'star';
+    if (t.indexOf('codex') >= 0 || t.indexOf('opencode') >= 0 || t.indexOf('gpt') >= 0 || t.indexOf('openai') >= 0) return 'knot';
+    return 'paw';
+  }
+
+  var LOGO_SHAPES = {
+    whale: '<path d="M3 14c3-6 9-8 13-6 3 1.4 4.6 3.4 5 6-2.5 2.6-6 4-10 3.4-4-.6-6.8-1.8-8-3.4z" fill="currentColor"/>' +
+      '<path d="M18 8l2-3 1 4" fill="currentColor"/><circle cx="8.2" cy="12.4" r="0.9" fill="#0a0f16"/>',
+    sun: '<circle cx="12" cy="12" r="4.6" fill="currentColor"/>' +
+      '<g stroke="currentColor" stroke-width="1.6" stroke-linecap="round">' +
+      '<path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1"/></g>',
+    knot: '<g fill="none" stroke="currentColor" stroke-width="1.8">' +
+      '<circle cx="12" cy="6.5" r="3.4"/><circle cx="16.8" cy="14.5" r="3.4"/><circle cx="7.2" cy="14.5" r="3.4"/></g>',
+    star: '<path d="M12 2.5l2.3 7.2 7.2 2.3-7.2 2.3L12 21.5l-2.3-7.2-7.2-2.3 7.2-2.3z" fill="currentColor"/>',
+    moon: '<path d="M14.5 3a9 9 0 1 0 6.5 15.2A10.5 10.5 0 0 1 14.5 3z" fill="currentColor"/>',
+    paw: '<circle cx="12" cy="14.5" r="4.2" fill="currentColor"/>' +
+      '<circle cx="6.5" cy="9.5" r="1.9" fill="currentColor"/><circle cx="10.2" cy="6.8" r="1.9" fill="currentColor"/>' +
+      '<circle cx="13.8" cy="6.8" r="1.9" fill="currentColor"/><circle cx="17.5" cy="9.5" r="1.9" fill="currentColor"/>'
+  };
+
+  // dogLogo：运行中的犬只 logo 带 logo-anim 呼吸动画（CSS keyframes，reduced-motion 尊重）。
+  function dogLogo(hint, running) {
+    var family = detectFamily(hint);
+    var color = FAMILY_COLORS[family];
+    return '<span class="dog-logo' + (running ? ' running' : '') + '" style="color:' + color + '" title="' + esc(family) + '">' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true">' + LOGO_SHAPES[family] + '</svg></span>';
+  }
+
+  /* ---------- 当前头犬标识（页头常驻；roster v1.3 role 字段，缺省 head-dog） ---------- */
+  function renderHeadDogBadge() {
+    var nameEl = document.getElementById('head-dog-name');
+    var logoEl = document.getElementById('head-dog-logo');
+    var roster = (snapshot && snapshot.roster) || [];
+    var head = null;
+    for (var i = 0; i < roster.length; i += 1) {
+      if (roster[i].role === 'head' || roster[i].adapter_id === 'head-dog') { head = roster[i]; break; }
+    }
+    var label = head ? head.adapter_id : 'head-dog';
+    nameEl.textContent = '当前头犬：' + label;
+    logoEl.innerHTML = dogLogo(label + ' ' + (head ? head.expected_model_id || '' : ''), false);
   }
 
   /* ---------- 犬只下拉（G009 修复：取 roster 注册名册；无活动时也应有犬可选） ---------- */
@@ -326,6 +538,8 @@ export function renderBoardPage(): string {
       renderDispatches();
       if (!wasTerminal && TERMINAL_STATUSES[status] === 1) {
         toast('完成：' + status + '（' + adapterId + '）', status === 'PASS' || status === 'DRY_RUN');
+        notifyTerminal(status, adapterId); // GP-18：浏览器通知（开关+授权+后台三条件）
+        chatActionFor(dispatchId, adapterId, status); // GOAL-012：终态回填会话动作卡
       }
       return;
     }
@@ -358,16 +572,16 @@ export function renderBoardPage(): string {
     }).join('');
     var stdoutBlock = '';
     if (d.stdout_tail && d.stdout_tail.text) {
-      stdoutBlock = '<dt style="color:#7c8791">任务输出（末段' + (d.stdout_tail.truncated ? '，已截断' : '') + '）</dt>' +
+      stdoutBlock = '<dt style="color:var(--ink-dim)">任务输出（末段' + (d.stdout_tail.truncated ? '，已截断' : '') + '）</dt>' +
         '<dd><pre class="mono" style="white-space:pre-wrap;max-height:200px;overflow:auto;margin:4px 0">' + esc(d.stdout_tail.text) + '</pre></dd>';
     }
     if (d.stderr_tail && d.stderr_tail.text) {
-      stdoutBlock += '<dt style="color:#7c8791">stderr（末段' + (d.stderr_tail.truncated ? '，已截断' : '') + '）</dt>' +
+      stdoutBlock += '<dt style="color:var(--ink-dim)">stderr（末段' + (d.stderr_tail.truncated ? '，已截断' : '') + '）</dt>' +
         '<dd><pre class="mono" style="white-space:pre-wrap;max-height:120px;overflow:auto;margin:4px 0">' + esc(d.stderr_tail.text) + '</pre></dd>';
     }
     return '<dl style="margin:0">' +
-      '<dt style="color:#7c8791">状态</dt><dd><span class="badge ' + esc(d.status) + '">' + esc(d.status) + '</span></dd>' +
-      '<dt style="color:#7c8791">回执锚点</dt><dd class="mono hash">' + esc(d.receipt_path || '（未落盘）') + '</dd>' + stdoutBlock + '</dl>' +
+      '<dt style="color:var(--ink-dim)">状态</dt><dd><span class="badge ' + esc(d.status) + '">' + esc(d.status) + '</span></dd>' +
+      '<dt style="color:var(--ink-dim)">回执锚点</dt><dd class="mono hash">' + esc(d.receipt_path || '（未落盘）') + '</dd>' + stdoutBlock + '</dl>' +
       (events ? '<table><tbody>' + events + '</tbody></table>' : '');
   }
 
@@ -435,30 +649,53 @@ export function renderBoardPage(): string {
     }
   }
 
-  /* ---------- 犬队状态（G009：活动为空时回退 roster 名册；G7B-D3：roster 行聚合最近派发） ---------- */
+  /* ---------- 犬队状态（G009 回退 roster；G7B-D3 行聚合；GOAL-012 角色列 + 动效 logo） ---------- */
+  function latestDispatchPerAdapter() {
+    var latest = {};
+    var dispatches = (snapshot && snapshot.dispatches) || [];
+    dispatches.forEach(function (d) {
+      if (!latest[d.adapter_id] || String(d.at_utc || '') > String(latest[d.adapter_id].at_utc || '')) {
+        latest[d.adapter_id] = d;
+      }
+    });
+    trackedDispatches.forEach(function (d) {
+      if (!latest[d.adapter_id] || String(d.at_utc || '') > String(latest[d.adapter_id].at_utc || '')) {
+        latest[d.adapter_id] = d;
+      }
+    });
+    return latest;
+  }
+
+  function isRunningStatus(status) { return TERMINAL_STATUSES[status] !== 1 && status !== undefined; }
+
   function renderDogs() {
     var el = document.getElementById('view-dogs');
     var actors = snapshot.actors;
     var dispatches = snapshot.dispatches || [];
+    var latest = latestDispatchPerAdapter();
     function dispatchStats(adapterId) {
       var count = 0;
-      var latest = null;
+      var last = latest[adapterId] || null;
       for (var i = 0; i < dispatches.length; i += 1) {
-        if (dispatches[i].adapter_id !== adapterId) continue;
-        count += 1;
-        if (latest === null || String(dispatches[i].at_utc || '') > String(latest.at_utc || '')) latest = dispatches[i];
+        if (dispatches[i].adapter_id === adapterId) count += 1;
       }
-      return { count: count, latest: latest };
+      return { count: count, latest: last };
     }
     if (actors.length === 0) {
       var roster = snapshot.roster || [];
       if (roster.length === 0) { el.innerHTML = '<div class="empty">暂无在册犬只</div>'; return; }
       var rr = roster.map(function (r) {
         var stats = dispatchStats(r.adapter_id);
+        var running = stats.latest ? isRunningStatus(stats.latest.status) : false;
+        var role = r.role || 'executor'; // v1.3 role 字段；未升级后端缺省 executor
+        var roleBadge = role === 'head'
+          ? '<span class="badge role-head">head 头犬</span>'
+          : '<span class="badge role-executor">executor</span>';
         var activity = stats.count === 0
           ? '（未活动，注册在册）'
           : stats.count + ' 次 · <span class="badge ' + esc(stats.latest.status) + '">' + esc(stats.latest.status) + '</span> <span class="mono">' + escTime(stats.latest.at_utc || '') + '</span>';
-        return '<tr><td class="mono">' + esc(r.adapter_id) + '</td><td>—</td>' +
+        return '<tr><td class="mono">' + dogLogo(r.adapter_id + ' ' + (r.expected_model_id || ''), running) + ' ' + esc(r.adapter_id) + '</td>' +
+          '<td>' + roleBadge + '</td>' +
           '<td>' + esc(r.expected_provider) + '</td><td>' + esc(r.expected_model_id) + '</td>' +
           '<td class="mono">' + esc((r.variants || []).join(' | ')) + '</td>' +
           '<td>' + activity + '</td></tr>';
@@ -467,7 +704,14 @@ export function renderBoardPage(): string {
       return;
     }
     var rows = actors.map(function (a) {
-      return '<tr><td class="mono">' + esc(a.actor_instance_id) + '</td><td>' + esc(a.role) + '</td>' +
+      var last = latest[a.actor_instance_id] || null;
+      var running = last ? isRunningStatus(last.status) : false;
+      var role = a.role || 'executor';
+      var roleBadge = role === 'head'
+        ? '<span class="badge role-head">head 头犬</span>'
+        : '<span class="badge role-executor">' + esc(role) + '</span>';
+      return '<tr><td class="mono">' + dogLogo(a.actor_instance_id + ' ' + (a.model_id || ''), running) + ' ' + esc(a.actor_instance_id) + '</td>' +
+        '<td>' + roleBadge + '</td>' +
         '<td>' + esc(a.provider) + '</td><td>' + esc(a.model_id) + '</td>' +
         '<td class="mono">' + shortHash(a.capability_id) + '</td>' +
         '<td>' + a.event_count + '</td><td>' + esc(a.last_event_type) + '</td></tr>';
@@ -581,16 +825,144 @@ export function renderBoardPage(): string {
       }).catch(function (error) { toast('应答失败：' + error, false); });
   }
 
+  /* ---------- GOAL-012：聊天面板（消费 v1.3 契约；M1 未落盘时优雅降级 mock 提示） ---------- */
+  var chatSessionId = null;
+  var chatTurnCount = 0;
+  var chatPending = false;
+  var chatActionSeen = {};       // dispatch_id → 已回填终态（去重）
+  var chatPromptedApprovals = {}; // request_file → 已自动弹窗（去重，触发门直通）
+
+  function chatStreamEl() { return document.getElementById('chat-stream'); }
+
+  function chatClearEmpty() {
+    var el = chatStreamEl();
+    var empty = el.querySelector('.empty');
+    if (empty) el.removeChild(empty);
+  }
+
+  function chatScrollBottom() {
+    var el = chatStreamEl();
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function appendChatRow(role, text, atUtc, dispatchId) {
+    chatClearEmpty();
+    var row = document.createElement('div');
+    row.className = 'chat-row ' + role;
+    var isUser = role === 'user';
+    var who = (isUser ? '你' : '头犬') + (atUtc ? ' · ' + fmtTime(atUtc) : '');
+    var avatar = isUser
+      ? '<span class="avatar">' + dogLogo('paw', false) + '</span>'
+      : '<span class="avatar">' + dogLogo('head-dog kimi moon', chatPending) + '</span>';
+    row.innerHTML = avatar + '<div><div class="who">' + esc(who) + '</div>' +
+      '<div class="bubble">' + esc(text) + '</div>' +
+      (dispatchId ? '<div class="hint mono">dispatch ' + esc(String(dispatchId).slice(0, 12)) + '…</div>' : '') +
+      '</div>';
+    chatStreamEl().appendChild(row);
+    chatTurnCount += 1;
+    chatScrollBottom();
+  }
+
+  // 头犬动作卡：结构化派发/审核记录内嵌对话流（去重；幂等 upsert）。
+  function chatActionFor(dispatchId, adapterId, status) {
+    if (!dispatchId || chatActionSeen[dispatchId]) return;
+    chatActionSeen[dispatchId] = true;
+    chatClearEmpty();
+    var card = document.createElement('div');
+    card.className = 'chat-action-card';
+    card.innerHTML = dogLogo(adapterId || '', false) + ' 头犬动作 · 派发 <span class="mono">' +
+      esc(String(dispatchId).slice(0, 12)) + '…</span> → ' + esc(adapterId || '') +
+      ' · <span class="badge ' + esc(status) + '">' + esc(status) + '</span>' +
+      ' <span class="mono">' + escTime(new Date().toISOString()) + '</span>';
+    chatStreamEl().appendChild(card);
+    chatScrollBottom();
+  }
+
+  // 触发门审批直通：WAITING 审批出现时，聊天流嵌入提示并自动弹一次审批窗（幂等）。
+  function chatPromptApprovals() {
+    if (!snapshot || !snapshot.approvals) return;
+    snapshot.approvals.forEach(function (a) {
+      if (a.status !== 'WAITING' || chatPromptedApprovals[a.request_file]) return;
+      chatPromptedApprovals[a.request_file] = true;
+      chatClearEmpty();
+      var note = document.createElement('div');
+      note.className = 'chat-action-card';
+      note.innerHTML = '⛔ chat pending approval：触发门 <b>' + esc(a.gate) + '</b> 等待应答（' +
+        esc(a.actor_id || '') + '）——已弹出审批窗，也可在「审批」页处理。';
+      chatStreamEl().appendChild(note);
+      chatScrollBottom();
+      var dlg = document.getElementById('approval-dialog');
+      if (!dlg.open) openDialog(a);
+    });
+  }
+
+  function setChatPending(pending) {
+    chatPending = pending;
+    document.getElementById('chat-send').disabled = pending;
+  }
+
+  function sendChat() {
+    var input = document.getElementById('chat-input');
+    var message = input.value.trim();
+    if (!message || chatPending) return;
+    input.value = '';
+    appendChatRow('user', message, new Date().toISOString());
+    setChatPending(true);
+    postJson('/api/chat', { message: message, resume: chatSessionId }).then(function (result) {
+      var data = result.body || {};
+      if (result.status === 202 && data.ok) {
+        chatSessionId = data.session_id || chatSessionId;
+        document.getElementById('chat-session-label').textContent = chatSessionId ? 'session ' + String(chatSessionId).slice(0, 8) : '';
+        // 202 语义：头犬已受理；回复经 SSE dispatch 帧回填（REPORT 后拉 history）。
+        if (data.dispatch_id) trackDispatch(data.dispatch_id, 'head-dog', data.status || 'ADMITTED');
+        refresh();
+      } else if (result.status === 404 || result.status === 400) {
+        // M1 联调批前的优雅降级：端点缺失/未知会话不炸板，流内说明。
+        appendChatRow('head', '（聊天 API 未就绪：' + esc(data.error || result.status) + '。M1 联调批接入后端；前端按 v1.3 契约 mock 开发。）', new Date().toISOString());
+      } else {
+        toast('发送失败：' + (data.error || result.status), false);
+      }
+    }).catch(function (error) {
+      appendChatRow('head', '（聊天 API 暂不可达：' + esc(String(error)) + '）', new Date().toISOString());
+    }).then(function () { setChatPending(false); });
+  }
+
+  // 头犬 dispatch 到达 REPORT/REVIEW 后，拉取会话历史补齐头犬回复（权威源 = runtime/chat/*.jsonl）。
+  function chatRefreshHistory() {
+    if (!chatSessionId) return;
+    getJson('/api/chat/history?session=' + encodeURIComponent(chatSessionId) + '&limit=50').then(function (data) {
+      if (!data || !data.ok || !Array.isArray(data.turns)) return;
+      if (data.turns.length <= chatTurnCount) return;
+      var el = chatStreamEl();
+      el.innerHTML = '';
+      chatTurnCount = 0;
+      var keepActions = Object.keys(chatActionSeen);
+      data.turns.forEach(function (turn) { appendChatRow(turn.role === 'user' ? 'user' : 'head', turn.text, turn.at_utc, turn.dispatch_id); });
+      // 历史重渲染后保留动作卡语义：已见 dispatch 卡片不重复追加（chatActionSeen 已在）。
+      void keepActions;
+    }).catch(function () { /* 静默：下一帧 SSE 再试 */ });
+  }
+
+  function chatNewSession() {
+    chatSessionId = null;
+    chatTurnCount = 0;
+    chatActionSeen = {};
+    document.getElementById('chat-session-label').textContent = '';
+    chatStreamEl().innerHTML = '<div class="empty">新会话已开始。向头犬下达指令。</div>';
+  }
+
   /* ---------- 汇总刷新 ---------- */
   function renderAll() {
     if (!snapshot) return;
     document.getElementById('generated').textContent = '快照 ' + escTime(snapshot.generated_at_utc) + '（本地时间）';
+    renderHeadDogBadge();
     renderAdapterOptions();
     renderDispatches();
     renderDogs();
     renderEpochs();
     renderBudget();
     renderApprovals();
+    chatPromptApprovals();
   }
 
   function refresh() {
@@ -696,10 +1068,54 @@ export function renderBoardPage(): string {
     document.getElementById('approval-dialog').close();
   });
 
+  /* ---------- GOAL-012：聊天面板事件绑定 + 通知开关 ---------- */
+  document.getElementById('chat-send').addEventListener('click', sendChat);
+  document.getElementById('chat-input').addEventListener('keydown', function (event) {
+    if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendChat(); }
+  });
+  document.getElementById('chat-new-session').addEventListener('click', chatNewSession);
+  var notifyToggle = document.getElementById('notify-toggle');
+  notifyToggle.checked = notifyPref.browser;
+  notifyToggle.addEventListener('change', function () {
+    if (!this.checked) {
+      notifyPref.browser = false;
+      saveNotifyPref();
+      toast('浏览器通知已关闭（toast 保留）', true);
+      return;
+    }
+    if (typeof Notification === 'undefined') {
+      this.checked = false;
+      toast('此浏览器不支持 Notification API', false);
+      return;
+    }
+    if (Notification.permission === 'granted') {
+      notifyPref.browser = true;
+      saveNotifyPref();
+      toast('浏览器通知已开启', true);
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      this.checked = false;
+      toast('通知权限被浏览器拒绝：请在站点设置中放行', false);
+      return;
+    }
+    var toggle = this;
+    Notification.requestPermission().then(function (perm) {
+      if (perm === 'granted') {
+        notifyPref.browser = true;
+        saveNotifyPref();
+        toast('浏览器通知已开启', true);
+      } else {
+        toggle.checked = false;
+        toast('未获通知授权，保持关闭', false);
+      }
+    });
+  });
+
   // G7B-D2：RUNNING 卡片已耗时每秒刷新（本地时钟，无需后端）。
   setInterval(function () {
     var hasRunning = trackedDispatches.some(function (d) { return !TERMINAL_STATUSES[d.status]; });
-    if (hasRunning) renderDispatches();
+    if (hasRunning) { renderDispatches(); renderDogs(); }
   }, 1000);
 
   function loadWorkspaces() {
@@ -725,10 +1141,14 @@ export function renderBoardPage(): string {
     source.onerror = function () { status.textContent = 'SSE 断开（重连中）'; status.className = 'down'; };
     source.onmessage = function (msg) {
       var payload = null;
-      try { payload = JSON.parse(msg.data); } catch { payload = null; }
+      try { payload = JSON.parse(msg.data); } catch (e) { payload = null; }
       if (payload && payload.kind === 'dispatch') {
         trackDispatch(payload.dispatch_id, payload.adapter_id, payload.status);
         loadBudget();
+        // 头犬派发进入 REPORT/REVIEW 后，头犬回复已落盘 runtime/chat —— 拉历史补齐气泡。
+        if (payload.adapter_id === 'head-dog' && (payload.phase === 'REPORT' || payload.phase === 'REVIEW')) {
+          chatRefreshHistory();
+        }
       }
       refresh();
     };
