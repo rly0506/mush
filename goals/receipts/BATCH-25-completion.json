@@ -1,0 +1,27 @@
+{
+  "batch": "BATCH-25",
+  "unit": "G5-U2 + G5-U3",
+  "goal_id": "MUSH-GOAL-005",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "kimi-k3 (goal mode)",
+  "changed_paths": [
+    "src/web/server.ts",
+    "src/web/page.ts",
+    "src/web/sources.ts",
+    "tests/web-server.test.ts",
+    "goals/receipts/BATCH-25-test-output.txt",
+    "goals/receipts/BATCH-25-completion.json"
+  ],
+  "tests_run": "npm test 真实执行：tests 196 / pass 196 / fail 0 / exit code 0（较基线 183 新增 13：web-sources 6 + web-server 7）；完整输出见 BATCH-25-test-output.txt",
+  "test_output_summary": "196/196 全绿：SSE 推送、事件追加哈希链 fail-closed（400/409）、审批应答 append-only owner-response 落盘（201/404/409/400 + 路径穿越拒绝）、页面零外链、默认绑 127.0.0.1",
+  "ps_source_trace": [
+    "GOAL-005：node:http 零依赖 + SSE（比 WebSocket 轻）；唯一写路径 = append-only owner-response（与 approval-requests 现有流程同构）",
+    "CONSTITUTION.md §1 触发门 4：默认 127.0.0.1 不对外",
+    "D7 红线：只读消费事件流，不引入第二状态源"
+  ],
+  "open_findings": [
+    "goals/receipts/dispatch-events/swap-deepseek-real-001.json.t1-receipt.json 为 GOAL-004 遗留未跟踪文件，不属本 Goal 范围，不动",
+    "页面预算视图当前消费 BUDGET_GATE 审批记录；USD admission 台账为内存态（UsdBudgetLedger），落盘持久化属 M5+ 范围"
+  ],
+  "spent_estimate_usd": 0.5
+}

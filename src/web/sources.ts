@@ -149,6 +149,7 @@ export function collectBoardSnapshot(opts: { eventLogs?: EventLog[]; approvalRoo
   const epochs: BoardEpoch[] = [];
 
   for (const log of eventLogs) {
+    if (log.length === 0) continue; // 空 epoch 不上看板
     let verified = true;
     try {
       log.verifyChain();
