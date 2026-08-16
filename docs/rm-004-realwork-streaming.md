@@ -67,3 +67,19 @@ p12/p13/p14 合并 + owner 复验聊天 + 一次真实弹审批应答）
 
 DoD：池 CRUD+流转测试全绿；GP 项导入完整可核；看板三泳道可用；
 至少 1 个真实任务经池全程流转（与 M1 实战联动）。
+
+### M4 调度自由与预算面板（GOAL-017，owner 复验六项 2026-08-17 增补）
+
+- **#1 犬只注册表 CRUD**：适配器合同持久化（runtime/adapters.json，
+  叠加在 baseContracts 上）；看板 UI 增删犬只（选基础 harness 模板 +
+  命名 + 通道参数）；roster 实时反映；
+- **#2 头犬即角色（role 与 harness 解耦）**：任何在册且 VERIFIED 的
+  harness 皆可任头犬——选择级联：**harness → 模型变体**（数据源能力
+  注册表）；章程注入在聊天层叠加；codex 因 F-50 暂不可选（诚实标记）；
+- **#3 徽章链随选**：聊天徽章 = 当前头犬 harness+模型（含官方图标）；
+- **#4 品牌色 + 运行边缘辉光**：各家族品牌主色（DeepSeek #4D6BFE、
+  Claude 橙、Kimi 紫、GLM 紫、OpenAI 黑绿等）常态显示；运行态 =
+  边缘 drop-shadow 辉光 + 跳动（owner 指定形态）；
+- **#6 预算面板活化**：计数实时（SSE 已有，接刷新）；per-actor cap
+  可编辑并持久化（runtime/budget-caps.json，改动留痕）；
+- （#5 真实审批流 owner 已跑通 ✅，RM-003 DoD 落袋）。

@@ -84,3 +84,5 @@
 | D25 | RM-004「实战与流式」立项 | 主轴 A 实战运营（意向项目真实任务，旗舰 RM-055-RF-A；M0 安全前置 = GP-24 carve-out 写权限白名单）+ B 流式体验（chat 异步化 + SSE 阶段事件 + 打字机）。启动前置 = RM-003 收官。范围见 docs/rm-004-realwork-streaming.md | owner 2026-08-17 选型"A+B(流式) 组合" |
 
 | D26 | RM-004 增补 M3 任务池 | dashi-taskboard 式任务板（append-only tasks.jsonl + CRUD/状态机 API + 三泳道 UI + 派发回链 + GP 项迁移；自动认领留二期接口）。markdown 目标池转归档 | owner 2026-08-17："需要创建一个任务池，就像 dashi-taskboard" |
+
+| D27 | RM-004 增补 M4 调度自由 | owner 复验六项入册：犬只注册表 CRUD、头犬即角色（harness→模型级联，VERIFIED 方可任头犬）、徽章链、品牌色+运行边缘辉光、预算面板计数与可编辑 cap；**F-50：codex Poke API 通道 nonce 双次失败，禁任头犬直至换通道** | owner 2026-08-17 复验反馈 + 头犬 codex nonce 实测（codex-real-002） |
