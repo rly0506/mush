@@ -119,9 +119,10 @@ export function renderBoardPage(): string {
     border-radius: 6px; padding: 9px 22px; font-size: 13px; cursor: pointer; font-family: inherit;
   }
   button.primary:disabled { opacity: 0.45; cursor: default; }
-  .dispatch-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; font-size: 13px; cursor: pointer; }
+  .dispatch-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; font-size: 13px; }
+  .dispatch-card .head-row { cursor: pointer; }
   .dispatch-card:hover { border-color: var(--accent-deep); }
-  .dispatch-card .detail { display: none; margin-top: 8px; border-top: 1px solid #1a2531; padding-top: 8px; }
+  .dispatch-card .detail { display: none; margin-top: 8px; border-top: 1px solid #1a2531; padding-top: 8px; user-select: text; cursor: auto; }
   .dispatch-card.open .detail { display: block; }
   dialog { background: var(--panel-hi); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 20px; max-width: 560px; width: 90%; }
   dialog::backdrop { background: rgba(0,0,0,.65); }
@@ -172,6 +173,14 @@ export function renderBoardPage(): string {
   #chat-composer { display: flex; gap: 10px; padding-top: 12px; }
   #chat-input { flex: 1; min-height: 44px; max-height: 160px; }
   #chat-send { flex: none; align-self: flex-end; }
+  /* D2（GOAL-012B）：思考中占位气泡 —— 三点呼吸动画（极夜主题令牌） */
+  .thinking-bubble { min-width: 72px; }
+  .thinking-dots { display: inline-flex; gap: 5px; padding: 4px 2px; }
+  .thinking-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: think-dot 1.2s ease-in-out infinite; }
+  .thinking-dots i:nth-child(2) { animation-delay: .18s; }
+  .thinking-dots i:nth-child(3) { animation-delay: .36s; }
+  @keyframes think-dot { 0%, 100% { opacity: .25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
+  .thinking-elapsed { color: var(--ink-dim); }
   /* ---------- GOAL-012：动效 logo（内联 SVG，运行中带 logo-anim 呼吸动画） ---------- */
   .dog-logo { display: inline-flex; vertical-align: middle; }
   .dog-logo svg { width: 22px; height: 22px; display: block; }
@@ -181,7 +190,7 @@ export function renderBoardPage(): string {
     50% { transform: scale(1.12); filter: drop-shadow(0 0 4px currentColor); }
   }
   @media (prefers-reduced-motion: reduce) {
-    .dog-logo.running svg, .badge.RUNNING::before, .toast { animation: none; }
+    .dog-logo.running svg, .badge.RUNNING::before, .toast, .thinking-dots i { animation: none; }
   }
 </style>
 </head>
@@ -215,6 +224,12 @@ export function renderBoardPage(): string {
   <section id="view-chat" class="view active">
     <div class="chat-toolbar">
       <span>你只和头犬说话 —— 它自主派活、审核回报，触发门会弹回这里。</span>
+      <label>头犬 <select id="chat-head-select" style="width:auto;padding:3px 8px;font-size:12px"></select></label>
+      <label>思维 <select id="chat-effort" style="width:auto;padding:3px 8px;font-size:12px">
+        <option>LOW</option>
+        <option selected>HIGH</option>
+        <option>XHIGH</option>
+      </select></label>
       <span class="mono" id="chat-session-label"></span>
       <label><input type="checkbox" id="notify-toggle"> 浏览器通知（派发终态，需授权）</label>
       <button class="act cancel" id="chat-new-session" type="button" style="padding:3px 10px;font-size:12px">新会话</button>
@@ -427,6 +442,20 @@ export function renderBoardPage(): string {
     var label = head ? head.adapter_id : 'head-dog';
     nameEl.textContent = '当前头犬：' + label;
     logoEl.innerHTML = dogLogo(label + ' ' + (head ? head.expected_model_id || '' : ''), false);
+    // D1（GOAL-012B）：头犬选择下拉 —— 数据源 roster.role==='head'；选中项联动徽章。
+    var sel = document.getElementById('chat-head-select');
+    if (sel) {
+      var heads = roster.filter(function (r) { return r.role === 'head' || r.adapter_id === 'head-dog'; });
+      if (heads.length === 0) heads = [{ adapter_id: 'head-dog', expected_model_id: '' }];
+      var prev = sel.value;
+      sel.innerHTML = heads.map(function (r) {
+        return '<option value="' + esc(r.adapter_id) + '">' + esc(r.adapter_id) + (r.expected_model_id ? '（' + esc(r.expected_model_id) + '）' : '') + '</option>';
+      }).join('');
+      if (prev && heads.some(function (r) { return r.adapter_id === prev; })) sel.value = prev;
+      nameEl.textContent = '当前头犬：' + sel.value;
+      var current = heads.filter(function (r) { return r.adapter_id === sel.value; })[0];
+      logoEl.innerHTML = dogLogo(sel.value + ' ' + (current ? current.expected_model_id || '' : ''), false);
+    }
   }
 
   /* ---------- 犬只下拉（G009 修复：取 roster 注册名册；无活动时也应有犬可选） ---------- */
@@ -616,14 +645,20 @@ export function renderBoardPage(): string {
     el.innerHTML = list.map(function (d) {
       var elapsed = elapsedText(d);
       return '<div class="dispatch-card' + (openDetails[d.dispatch_id] ? ' open' : '') + '" data-dispatch="' + esc(d.dispatch_id) + '">' +
+        '<div class="head-row">' +
         '<span class="badge ' + esc(d.status) + '">' + esc(d.status) + '</span> ' +
         '<span class="mono">' + esc(String(d.dispatch_id).slice(0, 12)) + '…</span> ' +
         esc(d.adapter_id || '') + ' <span class="meta">' + escTime(d.at_utc || '') + '</span>' +
         (elapsed ? '<span class="elapsed">' + elapsed + '</span>' : '') +
+        '</div>' +
         '<div class="detail">' + (detailCache[d.dispatch_id] || '加载中…') + '</div></div>';
     }).join('');
-    el.querySelectorAll('.dispatch-card').forEach(function (card) {
-      card.addEventListener('click', function () { toggleDispatchDetail(card); });
+    // D4（GOAL-012B）：折叠热区收缩到头部行；detail 内点击不冒泡、文字可选中。
+    el.querySelectorAll('.dispatch-card .head-row').forEach(function (headRow) {
+      headRow.addEventListener('click', function () { toggleDispatchDetail(headRow.parentNode); });
+    });
+    el.querySelectorAll('.dispatch-card .detail').forEach(function (detail) {
+      detail.addEventListener('click', function (event) { event.stopPropagation(); });
     });
     // 展开但无缓存的（如刚重渲染）：异步补载。
     Object.keys(openDetails).forEach(function (id) {
@@ -632,6 +667,9 @@ export function renderBoardPage(): string {
   }
 
   function toggleDispatchDetail(card) {
+    // D4（GOAL-012B）：用户正在选中文字时不折叠（选字拖拽也会触发 click）。
+    var selection = typeof window.getSelection === 'function' ? String(window.getSelection()) : '';
+    if (selection !== '') return;
     // DEF-08：展开态走注册表（跨重渲染保持），详情走缓存（状态变化失效）。
     var dispatchId = card.getAttribute('data-dispatch');
     if (openDetails[dispatchId]) {
@@ -898,7 +936,38 @@ export function renderBoardPage(): string {
 
   function setChatPending(pending) {
     chatPending = pending;
-    document.getElementById('chat-send').disabled = pending;
+    // D2（GOAL-012B）：发送期间输入框保持可编辑（排队下一条），仅按钮态变化。
+    document.getElementById('chat-send').textContent = pending ? '发送中…' : '发送';
+  }
+
+  /* ---------- D2：思考中占位气泡（三点呼吸动画 + 已耗时秒表） ---------- */
+  var thinkingRow = null;
+  var thinkingTimer = null;
+
+  function showThinking() {
+    removeThinking();
+    chatClearEmpty();
+    var row = document.createElement('div');
+    row.className = 'chat-row head chat-thinking';
+    row.innerHTML = '<span class="avatar">' + dogLogo('head-dog kimi moon', true) + '</span>' +
+      '<div><div class="who">头犬 · 思考中… <span class="mono thinking-elapsed">0s</span></div>' +
+      '<div class="bubble thinking-bubble"><span class="thinking-dots"><i></i><i></i><i></i></span></div></div>';
+    chatStreamEl().appendChild(row);
+    chatScrollBottom();
+    var started = Date.now();
+    thinkingRow = row;
+    thinkingTimer = setInterval(function () {
+      var el = row.querySelector('.thinking-elapsed');
+      if (el) el.textContent = Math.max(0, Math.round((Date.now() - started) / 1000)) + 's';
+    }, 1000);
+  }
+
+  function removeThinking() {
+    if (thinkingTimer !== null) { clearInterval(thinkingTimer); thinkingTimer = null; }
+    if (thinkingRow !== null) {
+      if (thinkingRow.parentNode) thinkingRow.parentNode.removeChild(thinkingRow);
+      thinkingRow = null;
+    }
   }
 
   function sendChat() {
@@ -908,21 +977,32 @@ export function renderBoardPage(): string {
     input.value = '';
     appendChatRow('user', message, new Date().toISOString());
     setChatPending(true);
-    postJson('/api/chat', { message: message, resume: chatSessionId }).then(function (result) {
+    showThinking(); // D2：立即反馈，不等网络
+    // D1：头犬选择 + effort 档位随消息提交（v1.3.1 可选字段，缺省后端 head-dog/HIGH）。
+    var headSel = document.getElementById('chat-head-select');
+    var effortSel = document.getElementById('chat-effort');
+    var payload = { message: message, resume: chatSessionId };
+    if (headSel && headSel.value) payload.adapter_id = headSel.value;
+    if (effortSel && effortSel.value) payload.effort = effortSel.value;
+    postJson('/api/chat', payload).then(function (result) {
       var data = result.body || {};
-      if (result.status === 202 && data.ok) {
+      if (result.status === 200 && data.ok) {
         chatSessionId = data.session_id || chatSessionId;
         document.getElementById('chat-session-label').textContent = chatSessionId ? 'session ' + String(chatSessionId).slice(0, 8) : '';
-        // 202 语义：头犬已受理；回复经 SSE dispatch 帧回填（REPORT 后拉 history）。
-        if (data.dispatch_id) trackDispatch(data.dispatch_id, 'head-dog', data.status || 'ADMITTED');
+        // D3：v1.3.1 同步语义——响应体 reply 即头犬回复，替换占位气泡直渲。
+        removeThinking();
+        appendChatRow('head', typeof data.reply === 'string' && data.reply !== '' ? data.reply : '（空回复）', new Date().toISOString(), data.dispatch_id);
+        if (data.dispatch_id) trackDispatch(data.dispatch_id, payload.adapter_id || 'head-dog', data.status || 'ADMITTED');
         refresh();
       } else if (result.status === 404 || result.status === 400) {
-        // M1 联调批前的优雅降级：端点缺失/未知会话不炸板，流内说明。
-        appendChatRow('head', '（聊天 API 未就绪：' + esc(data.error || result.status) + '。M1 联调批接入后端；前端按 v1.3 契约 mock 开发。）', new Date().toISOString());
+        removeThinking();
+        appendChatRow('head', '（消息未受理：' + esc(data.error || result.status) + '）', new Date().toISOString());
       } else {
+        removeThinking();
         toast('发送失败：' + (data.error || result.status), false);
       }
     }).catch(function (error) {
+      removeThinking();
       appendChatRow('head', '（聊天 API 暂不可达：' + esc(String(error)) + '）', new Date().toISOString());
     }).then(function () { setChatPending(false); });
   }

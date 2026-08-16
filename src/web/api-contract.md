@@ -1,7 +1,8 @@
 # mush Board API 契约 v1
 
-- 状态：`v1.3`（2026-08-17 定稿 v1；GOAL-007B 追加 v1.1；GP-02 追加 v1.2；
-  GOAL-011 追加 v1.3 聊天节——M1 已合并 master，本文件即为权威源）
+- 状态：`v1.3.1`（2026-08-17 定稿 v1；GOAL-007B 追加 v1.1；GP-02 追加 v1.2；
+  GOAL-011 追加 v1.3 聊天节——M1 已合并 master，本文件即为权威源；
+  GOAL-012B 追加 v1.3.1：chat 可选 adapter_id/effort + 200 同步 reply 语义）
 - 宿主：`src/web/`（node:http，零依赖）；默认只绑 `127.0.0.1`（对外暴露 = 触发门 4，不实现）
 - 序列化：JSON（UTF-8，LF 结尾）；SSE 用 `text/event-stream`，帧格式 `data: <json>\n\n`
 - 错误约定：失败响应一律 `{ "ok": false, "error": "<human-readable>" }`
@@ -107,16 +108,24 @@
 `dispatch` 生命周期 phase 顺序：`ADMISSION → EXECUTE → REPORT → REVIEW`；终态
 status ∈ `DRY_RUN | ADMITTED | BLOCKED_WAITING_OWNER | BLOCKED_ENV | FAIL | PASS`。
 
-## 聊天 API（v1.3，GOAL-011 M1 新增）
+## 聊天 API（v1.3，GOAL-011 M1 新增；v1.3.1 见下）
 
 ### POST /api/chat
 
-请求：`{ "message": "string (1..64000)", "resume": "session_id?" }`
-- 语义：把 message 作为 owner 消息派发给 `head-dog`（章程注入 + 会话续跑）；
-  dry-run 默认（真实头犬 dispatch 走既有 approval 记录）；
-- 响应 `202`：`{ "ok": true, "session_id", "role": "head", "dispatch_id", "status" }`；
-- `400`：message 为空/超长；`resume` 指向未知会话按新会话 fail-closed 或
-  `404`（实现选定后契约锁定：当前实现未知 resume 会创建新会话）。
+请求（v1.3.1）：`{ "message": "string (1..64000)", "resume": "session_id?",
+"adapter_id": "string?", "effort": "LOW|HIGH|XHIGH?" }`
+- 语义：把 message 作为 owner 消息派发给头犬（章程注入 + 会话续跑）；
+  聊天即真实执行（head-dog approval 在案，D6）；
+- v1.3.1（GOAL-012B，向后兼容新增，两字段可选）：
+  - `adapter_id`：头犬选择，缺省 `head-dog`；**仅 roster 中 role=head 的犬
+    合法**，executor/未知一律 `400`（fail-closed）；
+  - `effort`：思维档位，缺省 `HIGH`；非法档位 `400`；
+- 响应 `200`（v1.3.1 修正为同步语义：回复随响应返回，前端直渲气泡；
+  原 v1.3 的 202+SSE 回填语义废弃，history 拉取保留为对账路径）：
+  `{ "ok": true, "session_id", "role": "head", "dispatch_id", "status", "reply" }`
+  （`reply` = 头犬回复文本，来自既有 head turn 落盘内容）；
+- `400`：message 为空/超长、adapter_id 非 head、effort 非法；`resume` 指向
+  未知会话按新会话处理（创建新文件）。
 - 持久化：`runtime/chat/<session_id>.jsonl`，每行一条 `{role:"user"|"head",
   text, at_utc, dispatch_id?}`，append-only。
 

@@ -1,0 +1,31 @@
+{
+  "batch": "BATCH-39",
+  "goal_id": "MUSH-GOAL-012B",
+  "packet": "rm003-p12-kimi-chat-ux",
+  "branch": "g012b",
+  "worktree": "runtime/worktrees/kimi-b",
+  "at_utc": "2026-08-17T06:30:00Z",
+  "executor": "kimi-k3 (thinking high)",
+  "defects_fixed": {
+    "D1 无法选头犬/思维强度": "后端授权小改 A：chat.post() 接受 {adapter_id?, effort?}，adapter_id 仅 roster role=head 合法（fail-closed 400），缺省 head-dog/HIGH；前端聊天工具栏加头犬选择（roster role=head 数据源，选中联动页头徽章）+ 思维三档下拉，随消息提交",
+    "D2 对话慢且零反馈": "发送后立即渲染『头犬思考中…』占位气泡（三点呼吸动画 think-dot + 已耗时秒表 thinking-elapsed，极夜主题令牌，reduced-motion 尊重）；回复到达 removeThinking 替换；输入框保持可编辑（发送键不再硬禁用，pending 仅改文案『发送中…』）",
+    "D3 回复进派发卡不进气泡": "后端授权小改 B：POST /api/chat 改 200 同步语义 + 响应体 reply（头犬回复文本，来自既有 head turn）+ status；前端 200 到达即 appendChatRow('head', reply) 直渲气泡；history 拉取保留为对账路径",
+    "D4 卡片文字无法选中": "两道修复：① toggleDispatchDetail 首行 window.getSelection() 非空即 return；② .detail user-select:text/cursor:auto，折叠热区收缩到 .head-row（徽章/ID 行），detail 内 click stopPropagation 不冒泡"
+  },
+  "backend_scope": "严格限于授权两处：chat.ts post() 参数化（A）+ server.ts 聊天路由响应体（B，202→200+reply/status）。未越界。",
+  "contract": "v1.3.1（向后兼容：adapter_id/effort 可选；202→200 同步语义为语义修正，契约节已注明原 202 废弃）",
+  "tests": {
+    "new_backend": "tests/g012b-chat-ux.test.ts（5 用例：缺省参数/effort 透传/head-only fail-closed/reply 字段/HTTP 200+reply+executor 400）",
+    "new_frontend": "tests/web-chat-ux-012b.test.ts（5 用例：D1 控件/D2 占位+秒表+输入不锁/D3 reply 直渲/D4 选字保护+热区收缩）",
+    "full_run": "279/279 PASS → goals/receipts/BATCH-39-test-output.txt",
+    "parse_regression": "tests/web-page-parse.test.ts PASS（vm.Script 真解析）"
+  },
+  "smoke": {
+    "script": "scripts/g012b-chat-ux-smoke.cjs（真实执行，exit=0）",
+    "result": "8/8 PASS → goals/receipts/BATCH-39-smoke-output.txt",
+    "coverage": "选 head-dog+effort=XHIGH → 200+reply 气泡语义 / executor 伪装 400 / D2 占位秒表结构 / D4 getSelection 保护结构",
+    "note": "冒烟中发现 Node/libuv Windows SSE 关闭竞态（process.exit 触发 async.c assertion 127），改用 process.exitCode 自然排空——记入经验，不影响看板运行"
+  },
+  "red_lines": "零框架/零构建/零外链；凭据永不渲染；模板正则双写（本批未新增模板内正则）；127.0.0.1 不变；master 工作树零触碰",
+  "acceptance": "D15：机检全绿 + 冒烟真实执行 8/8，待头犬审核 + owner 显式接受"
+}
