@@ -378,3 +378,17 @@ RM-001、RM-002 全部构件正式收官。另：派发包编号改带 RM 前缀
 - **验收**：GOAL-011 **AUTO_ACCEPTED**（executor deepseek-dsh，分支
   g011-deepseek @ a300083 + 头犬 F-48 补丁）。
 - 深seek worktree 已合并待清；kimi g012 在途。
+
+## AD-27 · Linux 对照实验收篷（F-49，2026-08-17）
+
+- **已完成**：mush-dsh:local 镜像修复并构建成功（三层坑逐一排掉：包名
+  legacy-dsh→@deepseek-ai/dsh；node-pty 无 linux 预编译→apt 工具链；
+  手写 wrapper 的 printf 在 Dockerfile 引号层被啃坏→删掉，npm bin 链接
+  本就可用）。容器内 `dsh --version` = 0.1.0-rc.6（与 Windows 同版本）。
+- **F-49（阻塞）**：dsh 凭据存储（dsh-credentials-local）不可跨 OS 移植——
+  容器加载挂载的 ~/.dsh 凭据在 cordis.init 崩溃；:ro 挂载直接 EROFS。
+  破解需专项（最小凭据文件/env 注入且密钥不进命令行=红线约束）。
+- **结论**：Windows 原生 nonce 基线已测（16.1s matched）；Linux 侧
+  "更优"假说无法用 nonce 计时单独回答，且 dsh 当前形态 Windows 侧完全
+  够用。**搁置为 GP-28**（owner 需要时再攻）；镜像与 Dockerfile 已入仓
+  可随时续。

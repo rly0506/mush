@@ -65,3 +65,4 @@
 | GP-24 | 意向项目登记 UX：冻结区拒绝改为"警示+owner 确认 carve-out"（整树只读默认，owner 圈定范围开放），替代一刀切前端拒绝 | owner Q1 | 中 | idea | GP-14 | 头犬 API 登记已可用的正式化 |
 
 | GP-27 | DEF-10：派发默认工作区取持久化选择（.mush/workspace.json 启动恢复）；GP-18 完成通知升级 | owner 2026-08-17 | 中 | idea | — | 头犬派发漏字段的教训 + 等待无反馈诉求 |
+| GP-28 | Linux 对照续：dsh 凭据容器化方案（最小凭据挂载或 env 注入，密钥不进命令行/日志）；完成后补 Linux nonce 基线与对照结论 | AD-27 | 低 | idea | — | 副线，Windows 原生已够用 |
