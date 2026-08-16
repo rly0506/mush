@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "experiment_id": "role-swap-001",
+  "purpose": "RM-001 M4 / D5：头犬/执行犬对调一次，作为跨模型路由的首个验证",
+  "assignment": { "head": "claude-code (claude-sonnet-5, claude-real-011 已实证)", "executor": "deepseek-dsh (dsh-real-002/swap-deepseek-real-001 已实证)" },
+  "execution": {
+    "loop_context": "zcode 会话（GLM，zcode-identity-probe 已实证）作为编排监督，头犬角色由 claude-code 担任",
+    "executor_dispatch": "swap-deepseek-real-001.json — nonce matched=true, exit 0, 14s, 经真实 dsh headless 通道"
+  },
+  "result": "PASS — 对调后 deepseek 执行犬在 claude 头犬指派的有界任务上完成 nonce 自证，跨模型路由（GLM 监督 → claude 头犬 → deepseek 执行犬）真实跑通",
+  "significance": "mush 首次三模型家族协同：orchestrator=GLM(zcode), head=claude-sonnet-5, executor=deepseek-v4-flash。M4 对调实验完成。",
+  "recorded_at_utc": "2026-08-17T04:41:00Z"
+}
