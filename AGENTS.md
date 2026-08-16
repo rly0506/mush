@@ -28,10 +28,10 @@ mush 是个人跨 harness 多 agent 编排工具（雪橇队）。你在本仓�
 
 ## 当前状态
 
-**RM-001 = DONE（2026-08-17 owner 转正）。** M1–M5 完成链：199 tests 全绿 →
-四犬在册（deepseek/claude/kimi/zcode，三模型家族身份实证）→ dogfood loop +
-对调 + 触发门弹审批 → Web 看板（`node bin/mush board`）。
-下一程方向（待立项）：M5+ 看板接线与派发入口 / 首次外用验证（D21 第一级）/
-codex 等剩余 harness 接入 / 记忆层（旧提案 Phase C，后置另立 RM）。
+**RM-001 = DONE（2026-08-17 owner 转正）；RM-002「活用化与扩编」= ACTIVE（D22）。**
+分工：zcode 头犬审核/编排，deepseek 后端（G006 派发管线 + G008 扩编三连），
+kimi 前端（G007 调度入口），G009 试验田→意向项目收官待 G006+G007。
+派发包：docs/dispatch/004（deepseek）、005（kimi）。codex/opencode 探测预授权
+已给（D22）。六犬目标编制、四模型家族；199 tests 全绿基线。
 findings 默认裁决：docs/auto-decisions-log.md（D16）。
 GitHub 私有远端同步为常规动作（D19）；无人值守调度器仍默认关（D8）。
