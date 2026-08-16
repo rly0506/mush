@@ -73,3 +73,11 @@ b47afd7c0fd93fdead7b48392b3dcc1e9e46791d991776330e49a83540d91403  .test-fixtures
 
 - **裁决**：无需动作。夜间已按"意图移植、语义不弱化、注释注明"处理，
   属移植纪律内的正常记录，不构成决策点。
+
+## AD-07 · GOAL-002 U1 远端同步失败（D19 常规动作未完成）
+
+- **对象**：`git push origin master`（github.com/rly0506/mush，D19 授权私有远端）。
+- **裁决**：按派发包 002"失败不阻塞，记 finding，本地 commit 为准"处理。
+  本环境无 GitHub 凭据（schannel SEC_E_NO_CREDENTIALS，push exit 128）；
+  U1 本地 commit `b4b12c1` 为准。后续单元仍按包继续尝试，凭据问题不由本
+  Goal 内解决（不接触密钥路径、不弹门）。
