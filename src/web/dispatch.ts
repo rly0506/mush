@@ -18,6 +18,7 @@ import { buildZcodeContract } from '../adapters/zcode.ts';
 import { buildCodexContract } from '../adapters/codex.ts';
 import { buildOpencodeContract } from '../adapters/opencode.ts';
 import { runT1, type SpawnFn } from '../adapters/t1-runner.ts';
+import type { BoardPersistence } from './persistence.ts';
 
 export type DispatchStatus =
   | 'ADMITTED'
@@ -83,6 +84,8 @@ export interface DispatchPipelineOptions {
   now?: () => Date;
   /** G010：能力注册表路径；缺省 <workspaceRoot>/runtime/capability-registry.json。 */
   registryPath?: string;
+  /** GP-03：持久化三件套接入；缺省纯内存。 */
+  persistence?: BoardPersistence;
 }
 
 export interface WorkspaceInfo {
@@ -401,11 +404,12 @@ export class DispatchPipeline {
   }
 
   listWorkspaces(extraCandidates: string[] = []): WorkspaceInfo[] {
-    const candidates = new Set<string>([this.workspaceRoot]);
-    if (this.selectedWorkspace !== null) candidates.add(this.selectedWorkspace);
+    // F-39：候选先入归一化 Set（同路径不同形态/大小写双条目消除）。
+    const candidates = new Set<string>([path.resolve(this.workspaceRoot)]);
+    if (this.selectedWorkspace !== null) candidates.add(path.resolve(this.selectedWorkspace));
     // G009 修复：已知工作区持久化列表（<repoRoot>/.mush/known-workspaces.json），
     // 解决列表只含服务 cwd、冷启动选不到其他工作区的问题。
-    for (const known of this.knownWorkspaces()) candidates.add(known);
+    for (const known of this.knownWorkspaces()) candidates.add(path.resolve(known));
     for (const candidate of extraCandidates) candidates.add(path.resolve(candidate));
     const result: WorkspaceInfo[] = [];
     for (const candidate of candidates) {
@@ -417,7 +421,8 @@ export class DispatchPipeline {
           path: candidate,
           is_git: existsSync(path.join(candidate, '.git')),
           mush_managed: existsSync(path.join(candidate, '.mush')),
-          selected: this.selectedWorkspace !== null && candidate === this.selectedWorkspace,
+          selected:
+            this.selectedWorkspace !== null && candidate === path.resolve(this.selectedWorkspace),
         });
       } catch {
         // 不可读目录 fail-closed：不返回。
@@ -442,10 +447,10 @@ export class DispatchPipeline {
     return resolved;
   }
 
-  /** G009：选中即记住（append 到 repo 侧 known-workspaces.json，去重）。 */
+  /** G009：选中即记住（append 到 repo 侧 known-workspaces.json，去重；F-39：归一后比较）。 */
   private rememberWorkspace(resolved: string): void {
-    const known = new Set(this.knownWorkspaces());
-    known.add(resolved);
+    const known = new Set(this.knownWorkspaces().map((item) => path.resolve(item)));
+    known.add(path.resolve(resolved));
     const mushDir = path.join(this.workspaceRoot, '.mush');
     mkdirSync(mushDir, { recursive: true });
     writeFileSync(
@@ -453,6 +458,24 @@ export class DispatchPipeline {
       JSON.stringify({ schema_version: 1, workspaces: [...known].sort() }, null, 2) + '\n',
       'utf8',
     );
+  }
+
+  /** GP-02：自主登记新建目录（mkdir recursive + 记入 known，返回 WorkspaceInfo）。
+   * 校验：绝对路径、盘符根内（resolve 后不得逃逸出自身盘符——path.resolve 已保证；
+   * 显式拒绝相对路径与已存在目录）。不提供 git init。 */
+  createWorkspace(target: string): WorkspaceInfo {
+    if (typeof target !== 'string' || target.trim() === '') throw new InputError("field 'path' is required");
+    if (!path.isAbsolute(target)) throw new InputError(`workspace path must be absolute: ${target}`);
+    const resolved = path.resolve(target);
+    if (existsSync(resolved)) throw new InputError(`workspace already exists: ${resolved}`);
+    mkdirSync(resolved, { recursive: true });
+    this.rememberWorkspace(resolved);
+    return {
+      path: resolved,
+      is_git: existsSync(path.join(resolved, '.git')),
+      mush_managed: existsSync(path.join(resolved, '.mush')),
+      selected: this.selectedWorkspace !== null && resolved === this.selectedWorkspace,
+    };
   }
 
   private knownWorkspaces(): string[] {

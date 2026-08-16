@@ -114,6 +114,10 @@ export function renderBoardPage(): string {
         <div>
           <label for="workspace-select">workspace</label>
           <select id="workspace-select"></select>
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <input type="text" id="workspace-register-path" placeholder="登记新路径，如 D:\\mush-playground" style="flex:1;background:#0c1014;color:#d7dde3;border:1px solid #2a3138;border-radius:6px;padding:6px 10px;font-size:12px;font-family:Consolas,monospace">
+            <button type="button" class="act approve" id="btn-workspace-register">登记</button>
+          </div>
         </div>
         <div class="full">
           <label for="dispatch-prompt">任务</label>
@@ -154,6 +158,16 @@ export function renderBoardPage(): string {
     <button class="act cancel" id="btn-cancel">取消</button>
     <button class="act reject" id="btn-reject">否决</button>
     <button class="act approve" id="btn-approve">批准</button>
+  </div>
+</dialog>
+<dialog id="workspace-create-dialog">
+  <h2>新建 workspace</h2>
+  <p style="font-size:13px">目录不存在，是否新建并登记？</p>
+  <p class="mono" id="workspace-create-path" style="word-break:break-all"></p>
+  <p class="hint" style="color:#e3b341">登记后此目录将对犬队开放写入。</p>
+  <div class="actions">
+    <button class="act cancel" id="btn-create-cancel">取消</button>
+    <button class="act approve" id="btn-create-confirm">新建并登记</button>
   </div>
 </dialog>
 <div id="toast"></div>
@@ -236,18 +250,19 @@ export function renderBoardPage(): string {
     }
     var hasSelected = workspaces.some(function (w) { return w.selected; });
     select.innerHTML = workspaces.map(function (w) {
+      var displayPath = normalizeDisplayPath(w.path);
       var tags = [];
       if (w.is_git) tags.push('git');
       if (w.mush_managed) tags.push('mush');
       if (w.selected) tags.push('当前');
       return '<option value="' + esc(w.path) + '"' + (w.selected ? ' selected' : '') + '>' +
-        esc(w.path) + (tags.length ? ' [' + tags.join(', ') + ']' : '') + '</option>';
+        esc(displayPath) + (tags.length ? ' [' + tags.join(', ') + ']' : '') + '</option>';
     }).join('');
     if (!hasSelected) {
       select.insertAdjacentHTML('afterbegin', '<option value="" selected>（未选择，默认服务目录）</option>');
     }
     var current = workspaces.filter(function (w) { return w.selected; })[0];
-    document.getElementById('workspace-current').textContent = current ? current.path : 'workspace: 服务 cwd';
+    document.getElementById('workspace-current').textContent = current ? normalizeDisplayPath(current.path) : 'workspace: 服务 cwd';
   }
 
   /* ---------- 派发提交 ---------- */
@@ -555,6 +570,73 @@ export function renderBoardPage(): string {
       if (result.status === 201) { toast('workspace 已切换：' + selected, true); loadWorkspaces(); }
       else { toast('workspace 切换失败：' + (result.body.error || result.status), false); }
     }).catch(function (error) { toast('workspace 切换失败：' + error, false); });
+  });
+
+  /* ---------- GP-02（F-40）：workspace 自主登记 ---------- */
+  var pendingCreatePath = null;
+
+  function normalizeDisplayPath(p) {
+    // F-39：展示统一反斜杠形态（与后端 path.resolve 归一对齐）。
+    return String(p || '').replace(/\//g, '\\');
+  }
+
+  function isFrozenSubtree(p) {
+    // 纵深防御提示层：意向项目（黄金参照冻结区）子树前端直接拒绝；
+    // 后端硬拦截属 GP-14 范围。统一归一后做前缀判断（大小写不敏感）。
+    var norm = normalizeDisplayPath(p).replace(/\\+$/, '').toLowerCase();
+    return /^[a-z]:\\意向项目(\\|$)/.test(norm);
+  }
+
+  function registerWorkspace(rawPath) {
+    var input = String(rawPath || '').trim();
+    if (!input) { toast('请输入 workspace 路径', false); return; }
+    if (isFrozenSubtree(input)) {
+      toast('拒绝登记：意向项目子树是黄金参照冻结区（只读）', false);
+      return;
+    }
+    postJson('/api/workspaces/select', { path: input }).then(function (result) {
+      if (result.status === 201) {
+        toast('已登记并选中：' + normalizeDisplayPath(input), true);
+        document.getElementById('workspace-register-path').value = '';
+        loadWorkspaces();
+        return;
+      }
+      var message = result.body && result.body.error ? String(result.body.error) : '';
+      if (result.status === 400 && /does not exist/i.test(message)) {
+        pendingCreatePath = input;
+        document.getElementById('workspace-create-path').textContent = normalizeDisplayPath(input);
+        document.getElementById('workspace-create-dialog').showModal();
+        return;
+      }
+      toast('登记失败：' + (message || result.status), false);
+    }).catch(function (error) { toast('登记失败：' + error, false); });
+  }
+
+  document.getElementById('btn-workspace-register').addEventListener('click', function () {
+    registerWorkspace(document.getElementById('workspace-register-path').value);
+  });
+  document.getElementById('workspace-register-path').addEventListener('keydown', function (event) {
+    if (event.key === 'Enter') { event.preventDefault(); registerWorkspace(this.value); }
+  });
+  document.getElementById('btn-create-cancel').addEventListener('click', function () {
+    pendingCreatePath = null;
+    document.getElementById('workspace-create-dialog').close();
+  });
+  document.getElementById('btn-create-confirm').addEventListener('click', function () {
+    var target = pendingCreatePath;
+    document.getElementById('workspace-create-dialog').close();
+    pendingCreatePath = null;
+    if (!target) return;
+    postJson('/api/workspaces/create', { path: target }).then(function (result) {
+      if (result.status === 201) {
+        toast('已新建并登记：' + normalizeDisplayPath(target), true);
+        document.getElementById('workspace-register-path').value = '';
+        // 建完即选中（登记 = 可派发白名单成员）
+        postJson('/api/workspaces/select', { path: target }).then(function () { loadWorkspaces(); });
+        return;
+      }
+      toast('新建失败：' + ((result.body && result.body.error) || result.status), false);
+    }).catch(function (error) { toast('新建失败：' + error, false); });
   });
   document.getElementById('btn-approve').addEventListener('click', function () { respond('APPROVED'); });
   document.getElementById('btn-reject').addEventListener('click', function () { respond('REJECTED'); });

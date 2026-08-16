@@ -276,6 +276,30 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       })();
       return;
     }
+    if (route === 'POST /api/workspaces/create') {
+      // GP-02（契约 v1.2）：自主登记新建目录——mkdir recursive + 记入 known-workspaces。
+      void (async () => {
+        let body: Record<string, unknown>;
+        try {
+          body = JSON.parse(await readBody(request)) as Record<string, unknown>;
+        } catch {
+          sendJson(response, 400, { ok: false, error: 'body must be JSON' });
+          return;
+        }
+        try {
+          const workspace = dispatch.createWorkspace(body.path as string);
+          sendJson(response, 201, { ok: true, workspace });
+        } catch (error) {
+          if (error instanceof InputError) {
+            const status = /already exists/.test(error.message) ? 409 : 400;
+            sendJson(response, status, { ok: false, error: error.message });
+          } else {
+            sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+          }
+        }
+      })();
+      return;
+    }
     if (route === 'GET /api/budget') {
       sendJson(response, 200, { ok: true, ...dispatch.budgetProjection() });
       return;

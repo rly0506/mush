@@ -1,10 +1,18 @@
 # mush Board API 契约 v1
 
-- 状态：`v1.1`（2026-08-17 定稿，GOAL-006 首交付物；GOAL-007 消费；GOAL-007B 追加 v1.1 向后兼容扩展，见下）
+- 状态：`v1.2`（2026-08-17 定稿 v1；GOAL-007B 追加 v1.1；GP-02 追加 v1.2，见下）
 - 宿主：`src/web/`（node:http，零依赖）；默认只绑 `127.0.0.1`（对外暴露 = 触发门 4，不实现）
 - 序列化：JSON（UTF-8，LF 结尾）；SSE 用 `text/event-stream`，帧格式 `data: <json>\n\n`
 - 错误约定：失败响应一律 `{ "ok": false, "error": "<human-readable>" }`
 - 版本演进：v1 字段**只能向后兼容新增**；删除/改义/改型 = 破坏性变更，需头犬批准并同步 GOAL-007
+
+### v1.2 向后兼容扩展（GP-02，2026-08-17）
+
+- 新增端点 `POST /api/workspaces/create`：body `{path}`（必须绝对路径）→
+  `mkdirSync(recursive)` + 记入 known-workspaces + `201 { ok, workspace: WorkspaceInfo }`；
+  已存在 `409`，非绝对路径/空 path `400`；不提供 git init；
+- `GET /api/workspaces` 条目路径统一为 `path.resolve` 归一形态并去重（F-39：
+  同路径正/反斜杠双条目消除）。
 
 ### v1.1 向后兼容扩展（GOAL-007B，2026-08-17）
 
@@ -68,6 +76,13 @@
 请求 `{ "path": "/abs/path" }` → `201 { "ok": true, "selected": path }`
 - 路径必须存在且为目录；否则 `400`。
 - 持久化到 `<workspace>/.mush/workspace.json`（BOM-free JSON；写入前目录校验）。
+
+## POST /api/workspaces/create（v1.2）
+
+请求 `{ "path": "D:/abs/path" }`（必须绝对路径）→ `201 { "ok": true, "workspace": WorkspaceInfo }`
+- 目录不存在时 `mkdirSync(recursive)` 创建并记入 known-workspaces（登记 = 入 F-41 白名单）；
+- 已存在 → `409`；非绝对路径/空 path → `400`；不提供 git init；
+- 意向项目子树的前端提示层（黄金参照冻结区）在 page.ts；后端硬拦截属 GP-14。
 
 ## GET /api/budget
 
