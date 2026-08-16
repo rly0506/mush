@@ -28,11 +28,10 @@ mush 是个人跨 harness 多 agent 编排工具（雪橇队）。你在本仓�
 
 ## 当前状态
 
-**RM-001（移植与 dogfood 自举）全部 DoD 满足，整单 COMPLETE_REQUESTED——DONE 待
-owner 一句话。** M1–M5 完成链：fixture 199 tests 全绿 → 核心移植 → 四犬在册
-（deepseek/claude/kimi/zcode，三模型家族身份实证）→ dogfood loop 闭环 + 对调
-实验 + 触发门真实弹审批 → Web 看板（`node bin/mush board`，127.0.0.1）。
-看板已可审批弹窗（D14 第一块拼图）。遗留接线项（loop→看板推送、USD 台账
-落盘、局域网暴露）属 M5+，见 auto-decisions-log AD-16。
+**RM-001 = DONE（2026-08-17 owner 转正）。** M1–M5 完成链：199 tests 全绿 →
+四犬在册（deepseek/claude/kimi/zcode，三模型家族身份实证）→ dogfood loop +
+对调 + 触发门弹审批 → Web 看板（`node bin/mush board`）。
+下一程方向（待立项）：M5+ 看板接线与派发入口 / 首次外用验证（D21 第一级）/
+codex 等剩余 harness 接入 / 记忆层（旧提案 Phase C，后置另立 RM）。
 findings 默认裁决：docs/auto-decisions-log.md（D16）。
 GitHub 私有远端同步为常规动作（D19）；无人值守调度器仍默认关（D8）。

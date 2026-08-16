@@ -1,6 +1,8 @@
 # RM-001：移植与 dogfood 自举
 
-状态：`CANDIDATE`（奠基待启动；代码迁移有前置条件，见 migration-checklist.md）
+状态：`DONE`（2026-08-17 owner 一句话转正。M1–M5 全绿 199 tests；dogfood loop
+闭环；触发门真实弹审批并获 owner 应答；对调实验三模型家族；黄金参照零改动。
+验收链：goals/receipts/* + docs/auto-decisions-log.md AD-09/12/15/16）
 授权依据：DECISIONS.md D1–D9（2026-08-15 owner grilling 定稿）。
 
 ## 目标
