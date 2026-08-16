@@ -64,3 +64,9 @@
 | # | 决策点 | 决议 | 依据 |
 | --- | --- | --- | --- |
 | D22 | RM-002「活用化与扩编」立项 | **主轴**：看板成为唯一调度入口 → 试验田验证 → 顶替意向项目；同时犬队扩编。**分工**：zcode 头犬（审核/验收/编排）、deepseek 后端（GOAL-006 看板服务端+派发管线、GOAL-008 扩编三连）、kimi 前端（GOAL-007 派发 UI，thinking high）。**并行执行**：G006+G008 同开，G007 以 API 契约先行同步开工；G009（试验田 `D:\mush-playground` → 意向项目收官任务）待 G006+G007 收口后编排。**扩编范围**：codex + opencode + zcode headless 修复；gemini 不做。**付费授权**：codex/opencode nonce 探测一揽子预授权（每犬一次、有界、cap $5/goal）；两者凭据均走 cc-switch 第三方 profile 注入（无官方登录）。**明确不做**：gemini、记忆层、成员直连、看板对外暴露（门 4 未开）。意向项目收官任务内容届时 owner 指定（开放槽） | owner 2026-08-17 grilling 逐项确认："A+B"/"a"/"b+opencode"/"并行"/"a（一揽子授权）"/"确认" |
+
+## 2026-08-17 第七批决议（owner 中期复盘批复）
+
+| # | 决策点 | 决议 | 依据 |
+| --- | --- | --- | --- |
+| D23 | 复盘批复 + 头犬职责扩展 | (a) P1–P5 排期批准（见 docs/review-2026-08-17-midpoint.md）；**P1 安全批由头犬（zcode）亲自执行**（已完成：DEF-04 Host 白名单 + F-41 workspace 白名单，`fd34c1a`）；(b) **头犬常设职责新增：安全审查**（DEF/F 漏洞审计、修复验证、外部暴露前的检查门）；(c) 学习对标：todos.dev（14 项能力，映射见目标池附录）+ dashi-taskboard（目标池/自动认领/任务-会话关联/worktree 协作）；(d) 建立**常备目标池**（docs/goal-pool.md，头犬维护，owner 随时增删），队列排程从池中取材 | owner 2026-08-17："同意排期，写下一阶段的任务，不过 P1 安全漏洞需要你来修补，补充你的职责：安全审查"；todos.dev 特性清单原文；dashi-taskboard 对标要求 |
