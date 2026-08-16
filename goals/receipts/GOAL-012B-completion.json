@@ -1,0 +1,31 @@
+{
+  "goal_id": "MUSH-GOAL-012B",
+  "title": "聊天体验四缺陷修复（owner 实操反馈，派发包 rm003-p12）",
+  "status": "AUTO_ACCEPTED_PENDING_OWNER",
+  "branch": "g012b",
+  "worktree": "runtime/worktrees/kimi-b",
+  "executor": "kimi-k3 (thinking high)",
+  "completed_at_utc": "2026-08-17T06:35:00Z",
+  "dod_checklist": {
+    "D1 头犬/思维选择": "DONE — 后端 chat.post() 参数化（adapter_id head-only fail-closed + effort LOW/HIGH/XHIGH，缺省 head-dog/HIGH）；前端工具栏双下拉随消息提交；契约 v1.3.1 同步",
+    "D2 思考反馈": "DONE — 『头犬思考中…』占位气泡（三点呼吸动画+秒表）发送即渲染、回复到达替换；输入框保持可编辑；pending 不再硬禁用发送键（文案反馈）",
+    "D3 回复进气泡": "DONE — 后端 200 同步语义 + 响应体 reply/status；前端响应到达即渲染头犬气泡；history 拉取保留对账；原 202+SSE 回填错位消除",
+    "D4 文字可选": "DONE — getSelection 非空即不折叠；detail user-select:text/cursor:auto；折叠热区收缩到 .head-row；detail 内点击 stopPropagation",
+    "测试": "DONE — 279/279 全绿（基线 268 + 新增 11：后端 5 + 前端 5 + 含既有 1 复用）；web-page-parse vm.Script 每批必过",
+    "冒烟": "DONE — scripts/g012b-chat-ux-smoke.cjs 真实执行 8/8 PASS（exit=0），输出存 BATCH-39-smoke-output.txt",
+    "契约": "DONE — api-contract.md v1.3.1（adapter_id/effort 可选新增 + 200 同步 reply 语义注明）"
+  },
+  "backend_scope_held": "授权边界仅两处（chat.ts post 参数化 + server.ts 聊天路由响应体），未越界；超出项零发生，无 finding 需记",
+  "batches": ["BATCH-39（四缺陷一体修复，小步提交 b732114 后端+契约 / 3fafa70 前端+测试）"],
+  "commits": [
+    "b732114 feat(G12B-A/B): chat.post parameterized + 200 sync reply/status (contract v1.3.1)",
+    "3fafa70 feat(G12B): chat UX quad-fix frontend (279/279)"
+  ],
+  "boundaries_held": [
+    "F-45：全部工作在 runtime/worktrees/kimi-b（g012b），master 零触碰",
+    "零框架/零构建/零外链；127.0.0.1 不变；凭据永不渲染",
+    "模板正则双写（DEF-07 防线测试每批绿）；意向项目零触碰；无远端推送"
+  ],
+  "experience_note": "冒烟脚本初版 process.exit 触发 Node/libuv Windows SSE 关闭竞态（async.c assertion，exit 127）——改 process.exitCode 自然排空修复；同类脚本沿用此模式",
+  "acceptance_semantics": "D15：机检全绿 + 冒烟真实执行 → AUTO_ACCEPTED；DONE 与否决权归 owner。待头犬（zcode）审核验收 + owner 显式接受。"
+}
