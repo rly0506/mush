@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "dispatch_id": "kimi-real-001",
+  "adapter_id": "kimi-code",
+  "channel": "t1 (-p headless) via tbtk provider (anthropic-compatible)",
+  "purpose": "D13 nonce 注册 + thinking 模式验证（owner 充值后）",
+  "challenge": "sha256('mush-kimi-thinking-probe-2026-08-17')",
+  "expected_sha256": "1e78003d29be30a5a6595ef12d44768817376b73422271b119200ff44f795a7a",
+  "observed_sha256": "1e78003d29be30a5a6595ef12d44768817376b73422271b119200ff44f795a7a",
+  "matched": true,
+  "method": "模型调用 bash 工具计算（诚实计算路径，非背诵）——推理段可见（'• Compute SHA-256 of the string. Use bash.'），thinking 模式生效",
+  "runtime_model": "kimi-k3 (tbtk, type=anthropic)",
+  "thinking_mode": "config [thinking] enabled=true；预扣费额度提升（¥0.55→¥1.29 量级），推理段在输出可见",
+  "verdict": "PASS — kimi 犬：nonce 计算正确 + 工具调用真实 + 思考模式开启。READY",
+  "recorded_at_utc": "2026-08-17T05:30:00Z"
+}
