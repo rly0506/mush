@@ -20,7 +20,10 @@ owner_decision: RM-001 M2 里程碑授权（D2 移植式重写 + D4 自举）+ D
 1. **状态机**（`src/core/`）：epoch 推进、lease（授予/重绑/恢复/过期）、
    事件 append-only + 签名锚点、sequence 单调性；语义以 M1 fixture 断言为验收规格。
 2. **能力注册**：capability record 字段（adapter_id…quota_checked_at，字段表见
-   `docs/migration-checklist.md` 迁移物表）；运行时身份 fail-closed。
+   `docs/migration-checklist.md` 迁移物表）；运行时身份 fail-closed。模型清单按
+   D20 以**实测**填充：provider 目录（cc-switch 等，只读，密钥不入库/日志/prompt）
+   枚举 provider，逐个探测当前密钥可调用模型，UNKNOWN 诚实记录；capability record
+   含 model/思考强度档位字段，供派发包按任务复杂度路由。
 3. **预算记账**：per-actor cap + admission 门（作为事件留痕，非阻断记账）。
 4. **影子回放**：将 `.agent-bridge/runtime/orchestrator/` 下 epoch21–50 run root
    的事件流复制为只读回放输入（**带 SHA-256 清单**，入 `tests/fixtures/replay/`），
