@@ -1,0 +1,30 @@
+{
+  "batch": "BATCH-36",
+  "goal_id": "MUSH-GOAL-012",
+  "rm": "RM-003 / M2 对话面板与体验",
+  "branch": "g012",
+  "worktree": "runtime/worktrees/kimi",
+  "at_utc": "2026-08-17T05:35:00Z",
+  "executor": "kimi-k3 (thinking high)",
+  "scope": [
+    "聊天面板视图（消息流 owner ↔ 头犬，气泡+头像+时间戳，Enter/Shift+Enter）",
+    "POST /api/chat + GET /api/chat/history 消费（契约 v1.3，契约先行）",
+    "resume 会话续跑字段（GP-04 UI 侧）",
+    "头犬结构化动作卡 chat-action-card 内嵌对话流（dispatch 终态回填，去重幂等）",
+    "触发门审批直通：WAITING 审批自动弹窗一次 + 聊天流内嵌提示（chatPromptedApprovals 去重）",
+    "页头常驻当前头犬标识 #head-dog-badge（roster v1.3 role 字段，缺省 head-dog）",
+    "roster 角色列（head/executor 徽章，前后端未升级时缺省 executor 优雅降级）",
+    "M1 未落盘优雅降级：404/400/网络错误在聊天流内说明，不炸板"
+  ],
+  "tests": {
+    "new": "tests/web-chat-panel.test.ts (8 assertions)",
+    "parse_regression": "tests/web-page-parse.test.ts PASS（vm.Script 真解析）",
+    "focused_run": "9/9 PASS → goals/receipts/BATCH-36-test-output.txt"
+  },
+  "contract": {
+    "version": "v1.3 (chat section, source g011-deepseek a300083)",
+    "note": "worktree 内 api-contract.md 为 master v1.2 + 顶部指向说明；联调合并时以 g011-deepseek v1.3 节为权威"
+  },
+  "red_lines": "零框架/零构建/零外链；凭据永不渲染；127.0.0.1 不变；模板正则双写已核（normalizeDisplayPath/isFrozenSubtree 沿用既有双写形态）",
+  "acceptance": "D15：机检全绿，待头犬审核 + owner 显式接受"
+}

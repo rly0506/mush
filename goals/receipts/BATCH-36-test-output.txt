@@ -1,0 +1,17 @@
+✔ chat panel: message stream view + composer bound to POST /api/chat (contract v1.3) (1.1991ms)
+✔ chat panel: session continuity via resume field (GP-04 UI 侧) (0.1626ms)
+✔ head-dog identity: header badge + roster role column (GP-26 UI 侧) (0.1266ms)
+✔ head-dog action cards: structured dispatch/review records inside message flow (0.0927ms)
+✔ approval gate直通: pending gates auto-popup inside chat flow (触发门) (0.111ms)
+✔ completion notification: toast + Notification API toggle (GP-18) (0.101ms)
+✔ animated dog logos: inline SVG per model family, zero external refs (GP-23) (0.2115ms)
+✔ visual identity: sled-team theme tokens + reduced-motion respect (0.1029ms)
+✔ DEF-07: rendered board page script parses as JavaScript (template-escape regression) (0.7256ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 51.1326

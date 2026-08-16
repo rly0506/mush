@@ -1,0 +1,41 @@
+{
+  "goal_id": "MUSH-GOAL-012",
+  "title": "对话面板与体验（RM-003 / M2）",
+  "status": "AUTO_ACCEPTED_PENDING_OWNER",
+  "branch": "g012",
+  "worktree": "runtime/worktrees/kimi",
+  "executor": "kimi-k3 (thinking high)",
+  "completed_at_utc": "2026-08-17T05:50:00Z",
+  "dod_checklist": {
+    "聊天面板": "DONE — 消息流（owner ↔ 头犬气泡）、动作卡内嵌、触发门审批直通（自动弹窗+流内提示，去重幂等）、页头当前头犬标识、roster 角色列（head/executor 徽章）",
+    "完成通知（GP-18）": "DONE — 通知栈 toast（多叠/上限4/自消）+ Notification API 开关（默认关、授权门控、页面可见不打扰、偏好 localStorage 持久化）",
+    "动效 logo（GP-23）": "DONE — 内联 SVG 六家族意象（鲸/日冕/花结/星/新月/犬爪），运行中呼吸辉光动画，零外链，reduced-motion 尊重",
+    "视觉升级": "DONE — 极夜雪橇队母题，16 枚 CSS 变量令牌，设计取向与两 skill 影响见 BATCH-38 回执 design_rationale",
+    "消费 M1 聊天契约": "DONE（契约先行）— v1.3 节源自 g011-deepseek a300083；前端按契约 mock 开发，M1 未落盘时优雅降级（流内说明，不炸板）；联调批待头犬合并 g011-deepseek 后自然接通"
+  },
+  "tests": {
+    "total": "263/263 PASS（基线 255 + 新增 8）",
+    "new_file": "tests/web-chat-panel.test.ts（8 用例：面板/续跑/头犬标识/动作卡/审批直通/通知/动效logo/视觉令牌）",
+    "parse_regression": "tests/web-page-parse.test.ts PASS 每批必过（vm.Script 真解析，DEF-07 防线）",
+    "full_output": "goals/receipts/GOAL-012-full-test-output.txt"
+  },
+  "batches": ["BATCH-36 (chat panel core)", "BATCH-37 (notifications)", "BATCH-38 (logos + visual identity)"],
+  "commits": [
+    "64bdaeb docs(G12): land M1 chat API contract v1.3 section (contract-first)",
+    "17f957a feat(G12): chat panel — message stream + action cards + gate直通 + head-dog badge + roster roles (263/263)",
+    "65262f5 docs(G12): BATCH-37/38 receipts"
+  ],
+  "boundaries_held": [
+    "只写 D:\\mush（F-45 worktree 隔离，g012 分支，master 工作树零触碰）",
+    "改动面：src/web/page.ts + tests/web-chat-panel.test.ts + api-contract.md 顶部说明 + receipts（符合 GOAL-012 边界）",
+    "零框架/零构建/零外链；127.0.0.1 不变；凭据永不渲染；通知不携敏感载荷",
+    "模板字符串正则双写（DEF-07）；页面脚本过 vm.Script 解析",
+    "意向项目零触碰；无远端推送；无新增依赖"
+  ],
+  "design_skills": "frontend-design（主，全采纳要点）+ design-taste-frontend（次，取适用部分）—— 详见 goals/receipts/BATCH-38-completion.json design_rationale",
+  "acceptance_semantics": "D15：机检验收规格全绿 → AUTO_ACCEPTED；DONE 与否决权归 owner。待头犬（zcode）审核验收 + owner 显式接受。",
+  "followups": [
+    "M1 联调批：g011-deepseek 合并后跑一次真实多轮对话（RM-003 DoD），届时删除 api-contract.md 顶部指向说明",
+    "M3（GOAL-013） preset/effort 档位/kimi 入册非本 Goal 范围"
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "batch": "BATCH-38",
+  "goal_id": "MUSH-GOAL-012",
+  "rm": "RM-003 / M2 对话面板与体验",
+  "branch": "g012",
+  "at_utc": "2026-08-17T05:45:00Z",
+  "executor": "kimi-k3 (thinking high)",
+  "scope": [
+    "GP-23 动效 logo：内联 SVG dogLogo(hint, running)，六个家族意象 —— DeepSeek 鲸(whale 蓝)/Claude 日冕(sun 橙)/OpenAI 花结(knot 绿)/GLM 四角星(star 紫)/Kimi 新月(crescent 银蓝)/通用犬爪(paw)",
+    "运行中动画：@keyframes logo-anim 呼吸缩放 + currentColor 辉光（纯 CSS，零 JS 定时器）",
+    "logo 挂载点：犬队状态表（按最近派发状态判定 running）、页头当前头犬徽章、聊天头像",
+    "整体视觉升级：设计令牌 CSS 变量化（--bg/--panel/--ink/--accent/--ember 等 16 枚），页头内联雪橇队 SVG 品牌标，通知栈/徽章/卡片全面换令牌"
+  ],
+  "design_rationale": {
+    "motif": "极夜雪橇队：产品世界 = 多犬协同拉雪橇（mush!），视觉取自极夜雪原 —— 深蓝黑夜空(#0a0f16)、极光青辉(--accent #62d8c9 作唯一强调色)、营地篝火琥珀(--ember #e8a94c 作警示/owner 侧暖色)。签名元素 = 手绘家族徽章 logo 体系（运行中犬只的呼吸辉光），它直接编码'哪只犬在跑'这一真信息，非装饰。",
+    "frontend_design_applied": [
+      "采纳'ground it in the subject'：母题从 mush 自身语义（雪橇队/多犬）生长，非通用 dashboard 皮肤",
+      "采纳'signature element 一处大胆'：logo 徽章体系是唯一记忆点，其余保持克制（暗底、细线、小字号）",
+      "采纳'motion deliberately'：动效只承载运行状态（logo 呼吸/状态点脉冲），页面无装饰性动画",
+      "采纳 token system：4+ 命名色 hex 入 CSS 变量，全部组件派生",
+      "采纳 a11y floor：prefers-reduced-motion 全局关闭动画；焦点/对比度保留系统控件默认"
+    ],
+    "design_taste_applicable_parts": [
+      "采纳 pre-flight 自检（暖奶油底+陶土/酸绿/报纸风三个模板默认值均规避：选了极夜蓝黑+极光青，非其任一默认）",
+      "舍弃其 landing-page 向规则（hero/营销文案/栅格大卡）：自我声明'非 dashboard'，看板是工具界面，信息密度优先"
+    ]
+  },
+  "tests": {
+    "assertions": "tests/web-chat-panel.test.ts 'animated dog logos' + 'visual identity' 两用例（dogLogo/svg/keyframes/whale/crescent/零外链/CSS变量/reduced-motion 八断言）",
+    "focused_run": "9/9 PASS → goals/receipts/BATCH-38-test-output.txt"
+  },
+  "red_lines": "SVG 全内联手绘，零外链零字体下载；动画纯 CSS；凭据永不渲染",
+  "acceptance": "D15：机检全绿，待头犬审核 + owner 显式接受"
+}
