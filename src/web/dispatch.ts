@@ -109,7 +109,7 @@ export class DispatchPipeline {
   readonly ledgerPath: string;
   private readonly contracts: Record<string, AdapterContract>;
   private readonly runAdapter: RunAdapterFn;
-  private readonly onEvent: (event: DispatchLifecycleEvent) => void;
+  private onEvent: (event: DispatchLifecycleEvent) => void;
   private readonly ledger = new UsdBudgetLedger();
   private readonly records = new Map<string, DispatchRecord>();
   private selectedWorkspace: string | null = null;
@@ -151,6 +151,11 @@ export class DispatchPipeline {
           };
         }
       });
+  }
+
+  /** 让宿主（board server SSE）重新挂接生命周期事件监听。 */
+  setEventListener(listener: (event: DispatchLifecycleEvent) => void): void {
+    this.onEvent = listener;
   }
 
   private emit(record: DispatchRecord, phase: DispatchLifecycleEvent['phase'], status: DispatchStatus, payload: Record<string, unknown>): void {

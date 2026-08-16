@@ -2,8 +2,10 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { DispatchPipeline, InputError, type RunAdapterFn } from '../src/web/dispatch.ts';
+import { DispatchPipeline, InputError, type DispatchLifecycleEvent, type RunAdapterFn } from '../src/web/dispatch.ts';
 import { startBoardServer, type BoardServer } from '../src/web/server.ts';
+import { LoopStateMachine } from '../src/loop/loop.ts';
+import { createLoopBridge } from '../src/web/loop-stream.ts';
 
 // GOAL-006 U2：派发管线（fake runner 路径全覆盖）+ USD 台账 + 生命周期事件。
 // 契约：src/web/api-contract.md。
@@ -102,6 +104,26 @@ test('budget projection reports per-actor spent/cap/entries from the ledger', as
   assert.equal(codex?.entries.length, 1);
 });
 
+test('fake full-flow smoke: dispatch lifecycle + loop lifecycle both stream, ledger lands on disk', async () => {
+  const root = fixtureRoot();
+  const streamEvents: Array<{ kind: string }> = [];
+  const pipeline = new DispatchPipeline({
+    workspaceRoot: root,
+    approvalRoot: path.join(root, 'approvals'),
+    ledgerPath: path.join(root, 'budget-ledger.jsonl'),
+    runAdapter: fakeOk,
+  });
+  pipeline.setEventListener((event) => streamEvents.push(event));
+  await pipeline.dispatch({ adapter_id: 'fake-t1', prompt: 'full-flow smoke' });
+  const loop = new LoopStateMachine('board-loop-run');
+  const bridge = createLoopBridge(loop, (event) => streamEvents.push(event));
+  bridge.transition('RECOMMEND', { candidate: 'm5-board' });
+  bridge.transition('CONFIRM', { owner_evidence: 'fixture' });
+  assert.equal(streamEvents.filter((event) => event.kind === 'dispatch').length, 4, 'dispatch lifecycle events streamed');
+  assert.equal(streamEvents.filter((event) => event.kind === 'loop').length, 2, 'loop lifecycle events streamed');
+  assert.ok(existsSync(path.join(root, 'budget-ledger.jsonl')), 'USD ledger landed on disk');
+});
+
 test('board server exposes dispatch/workspaces/budget endpoints per contract v1', async () => {
   const root = fixtureRoot();
   const pipeline = makePipeline(root);
@@ -156,4 +178,43 @@ test('board server exposes dispatch/workspaces/budget endpoints per contract v1'
   assert.equal(budget.status, 200);
   const budgetBody = (await budget.json()) as { actors: unknown[] };
   assert.ok((budgetBody.actors as unknown[]).length >= 1);
+});
+
+test('SSE receives dispatch lifecycle events during a dry-run dispatch (DoD smoke)', async () => {
+  const root = fixtureRoot();
+  const pipeline = makePipeline(root);
+  const server = await startBoardServer({
+    approvalRoot: path.join(root, 'approvals'),
+    runId: 'board-sse-run',
+    assignmentEpoch: 1,
+    dispatch: pipeline,
+  });
+  after(async () => {
+    await server.close();
+  });
+  const base = `http://127.0.0.1:${server.port}`;
+  const streamResponse = await fetch(base + '/api/stream');
+  assert.equal(streamResponse.status, 200);
+  assert.match(streamResponse.headers.get('content-type') ?? '', /text\/event-stream/);
+  const reader = streamResponse.body?.getReader();
+  assert.ok(reader);
+
+  const dispatchPromise = fetch(base + '/api/dispatch', {
+    method: 'POST',
+    body: JSON.stringify({ adapter_id: 'fake-t1', prompt: 'sse smoke' }),
+  });
+  const decoder = new TextDecoder();
+  let sawDispatch = false;
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline && !sawDispatch) {
+    const chunk = await Promise.race([
+      reader?.read(),
+      new Promise<ReadableStreamReadResult<Uint8Array>>((resolve) => setTimeout(() => resolve({ done: false, value: undefined }), 250)),
+    ]);
+    if (chunk === undefined || chunk.done) break;
+    const text = decoder.decode(chunk.value, { stream: true });
+    if (text.includes('"kind":"dispatch"')) sawDispatch = true;
+  }
+  await dispatchPromise;
+  assert.equal(sawDispatch, true, 'SSE must deliver dispatch lifecycle frames');
 });

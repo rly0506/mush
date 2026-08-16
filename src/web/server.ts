@@ -79,6 +79,11 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       client.write(frame);
     }
   }
+  // 注入管线也要把生命周期事件推 SSE（构造期 onEvent 无法前向引用 broadcast）。
+  dispatch.setEventListener((event) => broadcast(event));
+
+  // 无论 pipeline 是外部注入还是自建，生命周期事件一律进 SSE。
+  dispatch.setEventListener((event) => broadcast(event));
 
   async function handleEventPost(request: IncomingMessage, response: ServerResponse): Promise<void> {
     let raw: string;
@@ -171,7 +176,16 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'GET /api/snapshot') {
-      sendJson(response, 200, collectBoardSnapshot({ eventLogs: [log], approvalRoot }) as unknown as Record<string, unknown>);
+      const snapshot = collectBoardSnapshot({ eventLogs: [log], approvalRoot }) as unknown as Record<string, unknown>;
+      // 契约 v1 扩展：dispatches 最近 20 条（G006 管线投影，只读）。
+      snapshot.dispatches = dispatch.recent(20).map((record) => ({
+        dispatch_id: record.dispatch_id,
+        adapter_id: record.adapter_id,
+        status: record.status,
+        at_utc: record.events.length > 0 ? record.events[record.events.length - 1].at_utc : null,
+        receipt_path: record.receipt_path,
+      }));
+      sendJson(response, 200, snapshot);
       return;
     }
     if (route === 'POST /api/events') {
