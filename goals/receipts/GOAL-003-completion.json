@@ -1,0 +1,83 @@
+{
+  "goal_id": "MUSH-GOAL-003",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "dsh/deepseek headless",
+  "changed_paths": [
+    "docs/dispatch/003-deepseek-dsh-m3-dual-adapters.md",
+    "src/adapters/contract.ts",
+    "src/adapters/t1-runner.ts",
+    "src/adapters/deepseek.ts",
+    "src/adapters/claude.ts",
+    "src/adapters/capability-probe.ts",
+    "src/cli.ts",
+    "bin/mush",
+    "package.json",
+    "tests/adapters-contract.test.ts",
+    "tests/adapters-t1-runner.test.ts",
+    "tests/adapters-deepseek.test.ts",
+    "tests/adapters-claude.test.ts",
+    "tests/adapters-capability-probe.test.ts",
+    "tests/cli-mush.test.ts",
+    "goals/receipts/nonce-probes/deepseek-dsh-2026-08-17.json",
+    "goals/receipts/nonce-probes/claude-code-2026-08-17.json",
+    "goals/receipts/capability-probes/cc-switch-2026-08-17.json",
+    "goals/receipts/capability-probes/registry-snapshot-2026-08-17.json",
+    "goals/receipts/BATCH-12..16-*（各批回报与真实测试输出）"
+  ],
+  "tests_run": "npm test：tests 158 / pass 158 / fail 0 / exit 0（GOAL-003 全程真实执行；每批输出与 SHA-256 见 BATCH-12..16-test-output.txt）。",
+  "ported_assertions": [
+    {
+      "test": "adapters-contract.test.ts（4 tests / 14 断言）",
+      "ps_source": "D5 + harness-landscape T1"
+    },
+    {
+      "test": "adapters-t1-runner.test.ts（6 tests / 24 断言）",
+      "ps_source": "harness-landscape T1 + D13"
+    },
+    {
+      "test": "adapters-deepseek.test.ts（7 tests / 35 断言）",
+      "ps_source": "harness-landscape dsh/pi + D13 + wrapper L351-L352"
+    },
+    {
+      "test": "adapters-claude.test.ts（6 tests / 29 断言）",
+      "ps_source": "harness-landscape claude 行 + D13"
+    },
+    {
+      "test": "adapters-capability-probe.test.ts（5 tests / 23 断言）",
+      "ps_source": "D20 + D13 + BridgeCapabilityRegistry L98-L116"
+    },
+    {
+      "test": "cli-mush.test.ts（6 tests / 28 断言）",
+      "ps_source": "D21 + D6 + GOAL-002 budget"
+    }
+  ],
+  "evidence": [
+    { "path": "goals/receipts/BATCH-16-test-output.txt", "sha256": "308BBD236FE8FBFE399F31803163EE04CDEE570973CEB5EA25103953ADCFED3D" },
+    { "path": "goals/receipts/nonce-probes/deepseek-dsh-2026-08-17.json", "sha256": "35789CF78EF582F05CEBB68F89A7BE6FCA65FE613CCDDAAEEAA629C3AC3C785D" },
+    { "path": "goals/receipts/nonce-probes/claude-code-2026-08-17.json", "sha256": "9C20F38D6FBDEA5020154E333607A758B04DD0EC50A2003ACFA2088B3245AE05" },
+    { "path": "goals/receipts/capability-probes/cc-switch-2026-08-17.json", "sha256": "6E19F9DF786888B0625D71FA8DCABB87419523A4A5D92B59C3276D1F1C93D3DE" },
+    { "path": "goals/receipts/capability-probes/registry-snapshot-2026-08-17.json", "sha256": "CD483BC38CFEBE7CF464C0B3DFBACAC1D69D4755EA9F58B874F77226CFC71C8F" }
+  ],
+  "open_findings": [
+    "F-16 沙箱 piped-spawn EPERM：T1 生产路径用 node:child_process、测试注入 fake；真实 spawn 待普通环境 test:isolated",
+    "F-17 dsh nonce 真实探测被沙箱拦（要写 ~/.dsh 配置，超出只写 D:\\mush 授权），证据 UNKNOWN/exit1 诚实记录",
+    "F-18 pi 通道真实 nonce 探测与真实 dispatch 一并待 owner 确认后执行",
+    "F-19 claude nonce 真实探测 exit 1（custom endpoint/未登录 api.anthropic.com），证据 UNKNOWN 诚实记录",
+    "F-20 cc-switch CLI 未装；含凭据文件未打开，能力注册为 UNKNOWN（fake 语义测试覆盖注册路径）",
+    "F-21 U5/U6 同批实现；--real 在沙箱即使有 approval 也 exit 3（普通环境可用）",
+    "U-REAL：两犬真实有界 dispatch 无 owner D6 确认记录 → BLOCKED_WAITING_OWNER"
+  ],
+  "real_dispatch": [
+    {
+      "dog": "deepseek (dsh/pi)",
+      "status": "BLOCKED_WAITING_OWNER",
+      "reason": "无 owner D6 确认记录；按派发包不执行花钱 dispatch"
+    },
+    {
+      "dog": "claude-code",
+      "status": "BLOCKED_WAITING_OWNER",
+      "reason": "无 owner D6 确认记录；按派发包不执行花钱 dispatch"
+    }
+  ],
+  "spent_estimate_usd": 0.15
+}

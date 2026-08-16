@@ -1,0 +1,36 @@
+{
+    "schema_version":  1,
+    "generated_at_utc":  "2026-08-16T02:37:45.7562871Z",
+    "records":  [
+                    {
+                        "adapter_id":  "cc-switch",
+                        "provider":  "UNKNOWN",
+                        "model_id":  "UNKNOWN",
+                        "credential_status":  "UNKNOWN",
+                        "identity_source":  "cc-switch-readonly",
+                        "model_tier":  "UNKNOWN",
+                        "thinking_level":  "UNKNOWN",
+                        "source":  "goals/receipts/capability-probes/cc-switch-2026-08-17.json"
+                    },
+                    {
+                        "adapter_id":  "deepseek-dsh",
+                        "provider":  "UNKNOWN",
+                        "model_id":  "UNKNOWN",
+                        "credential_status":  "UNKNOWN",
+                        "identity_source":  "nonce-probe",
+                        "model_tier":  "UNKNOWN",
+                        "thinking_level":  "UNKNOWN",
+                        "source":  "goals/receipts/nonce-probes/deepseek-dsh-2026-08-17.json"
+                    },
+                    {
+                        "adapter_id":  "claude-code",
+                        "provider":  "anthropic",
+                        "model_id":  "UNKNOWN",
+                        "credential_status":  "UNKNOWN",
+                        "identity_source":  "nonce-probe",
+                        "model_tier":  "UNKNOWN",
+                        "thinking_level":  "UNKNOWN",
+                        "source":  "goals/receipts/nonce-probes/claude-code-2026-08-17.json"
+                    }
+                ]
+}
