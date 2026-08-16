@@ -1,6 +1,12 @@
 {
   "goal_id": "MUSH-GOAL-002",
-  "status": "COMPLETE_REQUESTED",
+  "status": "AUTO_ACCEPTED",
+  "acceptance": {
+    "mode": "standing-default D15（非阻断验收）",
+    "applied": "2026-08-17",
+    "machine_checks": "头犬独立复跑 npm test 124/124 pass exit 0；回报/哈希/PS 溯源齐全（docs/auto-decisions-log.md AD-09）",
+    "owner_final": "DONE 待 owner 一句话转正；异议则追加 reopen 条目"
+  },
   "executor": "dsh/deepseek headless",
   "changed_paths": [
     "src/core/event-log.ts",

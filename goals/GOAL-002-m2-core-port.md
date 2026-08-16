@@ -1,6 +1,6 @@
 ---
 goal_id: MUSH-GOAL-002
-status: QUEUED（队列自续，DECISIONS D17）
+status: AUTO_ACCEPTED（D15 非阻断验收，2026-08-17；DONE 待 owner 转正）
 mode: LIGHT（宪法 §1 轻量档；触发门照常生效）
 rm: RM-001 / M2 核心移植
 executor_model_profile: 头犬派发（dsh/deepseek headless 或等价可用 harness）

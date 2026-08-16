@@ -89,3 +89,18 @@ b47afd7c0fd93fdead7b48392b3dcc1e9e46791d991776330e49a83540d91403  .test-fixtures
 - **裁决**：与 AD-07 同因（本环境无凭据，SEC_E_NO_CREDENTIALS），按包
   "失败不阻塞"继续；每单元已尝试一次并保留本地 commit 链为权威。owner
   配置凭据后一条 `git push origin master` 即可同步全部。
+
+## AD-09 · GOAL-002 验收（D15 第二次适用）+ U1–U5 findings 处置
+
+- **验收**：升 `AUTO_ACCEPTED`。头犬独立复跑 `npm test` = **124/124 pass /
+  exit 0**（2026-08-17）；回报/哈希锚点/PS 源追溯齐全；9 个黄金源 diff=0 核验。
+- **F-11**（lease 语义模型）→ AD-04 默认：语义模型为 M2 默认，文件级集成留后续里程碑。
+- **F-12**（D20 真实探测留 M3）→ 按计划顺延，GOAL-003 任务项包含。
+- **F-13**（epoch21–49 事件缺失）→ **头犬只读复核坐实**：epoch21–49 run root
+  无 `events/` 目录；主 run root `RM065-GOAL-010/events/` 为空（0 文件）；
+  epoch50 的 2 个事件为唯一幸存事件流。orchestrator/ 内无归档可追。回放覆盖
+  以诚实索引为准，验收通过；若 owner 知晓 orchestrator/ 之外的归档位置，告知
+  后可扩展回放数据。
+- **F-14**（schema sequence/nullable 修正）→ Goal 内已解决，备案。
+- **F-15 / AD-07 / AD-08**（push 无凭据）→ 头犬持有凭据，验收后一次性全量同步，
+  关闭。

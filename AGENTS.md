@@ -28,8 +28,8 @@ mush 是个人跨 harness 多 agent 编排工具（雪橇队）。你在本仓�
 
 ## 当前状态
 
-M1 完成：fixture 移植 91 tests 全绿，GOAL-001 = AUTO_ACCEPTED（D15）。
-M2 前置条件已满足（docs/migration-checklist.md 四项全勾）；下一步
-GOAL-002（M2 核心移植，已排队，队列自续 D17）。
+M1/M2 完成（fixture + 核心移植，124 tests 全绿；GOAL-001/002 均 AUTO_ACCEPTED）。
+下一步 GOAL-003（M3 双犬适配器 + D21 CLI 化 + D20 实测注册，已排队）——
+每犬首次真实 dispatch 按 D6 待 owner 一句话，不花钱部分不阻塞。
 findings 默认裁决记录：docs/auto-decisions-log.md（D16，append-only）。
-无人值守调度器仍默认关（D8）；持久运行 = 队列自续 + 断点续跑 + 非阻断验收。
+GitHub 私有远端同步为常规动作（D19）；无人值守调度器仍默认关（D8）。
