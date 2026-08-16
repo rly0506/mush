@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "dispatch_id": "claude-real-011",
+  "significance": "claude 犬首次完整通过：真实 claude 家族模型 + nonce 哈希正确 + 身份无装饰 —— mush 犬队自此拥有两个可证身份的模型家族（deepseek + claude）",
+  "attempt_chain_this_channel": [
+    {"id": "claude-real-008", "contract_model": "claude-sonnet-4-5", "outcome": "timeout@90s; runtime served claude-fable-5 (channel default) — exposed missing --model in contract, fixed", "cost_usd": null},
+    {"id": "claude-real-009", "contract_model": "claude-sonnet-4-5", "outcome": "exit 1 — everyapi 503: 该型号无可用渠道", "cost_usd": 0.0044},
+    {"id": "claude-diag-010", "purpose": "诊断：raw stream 显示网关以 claude-sonnet-5 服务成功", "cost_usd": 0.0023},
+    {"id": "claude-real-011", "contract_model": "claude-sonnet-5", "outcome": "PASS — nonce matched, identity clean", "cost_usd": 1.3528}
+  ],
+  "fixes_landed": [
+    "src/adapters/claude.ts 合同显式下发 --model（claude-real-008 教训）+ 测试断言更新，183/183 绿"
+  ],
+  "discipline_note": "owner 授权口径「重试，记得使用 sonnet」；实际执行 008/009/010/011 共 4 次（排障链超时→503→诊断→成功）。累计本轮渠道花费 ≈ $1.36 + 上轮 $1.48 ≈ $2.84，per-actor cap $5 未触但已 76%。头犬自评：排障链合理但节奏应更早回报 owner。",
+  "unlocked": [
+    "M4 对调实验（deepseek ↔ claude 双真实家族）",
+    "F-31a/F-31b 关闭（该渠道无装饰命名、nonce 计算正确）"
+  ],
+  "recorded_at_utc": "2026-08-17T04:36:00Z"
+}

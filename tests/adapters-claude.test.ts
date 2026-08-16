@@ -41,7 +41,8 @@ test('Claude contract is stream-json with prompt as final argument (landscape cl
   const contract = buildClaudeContract('claude-sonnet-4-5');
   assert.equal(contract.adapter_id, 'claude-code');
   assert.equal(contract.executable, 'claude');
-  assert.deepEqual(contract.arguments, ['-p', '--output-format', 'stream-json', '--verbose']);
+  // claude-real-008 教训：--model 必须显式下发，否则渠道服务其默认模型。
+  assert.deepEqual(contract.arguments, ['-p', '--model', 'claude-sonnet-4-5', '--output-format', 'stream-json', '--verbose']);
   assert.equal(contract.protocol, 'stream-json');
   assert.equal(contract.prompt_transport, 'argument');
   assert.equal(contract.expected_model_id, 'claude-sonnet-4-5');

@@ -18,7 +18,9 @@ export function buildClaudeContract(expectedModelId: string): AdapterContract {
   return validateAdapterContract({
     adapter_id: 'claude-code',
     executable: 'claude',
-    arguments: ['-p', '--output-format', 'stream-json', '--verbose'],
+    // --model 必须显式下发：否则渠道可能服务其默认模型（claude-real-008 教训：
+    // 合同要 sonnet、渠道给了 fable）。
+    arguments: ['-p', '--model', expectedModelId, '--output-format', 'stream-json', '--verbose'],
     protocol: 'stream-json',
     prompt_transport: 'argument',
     expected_provider: 'anthropic',
