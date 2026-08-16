@@ -19,6 +19,13 @@ mush 是个人跨 harness 多 agent 编排工具（雪橇队）。你在本仓�
 
 ## 工作约定
 
+- **Windows 转义铁律（DEF-07/08 教训，人犬一律遵守）**：复杂逻辑（多行 JS、
+  含反斜杠/引号/CJK 的参数、PowerShell）**必须先写脚本文件再执行**
+  （`node scripts/xxx.cjs` / `powershell -File xxx.ps1`），禁止 `node -e`、
+  `bash -c`、`powershell -Command` 内联多行；PowerShell 脚本源码保持纯 ASCII
+  （路径用 `[Environment]::GetFolderPath()` 运行时取）；文件一律用显式
+  Windows 绝对路径（`C:/Users/.../x.cjs`），不用 `/tmp` 相对形态；
+  模板字符串内的正则/反斜杠必须双写（DEF-07）。
 - 证据 append-only：摘要不覆盖原文，事件带哈希锚点；
 - 用户显式接受才 DONE，模型不自行宣布完成（D15：机检验收规格全绿可升
   AUTO_ACCEPTED，不阻断后续 Goal；DONE 与否决权仍归 owner）；
