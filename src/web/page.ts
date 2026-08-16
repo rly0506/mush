@@ -1,7 +1,8 @@
 /**
- * mush M5 Web 看板（GOAL-005 U3）— 单页静态 HTML。
- * 无框架、无构建、无 CDN 外链；四视图：犬队状态 / epoch 事件链 / 预算消耗 / 审批。
- * 密钥红线：页面只渲染快照中已脱敏的身份字段。
+ * mush Web 看板（GOAL-005 U3 + GOAL-007）— 单页静态 HTML。
+ * 无框架、无构建、无 CDN 外链；视图：调度（派发+workspace+跟踪）/ 犬队状态 /
+ * epoch 事件链 / 预算消耗（GET /api/budget 真实数据）/ 审批弹窗。
+ * 契约：src/web/api-contract.md v1。密钥红线：永不渲染凭据材料。
  */
 
 export function renderBoardPage(): string {
@@ -15,9 +16,10 @@ export function renderBoardPage(): string {
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; background: #101418; color: #d7dde3; }
-  header { padding: 12px 20px; border-bottom: 1px solid #2a3138; display: flex; align-items: baseline; gap: 12px; }
+  header { padding: 12px 20px; border-bottom: 1px solid #2a3138; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
   header h1 { font-size: 16px; margin: 0; letter-spacing: 1px; }
   header .meta { font-size: 12px; color: #7c8791; }
+  #workspace-current { font-size: 12px; color: #e3b341; border: 1px solid #e3b341; border-radius: 10px; padding: 1px 10px; }
   nav { display: flex; gap: 4px; padding: 8px 20px 0; }
   nav button { background: #1a2027; color: #aeb8c2; border: 1px solid #2a3138; border-bottom: none; padding: 8px 16px; cursor: pointer; font-size: 13px; border-radius: 6px 6px 0 0; }
   nav button.active { background: #101418; color: #ffffff; border-color: #4a5560; }
@@ -33,6 +35,12 @@ export function renderBoardPage(): string {
   .badge.WAITING { color: #e3b341; border-color: #e3b341; }
   .badge.APPROVED { color: #56d364; border-color: #56d364; }
   .badge.REJECTED { color: #f85149; border-color: #f85149; }
+  .badge.ADMITTED { color: #6fb3d8; border-color: #6fb3d8; }
+  .badge.DRY_RUN { color: #56d364; border-color: #56d364; }
+  .badge.PASS { color: #56d364; border-color: #56d364; }
+  .badge.RUNNING { color: #6fb3d8; border-color: #6fb3d8; }
+  .badge.BLOCKED_WAITING_OWNER, .badge.BLOCKED_ENV { color: #e3b341; border-color: #e3b341; }
+  .badge.FAIL { color: #f85149; border-color: #f85149; }
   .badge.ok { color: #56d364; border-color: #56d364; }
   .badge.broken { color: #f85149; border-color: #f85149; }
   .card { background: #161b21; border: 1px solid #2a3138; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; }
@@ -41,6 +49,18 @@ export function renderBoardPage(): string {
   #sse-status { font-size: 11px; }
   #sse-status.live { color: #56d364; }
   #sse-status.down { color: #f85149; }
+  form#dispatch-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
+  form#dispatch-form label { font-size: 12px; color: #7c8791; display: block; margin-bottom: 4px; }
+  form#dispatch-form .full { grid-column: 1 / -1; }
+  select, input[type=number], textarea { width: 100%; background: #0c1014; color: #d7dde3; border: 1px solid #2a3138; border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: inherit; }
+  textarea { min-height: 90px; resize: vertical; }
+  .hint { font-size: 11px; color: #5c6670; margin-top: 4px; }
+  #real-hint { color: #e3b341; display: none; }
+  button.primary { background: #1d3323; color: #56d364; border: 1px solid #56d364; border-radius: 6px; padding: 9px 22px; font-size: 13px; cursor: pointer; }
+  .dispatch-card { background: #161b21; border: 1px solid #2a3138; border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; font-size: 13px; cursor: pointer; }
+  .dispatch-card:hover { border-color: #4a5560; }
+  .dispatch-card .detail { display: none; margin-top: 8px; border-top: 1px solid #232a31; padding-top: 8px; }
+  .dispatch-card.open .detail { display: block; }
   dialog { background: #161b21; color: #d7dde3; border: 1px solid #4a5560; border-radius: 8px; padding: 20px; max-width: 560px; width: 90%; }
   dialog::backdrop { background: rgba(0,0,0,.6); }
   dialog h2 { font-size: 15px; margin: 0 0 12px; }
@@ -55,22 +75,66 @@ export function renderBoardPage(): string {
   #toast { position: fixed; bottom: 16px; right: 16px; padding: 10px 16px; border-radius: 6px; font-size: 13px; display: none; }
   #toast.ok { display: block; background: #1d3323; color: #56d364; border: 1px solid #56d364; }
   #toast.err { display: block; background: #3d1d1d; color: #f85149; border: 1px solid #f85149; }
+  .bar { height: 8px; background: #232a31; border-radius: 4px; overflow: hidden; min-width: 120px; }
+  .bar > div { height: 100%; background: #56d364; }
+  .bar.hot > div { background: #f85149; }
 </style>
 </head>
 <body>
 <header>
   <h1>mush 看板</h1>
+  <span id="workspace-current" title="当前 workspace">…</span>
   <span class="meta" id="generated"></span>
   <span class="meta" id="sse-status">SSE 连接中…</span>
 </header>
 <nav>
-  <button data-view="dogs" class="active">犬队状态</button>
+  <button data-view="dispatch" class="active">调度</button>
+  <button data-view="dogs">犬队状态</button>
   <button data-view="epochs">事件链</button>
   <button data-view="budget">预算消耗</button>
   <button data-view="approvals">审批 <span id="waiting-count"></span></button>
 </nav>
 <main>
-  <section id="view-dogs" class="view active"></section>
+  <section id="view-dispatch" class="view active">
+    <div class="card">
+      <h3>派发任务</h3>
+      <form id="dispatch-form">
+        <div>
+          <label for="dispatch-adapter">犬只（在册，身份证明）</label>
+          <select id="dispatch-adapter"></select>
+        </div>
+        <div>
+          <label for="workspace-select">workspace</label>
+          <select id="workspace-select"></select>
+        </div>
+        <div class="full">
+          <label for="dispatch-prompt">任务</label>
+          <textarea id="dispatch-prompt" maxlength="64000" placeholder="写给犬的任务…"></textarea>
+        </div>
+        <div>
+          <label for="dispatch-effort">effort 档位（D20）</label>
+          <select id="dispatch-effort">
+            <option>LOW</option>
+            <option>HIGH</option>
+            <option>XHIGH</option>
+          </select>
+        </div>
+        <div>
+          <label for="dispatch-cap">cap_usd（per-actor 上限）</label>
+          <input type="number" id="dispatch-cap" min="0.01" step="0.01" value="5">
+        </div>
+        <div>
+          <label><input type="checkbox" id="dispatch-real"> real（真实执行，花钱）</label>
+          <div class="hint" id="real-hint">real 模式需 approval 在案（D6），否则 BLOCKED_WAITING_OWNER。</div>
+        </div>
+        <div style="align-self:end"><button type="submit" class="primary" id="btn-dispatch">派发</button></div>
+      </form>
+      <div class="hint" id="dispatch-result"></div>
+    </div>
+    <h3 style="font-size:13px;color:#9aa6b0">派发跟踪</h3>
+    <div id="dispatch-list"><div class="empty">暂无派发记录</div></div>
+  </section>
+  <section id="view-dogs" class="view"></section>
   <section id="view-epochs" class="view"></section>
   <section id="view-budget" class="view"></section>
   <section id="view-approvals" class="view"></section>
@@ -89,7 +153,10 @@ export function renderBoardPage(): string {
 (function () {
   'use strict';
   var snapshot = null;
+  var budget = null;
+  var workspaces = [];
   var currentApproval = null;
+  var trackedDispatches = [];
 
   function esc(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
@@ -101,9 +168,132 @@ export function renderBoardPage(): string {
     var el = document.getElementById('toast');
     el.textContent = message;
     el.className = ok ? 'ok' : 'err';
+    el.style.display = 'block';
     setTimeout(function () { el.className = ''; el.style.display = 'none'; }, 4000);
   }
+  function getJson(url) {
+    return fetch(url).then(function (res) { return res.json(); });
+  }
+  function postJson(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (res) {
+      return res.json().then(function (data) { return { status: res.status, body: data }; });
+    });
+  }
 
+  /* ---------- 犬只下拉（在册身份证明徽章） ---------- */
+  function renderAdapterOptions() {
+    var select = document.getElementById('dispatch-adapter');
+    var actors = (snapshot && snapshot.actors) || [];
+    if (actors.length === 0) {
+      select.innerHTML = '<option value="">（无在册犬只活动记录）</option>';
+      return;
+    }
+    select.innerHTML = actors.map(function (a) {
+      var badge = esc(a.provider) + ' / ' + esc(a.model_id);
+      return '<option value="' + esc(a.actor_instance_id) + '">' + esc(a.actor_instance_id) + '（' + badge + '）</option>';
+    }).join('');
+  }
+
+  /* ---------- workspace 选择器 ---------- */
+  function renderWorkspaces() {
+    var select = document.getElementById('workspace-select');
+    if (workspaces.length === 0) {
+      select.innerHTML = '<option value="">（默认：服务 cwd）</option>';
+      return;
+    }
+    select.innerHTML = '<option value="">（默认：当前已选）</option>' + workspaces.map(function (w) {
+      var tags = [];
+      if (w.is_git) tags.push('git');
+      if (w.mush_managed) tags.push('mush');
+      if (w.selected) tags.push('当前');
+      return '<option value="' + esc(w.path) + '"' + (w.selected ? ' selected' : '') + '>' +
+        esc(w.path) + (tags.length ? ' [' + tags.join(', ') + ']' : '') + '</option>';
+    }).join('');
+    var current = workspaces.filter(function (w) { return w.selected; })[0];
+    document.getElementById('workspace-current').textContent = current ? current.path : 'workspace: 服务 cwd';
+  }
+
+  /* ---------- 派发提交 ---------- */
+  function submitDispatch(event) {
+    event.preventDefault();
+    var adapterId = document.getElementById('dispatch-adapter').value;
+    var prompt = document.getElementById('dispatch-prompt').value.trim();
+    var effort = document.getElementById('dispatch-effort').value;
+    var capUsd = Number(document.getElementById('dispatch-cap').value);
+    var real = document.getElementById('dispatch-real').checked;
+    var workspace = document.getElementById('workspace-select').value;
+    if (!adapterId) { toast('请选择犬只', false); return; }
+    if (!prompt) { toast('任务不能为空', false); return; }
+    var body = { adapter_id: adapterId, prompt: prompt, effort: effort, cap_usd: capUsd, real: real };
+    if (workspace) body.workspace = workspace;
+    postJson('/api/dispatch', body).then(function (result) {
+      var data = result.body;
+      if (result.status === 202 && data.ok) {
+        toast('派发已受理：' + data.status + ' ' + (data.dispatch_id || ''), true);
+        document.getElementById('dispatch-result').textContent =
+          'dispatch_id=' + data.dispatch_id + ' status=' + data.status;
+        trackDispatch(data.dispatch_id, adapterId, data.status);
+        refresh();
+      } else if (result.status === 402) {
+        toast('超预算门（DENIED）：' + (data.error || ''), false);
+      } else {
+        toast('派发失败：' + (data.error || result.status), false);
+      }
+    }).catch(function (error) { toast('派发失败：' + error, false); });
+  }
+
+  /* ---------- 派发跟踪卡片 ---------- */
+  function trackDispatch(dispatchId, adapterId, status) {
+    if (!dispatchId) return;
+    if (trackedDispatches.some(function (d) { return d.dispatch_id === dispatchId; })) return;
+    trackedDispatches.unshift({ dispatch_id: dispatchId, adapter_id: adapterId, status: status, at_utc: new Date().toISOString() });
+    trackedDispatches = trackedDispatches.slice(0, 20);
+    renderDispatches();
+  }
+
+  function renderDispatches() {
+    var el = document.getElementById('dispatch-list');
+    var fromSnapshot = (snapshot && snapshot.dispatches) || [];
+    var known = {};
+    fromSnapshot.forEach(function (d) { known[d.dispatch_id] = d; });
+    trackedDispatches.forEach(function (d) { if (!known[d.dispatch_id]) known[d.dispatch_id] = d; });
+    var list = Object.keys(known).map(function (id) { return known[id]; });
+    if (list.length === 0) { el.innerHTML = '<div class="empty">暂无派发记录</div>'; return; }
+    el.innerHTML = list.map(function (d) {
+      return '<div class="dispatch-card" data-dispatch="' + esc(d.dispatch_id) + '">' +
+        '<span class="badge ' + esc(d.status) + '">' + esc(d.status) + '</span> ' +
+        '<span class="mono">' + esc(String(d.dispatch_id).slice(0, 12)) + '…</span> ' +
+        esc(d.adapter_id || '') + ' <span class="meta">' + esc(d.at_utc || '') + '</span>' +
+        '<div class="detail">加载中…</div></div>';
+    }).join('');
+    el.querySelectorAll('.dispatch-card').forEach(function (card) {
+      card.addEventListener('click', function () { toggleDispatchDetail(card); });
+    });
+  }
+
+  function toggleDispatchDetail(card) {
+    var detail = card.querySelector('.detail');
+    if (card.classList.contains('open')) { card.classList.remove('open'); return; }
+    card.classList.add('open');
+    var dispatchId = card.getAttribute('data-dispatch');
+    getJson('/api/dispatch/' + encodeURIComponent(dispatchId)).then(function (data) {
+      if (!data.ok || !data.dispatch) { detail.innerHTML = '<span class="hash">' + esc(data.error || '无详情') + '</span>'; return; }
+      var d = data.dispatch;
+      var events = (d.events || []).map(function (ev) {
+        return '<tr><td>' + esc(ev.kind || '') + '</td><td class="mono">' + esc(ev.at_utc || '') + '</td></tr>';
+      }).join('');
+      detail.innerHTML = '<dl style="margin:0">' +
+        '<dt style="color:#7c8791">状态</dt><dd><span class="badge ' + esc(d.status) + '">' + esc(d.status) + '</span></dd>' +
+        '<dt style="color:#7c8791">回执锚点</dt><dd class="mono hash">' + esc(d.receipt_path || '（未落盘）') + '</dd></dl>' +
+        (events ? '<table><tbody>' + events + '</tbody></table>' : '');
+    }).catch(function (error) { detail.textContent = '加载失败：' + error; });
+  }
+
+  /* ---------- 犬队状态 ---------- */
   function renderDogs() {
     var el = document.getElementById('view-dogs');
     var actors = snapshot.actors;
@@ -117,6 +307,7 @@ export function renderBoardPage(): string {
     el.innerHTML = '<table><thead><tr><th>犬（实例）</th><th>角色</th><th>provider</th><th>model</th><th>capability</th><th>事件数</th><th>最近事件</th></tr></thead><tbody>' + rows + '</tbody></table>';
   }
 
+  /* ---------- 事件链 ---------- */
   function renderEpochs() {
     var el = document.getElementById('view-epochs');
     if (snapshot.epochs.length === 0) { el.innerHTML = '<div class="empty">暂无 epoch 事件链</div>'; return; }
@@ -140,20 +331,31 @@ export function renderBoardPage(): string {
     }).join('');
   }
 
+  /* ---------- 预算真实视图（GET /api/budget） ---------- */
   function renderBudget() {
     var el = document.getElementById('view-budget');
-    var gates = snapshot.approvals.filter(function (a) { return a.gate === 'BUDGET_GATE'; });
-    if (gates.length === 0) { el.innerHTML = '<div class="empty">暂无预算门记录（预算事件化记账随 dispatch 产生）</div>'; return; }
-    var rows = gates.map(function (a) {
-      return '<tr><td class="mono">' + esc(a.actor_id) + '</td><td>' + esc(a.reason || '') + '</td>' +
-        '<td>' + esc(a.requested_at_utc) + '</td>' +
-        '<td><span class="badge ' + a.status + '">' + a.status + '</span></td></tr>';
+    if (!budget || !budget.actors || budget.actors.length === 0) {
+      el.innerHTML = '<div class="empty">暂无预算台账记录（USD 台账随 dispatch admission 产生）</div>';
+      return;
+    }
+    el.innerHTML = budget.actors.map(function (actor) {
+      var cap = actor.cap_usd || 0;
+      var spent = actor.spent_usd || 0;
+      var pct = cap > 0 ? Math.min(100, (spent / cap) * 100) : 0;
+      var entries = (actor.entries || []).slice(-5).reverse().map(function (entry) {
+        return '<tr><td class="mono">' + esc(entry.at_utc) + '</td><td>' + esc(entry.decision) + '</td>' +
+          '<td>$' + Number(entry.amount_usd).toFixed(4) + '</td><td>$' + Number(entry.remaining_usd).toFixed(4) + '</td></tr>';
+      }).join('');
+      return '<div class="card"><h3>' + esc(actor.actor_id) + '</h3>' +
+        '<div style="display:flex;align-items:center;gap:12px">' +
+        '<div class="bar' + (pct > 80 ? ' hot' : '') + '"><div style="width:' + pct + '%"></div></div>' +
+        '<span class="mono">$' + spent.toFixed(4) + ' / $' + cap.toFixed(2) + '（' + pct.toFixed(0) + '%）</span></div>' +
+        (entries ? '<table style="margin-top:8px"><thead><tr><th>时间</th><th>决策</th><th>金额</th><th>余额</th></tr></thead><tbody>' + entries + '</tbody></table>' : '') +
+        '</div>';
     }).join('');
-    el.innerHTML = '<div class="card"><h3>预算门事件（BUDGET_GATE）</h3>' +
-      '<table><thead><tr><th>actor</th><th>事由</th><th>请求时间</th><th>状态</th></tr></thead><tbody>' +
-      rows + '</tbody></table></div>';
   }
 
+  /* ---------- 审批 ---------- */
   function renderApprovals() {
     var el = document.getElementById('view-approvals');
     var waiting = snapshot.approvals.filter(function (a) { return a.status === 'WAITING'; });
@@ -187,25 +389,24 @@ export function renderBoardPage(): string {
 
   function respond(decision) {
     if (!currentApproval) return;
-    fetch('/api/approvals/respond', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ request_file: currentApproval.request_file, decision: decision })
-    }).then(function (res) {
-      return res.json().then(function (body) { return { status: res.status, body: body }; });
-    }).then(function (result) {
-      document.getElementById('approval-dialog').close();
-      if (result.status === 201) {
-        toast('已' + (decision === 'APPROVED' ? '批准' : '否决') + '：' + currentApproval.request_file, true);
-        refresh();
-      } else {
-        toast('应答失败：' + (result.body.error || result.status), false);
-      }
-    }).catch(function (error) { toast('应答失败：' + error, false); });
+    postJson('/api/approvals/respond', { request_file: currentApproval.request_file, decision: decision })
+      .then(function (result) {
+        document.getElementById('approval-dialog').close();
+        if (result.status === 201) {
+          toast('已' + (decision === 'APPROVED' ? '批准' : '否决') + '：' + currentApproval.request_file, true);
+          refresh();
+        } else {
+          toast('应答失败：' + (result.body.error || result.status), false);
+        }
+      }).catch(function (error) { toast('应答失败：' + error, false); });
   }
 
+  /* ---------- 汇总刷新 ---------- */
   function renderAll() {
+    if (!snapshot) return;
     document.getElementById('generated').textContent = '快照 ' + snapshot.generated_at_utc;
+    renderAdapterOptions();
+    renderDispatches();
     renderDogs();
     renderEpochs();
     renderBudget();
@@ -213,12 +414,13 @@ export function renderBoardPage(): string {
   }
 
   function refresh() {
-    return fetch('/api/snapshot').then(function (res) { return res.json(); }).then(function (data) {
+    return getJson('/api/snapshot').then(function (data) {
       snapshot = data;
       renderAll();
     });
   }
 
+  /* ---------- 事件绑定 ---------- */
   document.querySelectorAll('nav button').forEach(function (btn) {
     btn.addEventListener('click', function () {
       document.querySelectorAll('nav button').forEach(function (b) { b.classList.remove('active'); });
@@ -227,18 +429,54 @@ export function renderBoardPage(): string {
       document.getElementById('view-' + btn.getAttribute('data-view')).classList.add('active');
     });
   });
+  document.getElementById('dispatch-form').addEventListener('submit', submitDispatch);
+  document.getElementById('dispatch-real').addEventListener('change', function () {
+    document.getElementById('real-hint').style.display = this.checked ? 'block' : 'none';
+  });
+  document.getElementById('workspace-select').addEventListener('change', function () {
+    var selected = this.value;
+    if (!selected) return;
+    postJson('/api/workspaces/select', { path: selected }).then(function (result) {
+      if (result.status === 201) { toast('workspace 已切换：' + selected, true); loadWorkspaces(); }
+      else { toast('workspace 切换失败：' + (result.body.error || result.status), false); }
+    }).catch(function (error) { toast('workspace 切换失败：' + error, false); });
+  });
   document.getElementById('btn-approve').addEventListener('click', function () { respond('APPROVED'); });
   document.getElementById('btn-reject').addEventListener('click', function () { respond('REJECTED'); });
   document.getElementById('btn-cancel').addEventListener('click', function () {
     document.getElementById('approval-dialog').close();
   });
 
+  function loadWorkspaces() {
+    return getJson('/api/workspaces').then(function (data) {
+      if (data.ok && Array.isArray(data.workspaces)) workspaces = data.workspaces;
+      renderWorkspaces();
+    }).catch(function () { renderWorkspaces(); });
+  }
+
+  function loadBudget() {
+    return getJson('/api/budget').then(function (data) {
+      if (data.ok) budget = data;
+      renderBudget();
+    }).catch(function () { renderBudget(); });
+  }
+
   refresh().then(function () {
+    loadWorkspaces();
+    loadBudget();
     var status = document.getElementById('sse-status');
     var source = new EventSource('/api/stream');
     source.onopen = function () { status.textContent = 'SSE 实时'; status.className = 'live'; };
     source.onerror = function () { status.textContent = 'SSE 断开（重连中）'; status.className = 'down'; };
-    source.onmessage = function () { refresh(); };
+    source.onmessage = function (msg) {
+      var payload = null;
+      try { payload = JSON.parse(msg.data); } catch { payload = null; }
+      if (payload && payload.kind === 'dispatch') {
+        trackDispatch(payload.dispatch_id, payload.adapter_id, payload.status);
+        loadBudget();
+      }
+      refresh();
+    };
   });
 })();
 </script>
