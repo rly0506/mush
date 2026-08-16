@@ -20,7 +20,7 @@ test('happy path transitions are contiguous and hash-chained', () => {
   const loop = new LoopStateMachine('run-loop-fixture');
   let previous: string | null = null;
   for (const next of HAPPY_PATH) {
-    const event = loop.transition(next, { step: next.toLowerCase() });
+    const event = loop.transition(next, next === 'REVIEW' ? { verdict: 'PASS' } : { step: next.toLowerCase() });
     assert.equal(event.sequence, loop.sequence);
     assert.equal(event.from, previous === null ? 'SCAN' : event.from);
     assert.equal(event.to, next);
@@ -57,7 +57,7 @@ test('events are frozen snapshots and verifyChain detects a broken anchor', () =
 
 test('ACCEPT is terminal; replay rebuilds the exact terminal state and chain', () => {
   const loop = new LoopStateMachine('run-loop-fixture');
-  for (const next of HAPPY_PATH) loop.transition(next, {});
+  for (const next of HAPPY_PATH) loop.transition(next, next === 'REVIEW' ? { verdict: 'PASS' } : {});
   assert.equal(loop.state, 'ACCEPT');
   assert.throws(() => loop.transition('REVIEW', {}), /terminal|ACCEPT/i);
   const replay = LoopStateMachine.fromEvents('run-loop-fixture', loop.events());

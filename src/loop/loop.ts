@@ -83,6 +83,9 @@ export class LoopStateMachine {
       if (event.from !== machine._state) {
         throw new Error(`loop event from-state mismatch at sequence ${event.sequence}`);
       }
+      if (machine._state === 'REVIEW' && event.to === 'ACCEPT' && previous?.meta.verdict !== 'PASS') {
+        throw new Error(`loop review verdict is not PASS at sequence ${event.sequence}; FAIL may never reach ACCEPT`);
+      }
       if (!ALLOWED_TRANSITIONS[machine._state].includes(event.to)) {
         throw new Error(
           `loop illegal transition ${machine._state} -> ${event.to} at sequence ${event.sequence}`,
@@ -107,6 +110,12 @@ export class LoopStateMachine {
   }
 
   transition(next: LoopState, meta: Record<string, unknown>): LoopEvent {
+    if (this._state === 'REVIEW' && next === 'ACCEPT') {
+      const reviewEvent = this._events[this._events.length - 1];
+      if (reviewEvent?.meta.verdict !== 'PASS') {
+        throw new Error('loop review verdict is not PASS; FAIL may never reach ACCEPT');
+      }
+    }
     if (!ALLOWED_TRANSITIONS[this._state].includes(next)) {
       throw new Error(`loop illegal transition: ${this._state} -> ${next}`);
     }
