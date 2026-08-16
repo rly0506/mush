@@ -1,11 +1,30 @@
 # mush Board API 契约 v1
 
-- 状态：`v1.3`（2026-08-17 定稿 v1；GOAL-007B 追加 v1.1；GP-02 追加 v1.2；
-  GOAL-011 追加 v1.3 聊天节——M1 已合并 master，本文件即为权威源）
+- 状态：`v1.4`（2026-08-17 定稿 v1；GOAL-007B 追加 v1.1；GP-02 追加 v1.2；
+  GOAL-011 追加 v1.3 聊天节；GOAL-013 追加 v1.4 profile/effort 合同/rerun——本文件即为权威源）
 - 宿主：`src/web/`（node:http，零依赖）；默认只绑 `127.0.0.1`（对外暴露 = 触发门 4，不实现）
 - 序列化：JSON（UTF-8，LF 结尾）；SSE 用 `text/event-stream`，帧格式 `data: <json>\n\n`
 - 错误约定：失败响应一律 `{ "ok": false, "error": "<human-readable>" }`
 - 版本演进：v1 字段**只能向后兼容新增**；删除/改义/改型 = 破坏性变更，需头犬批准并同步 GOAL-007
+
+### v1.4 向后兼容扩展（GOAL-013，2026-08-17）
+
+- `POST /api/dispatch` 新增可选 `profile` 字段：dsh preset 名，仅允许
+  `~/.dsh/profiles/<name>` 实际存在的目录；校验 fail-closed（不存在/越界=400），
+  注入 `--profile <name>` 替换合同默认；
+- 适配器合同新增 `effort_levels`（该通道真实 effort 档位）与 `effort_injection`
+  （`{kind:'flag'|'env'|'none', name?}`）。`POST /api/dispatch` 的 `effort` 必须
+  属于所选合同的 `effort_levels`（旧三档仅作为未声明合同的兼容回退）；
+- 新增端点 `POST /api/dispatch/:id/rerun`：读历史记录，克隆
+  prompt/adapter/model_id/effort/workspace/timeout（不含 `amount_usd` 虚报风险
+  字段，按当前默认），生成新 dispatch；`real` 可经 body 覆盖，仍走既有 approval 门；
+- `GET /api/dispatch/:id` 的 `dispatch` 新增可选 `request` 快照字段
+  （rerun 数据源；旧记录缺省无此字段）。
+
+### v1.3 向后兼容扩展（GOAL-011，2026-08-17）
+
+- 新增聊天 API：`POST /api/chat`、`GET /api/chat/history`；
+- roster 条目新增 `role: "head" | "executor"`。
 
 ### v1.2 向后兼容扩展（GP-02，2026-08-17）
 
@@ -31,6 +50,7 @@
 | `GET /api/stream` | SSE：事件、审批、派发生命周期 | 既有，v1 新增 dispatch 类型 |
 | `POST /api/approvals/respond` | owner 审批应答（append-only） | 既有 |
 | `POST /api/dispatch` | **新**：派发（dry-run 默认 / real 走 approval） | v1 |
+| `POST /api/dispatch/:id/rerun` | **新**：克隆历史派发并重跑 | v1.4 |
 | `GET /api/dispatch/:id` | **新**：派发状态与事件 | v1 |
 | `GET /api/workspaces` | **新**：workspace 列表/校验 | v1 |
 | `POST /api/workspaces/select` | **新**：持久化当前 workspace | v1 |
@@ -42,10 +62,12 @@
 
 ```json
 {
-  "adapter_id": "fake-t1 | deepseek-dsh | claude-code | zcode | codex | opencode",
+  "adapter_id": "fake-t1 | deepseek-dsh | claude-code | zcode | codex | opencode | kimi-code",
   "prompt": "string (1..64000)",
   "workspace": "string? (缺省=已选 workspace 或服务 cwd)",
-  "effort": "LOW | HIGH | XHIGH?（缺省 LOW；D20 档位）",
+  "effort": "string?（缺省 LOW；必须属于所选合同 effort_levels；未声明合同回退 LOW|HIGH|XHIGH）",
+  "profile": "string?（v1.4：dsh preset 目录名；仅 ~/.dsh/profiles 下存在者）",
+  "model_id": "string?（G009：必须属于所选合同 variants）",
   "cap_usd": "number?（缺省 5；>0）",
   "amount_usd": "number?（缺省 0=估算后记账）",
   "real": "boolean?（缺省 false=dry-run）"
@@ -56,14 +78,32 @@
 
 - `202`：已受理（dry-run 或 real 已执行/后台执行）
   `{ "ok": true, "dispatch_id": "<32hex>", "status": "ADMITTED | DRY_RUN | BLOCKED_WAITING_OWNER", "admission": { "decision": "ADMITTED|DENIED", "remaining_usd": number } }`
-- `400`：schema fail-closed（字段缺失/类型错/adapter 未知/workspace 不存在或越界）
+- `400`：schema fail-closed（字段缺失/类型错/adapter 未知/workspace 不存在或越界/
+  profile 不存在/effort 不在合同档位）
 - `402`：超预算门（admission DENIED；事件仍入台账）
 - `500`：runner 内部错误（回执已落盘，status FAIL）
 
+## POST /api/dispatch/:id/rerun（v1.4）
+
+请求 body 可选：
+
+```json
+{
+  "real": "boolean?（缺省=原派发的 real；仍走 approval 门）",
+  "cap_usd": "number?（缺省=原派发 cap_usd）"
+}
+```
+
+- 语义：读取历史派发记录中的 `request` 快照，克隆
+  `prompt/adapter_id/model_id/effort/workspace/timeout_s/profile`，生成新派发；
+  `amount_usd` 不克隆（按当前默认 0 记账）；
+- 响应与 `POST /api/dispatch` 相同（202/400/402/500）；原派发不存在 → `404`；
+  旧记录无 `request` 快照 → `400`。
+
 ## GET /api/dispatch/:id
 
-`{ "ok": true, "dispatch": { "dispatch_id", "status", "adapter_id", "receipt_path", "events": [ {kind, at_utc, payload} ], "stdout_tail"?, "stderr_tail"? } }`
-不存在 → `404`。（`stdout_tail`/`stderr_tail` 为 v1.1 新增，见文首扩展说明。）
+`{ "ok": true, "dispatch": { "dispatch_id", "status", "adapter_id", "receipt_path", "events": [ {kind, at_utc, payload} ], "stdout_tail"?, "stderr_tail"?, "request"? } }`
+不存在 → `404`。（`stdout_tail`/`stderr_tail` 为 v1.1 新增；`request` 为 v1.4 新增。）
 
 ## GET /api/workspaces
 
@@ -129,6 +169,11 @@ status ∈ `DRY_RUN | ADMITTED | BLOCKED_WAITING_OWNER | BLOCKED_ENV | FAIL | PA
 
 `GET /api/snapshot` 及 roster 消费点的犬只条目新增 `"role": "head" | "executor"`；
 `head-dog` 为唯一 head，其余为 executor。
+
+### roster effort 字段（v1.4）
+
+roster 条目新增 `effort_levels?: string[]` 与 `effort_injection?:
+{kind: 'flag'|'env'|'none', name?}`，供 UI 按犬渲染档位。
 
 ## 实现与契约一致性
 

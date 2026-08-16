@@ -262,6 +262,112 @@ test('SSE receives dispatch lifecycle events during a dry-run dispatch (DoD smok
   assert.equal(sawDispatch, true, 'SSE must deliver dispatch lifecycle frames');
 });
 
+test('GP-21: profile field is validated against ~/.dsh/profiles and injects --profile', async () => {
+  const root = fixtureRoot();
+  const profilesRoot = path.join(root, 'profiles');
+  mkdirSync(path.join(profilesRoot, 'headless-pro'), { recursive: true });
+  let seenArgs: string[] | null = null;
+  const runAdapter: RunAdapterFn = async (_contract, _prompt, _opts) => {
+    seenArgs = [..._contract.arguments];
+    return { exitCode: 0, stdout: 'OK', stderr: '', timedOut: false, childKilled: false };
+  };
+  const pipeline = new DispatchPipeline({
+    workspaceRoot: root,
+    approvalRoot: path.join(root, 'approvals'),
+    ledgerPath: path.join(root, 'budget-ledger.jsonl'),
+    runAdapter,
+    profilesRoot,
+  });
+  const record = await pipeline.dispatch({ adapter_id: 'deepseek-dsh', prompt: 'use preset', profile: 'headless-pro' });
+  assert.equal(record.status, 'DRY_RUN');
+  assert.ok(seenArgs !== null && seenArgs.includes('--profile') && seenArgs[seenArgs.indexOf('--profile') + 1] === 'headless-pro');
+  assert.equal(record.request?.profile, 'headless-pro');
+
+  await assert.rejects(() => pipeline.dispatch({ adapter_id: 'deepseek-dsh', prompt: 'x', profile: 'missing-profile' }), /profile/i);
+  await assert.rejects(() => pipeline.dispatch({ adapter_id: 'fake-t1', prompt: 'x', profile: 'headless-pro' }), /does not support profile/i);
+});
+
+test('GP-22: effort is validated against the selected contract effort_levels', async () => {
+  const root = fixtureRoot();
+  const pipeline = makePipeline(root);
+  // claude-code declares LOW..MAX; MAX is accepted, ULTRA is rejected.
+  const claude = await pipeline.dispatch({ adapter_id: 'claude-code', prompt: 'effort max', effort: 'MAX' });
+  assert.equal(claude.status, 'DRY_RUN');
+  await assert.rejects(() => pipeline.dispatch({ adapter_id: 'claude-code', prompt: 'x', effort: 'ULTRA' }), /effort/i);
+  // deepseek-dsh declares single placeholder DEFAULT; no effort uses DEFAULT, HIGH is rejected.
+  const dsh = await pipeline.dispatch({ adapter_id: 'deepseek-dsh', prompt: 'default effort' });
+  assert.equal(dsh.request?.effort, 'DEFAULT');
+  await assert.rejects(() => pipeline.dispatch({ adapter_id: 'deepseek-dsh', prompt: 'x', effort: 'HIGH' }), /effort/i);
+});
+
+test('GP-10: rerun clones request snapshot without amount_usd risk field', async () => {
+  const root = fixtureRoot();
+  const pipeline = makePipeline(root);
+  const original = await pipeline.dispatch({
+    adapter_id: 'fake-t1',
+    prompt: 'rerun me',
+    effort: 'HIGH',
+    timeout_s: 30,
+    cap_usd: 3,
+  });
+  assert.equal(original.request?.prompt, 'rerun me');
+  assert.equal('amount_usd' in (original.request ?? {}), false);
+  const rerun = await pipeline.rerun(original.dispatch_id);
+  assert.notEqual(rerun.dispatch_id, original.dispatch_id);
+  assert.equal(rerun.request?.prompt, 'rerun me');
+  assert.equal(rerun.request?.effort, 'HIGH');
+  assert.equal(rerun.request?.timeout_s, 30);
+  assert.equal(rerun.request?.cap_usd, 3);
+  assert.equal('amount_usd' in (rerun.request ?? {}), false);
+  assert.equal(rerun.status, 'DRY_RUN');
+});
+
+test('GP-10: POST /api/dispatch/:id/rerun endpoint creates a new dispatch', async () => {
+  const root = fixtureRoot();
+  const pipeline = makePipeline(root);
+  const server = await startBoardServer({
+    approvalRoot: path.join(root, 'approvals'),
+    runId: 'board-rerun-run',
+    assignmentEpoch: 1,
+    dispatch: pipeline,
+  });
+  after(async () => {
+    await server.close();
+  });
+  const base = `http://127.0.0.1:${server.port}`;
+  const createdResponse = await fetch(base + '/api/dispatch', {
+    method: 'POST',
+    body: JSON.stringify({ adapter_id: 'fake-t1', prompt: 'rerun endpoint', effort: 'HIGH' }),
+  });
+  assert.equal(createdResponse.status, 202);
+  const created = (await createdResponse.json()) as { dispatch_id: string };
+  const rerunResponse = await fetch(base + '/api/dispatch/' + created.dispatch_id + '/rerun', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+  assert.equal(rerunResponse.status, 202);
+  const rerun = (await rerunResponse.json()) as { dispatch_id: string; status: string };
+  assert.notEqual(rerun.dispatch_id, created.dispatch_id);
+  assert.equal(rerun.status, 'DRY_RUN');
+  const missingResponse = await fetch(base + '/api/dispatch/' + '0'.repeat(32) + '/rerun', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+  assert.equal(missingResponse.status, 404);
+});
+
+test('roster includes kimi-code and exposes effort metadata', () => {
+  const root = fixtureRoot();
+  const pipeline = makePipeline(root);
+  const kimi = pipeline.roster().find((entry) => entry.adapter_id === 'kimi-code');
+  assert.ok(kimi, 'kimi-code must appear in roster');
+  assert.equal(kimi?.role, 'executor');
+  assert.deepEqual(kimi?.effort_levels, ['LOW', 'MEDIUM', 'HIGH']);
+  assert.deepEqual(kimi?.effort_injection, { kind: 'none' });
+  const claude = pipeline.roster().find((entry) => entry.adapter_id === 'claude-code');
+  assert.deepEqual(claude?.effort_injection, { kind: 'flag', name: '--effort' });
+});
+
 // owner 2026-08-17：生产名册不得出现测试假犬（fake-t1 属测试夹具）。
 test('roster excludes the fake test dog (production-facing projection)', () => {
   const root = fixtureRoot();

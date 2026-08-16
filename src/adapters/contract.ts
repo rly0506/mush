@@ -9,6 +9,13 @@
 
 export type AdapterProtocol = 't1' | 'pi-rpc' | 'stream-json';
 export type PromptTransport = 'stdin' | 'argument';
+export type EffortInjectionKind = 'flag' | 'env' | 'none';
+
+export interface EffortInjection {
+  readonly kind: EffortInjectionKind;
+  /** CLI 旗标名（kind=flag）或环境变量名（kind=env）；kind=none 时缺省。 */
+  readonly name?: string;
+}
 
 export interface AdapterContract {
   readonly adapter_id: string;
@@ -27,10 +34,17 @@ export interface AdapterContract {
   readonly role?: 'head' | 'executor';
   /** G011：会话续跑注入旗标（如 dsh 的 '--resume'）。 */
   readonly resume_flag?: string;
+  /** GP-22：该通道真实可用的 effort 档位（大写规范；UI 按此渲染）。
+   * 缺省 = 旧通用三档 LOW|HIGH|XHIGH（仅测试/未声明的兼容通道）。 */
+  readonly effort_levels?: readonly string[];
+  /** GP-22：effort 的 CLI/env 注入方式；kind=none 表示通道无注入入口。
+   * 本批只做合同与校验层，不实现各通道注入逻辑（M3+ 按通道逐个接）。 */
+  readonly effort_injection?: EffortInjection;
 }
 
 const PROTOCOLS: readonly string[] = ['t1', 'pi-rpc', 'stream-json'];
 const PROMPT_TRANSPORTS: readonly string[] = ['stdin', 'argument'];
+const EFFORT_INJECTION_KINDS: readonly string[] = ['flag', 'env', 'none'];
 
 function isBlank(value: unknown): boolean {
   return value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
@@ -69,6 +83,27 @@ export function validateAdapterContract(input: unknown): AdapterContract {
   if (record.resume_flag !== undefined && (typeof record.resume_flag !== 'string' || record.resume_flag.trim() === '')) {
     throw new Error("adapter contract 'resume_flag' must be a non-blank string when present");
   }
+  if (record.effort_levels !== undefined) {
+    if (
+      !Array.isArray(record.effort_levels) ||
+      record.effort_levels.length === 0 ||
+      record.effort_levels.some((level) => typeof level !== 'string' || level.trim() === '')
+    ) {
+      throw new Error("adapter contract 'effort_levels' must be a non-empty array of non-blank strings");
+    }
+  }
+  if (record.effort_injection !== undefined) {
+    const injection = record.effort_injection as Record<string, unknown>;
+    if (injection === null || typeof injection !== 'object' || Array.isArray(injection)) {
+      throw new Error("adapter contract 'effort_injection' must be an object when present");
+    }
+    if (typeof injection.kind !== 'string' || !EFFORT_INJECTION_KINDS.includes(injection.kind)) {
+      throw new Error(`adapter contract 'effort_injection.kind' must be one of ${EFFORT_INJECTION_KINDS.join('|')}`);
+    }
+    if (injection.name !== undefined && (typeof injection.name !== 'string' || injection.name.trim() === '')) {
+      throw new Error("adapter contract 'effort_injection.name' must be a non-blank string when present");
+    }
+  }
   return {
     adapter_id: record.adapter_id as string,
     executable: record.executable as string,
@@ -81,5 +116,16 @@ export function validateAdapterContract(input: unknown): AdapterContract {
     ...(record.model_flag !== undefined ? { model_flag: (record.model_flag as string).trim() } : {}),
     ...(record.role !== undefined ? { role: record.role } : {}),
     ...(record.resume_flag !== undefined ? { resume_flag: (record.resume_flag as string).trim() } : {}),
+    ...(record.effort_levels !== undefined ? { effort_levels: [...(record.effort_levels as string[])] } : {}),
+    ...(record.effort_injection !== undefined
+      ? {
+          effort_injection: {
+            kind: (record.effort_injection as { kind: EffortInjectionKind }).kind,
+            ...((record.effort_injection as { name?: string }).name !== undefined
+              ? { name: (record.effort_injection as { name: string }).name.trim() }
+              : {}),
+          },
+        }
+      : {}),
   };
 }

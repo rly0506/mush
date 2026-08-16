@@ -271,6 +271,43 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       }
       return;
     }
+    const dispatchRerun = /^\/api\/dispatch\/([0-9a-f]{32})\/rerun$/.exec(url.pathname);
+    if (request.method === 'POST' && dispatchRerun !== null) {
+      void (async () => {
+        let body: Record<string, unknown> = {};
+        try {
+          const raw = await readBody(request);
+          if (raw.trim() !== '') body = JSON.parse(raw) as Record<string, unknown>;
+        } catch {
+          sendJson(response, 400, { ok: false, error: 'body must be JSON' });
+          return;
+        }
+        const original = dispatch.get(dispatchRerun[1]);
+        if (original === null) {
+          sendJson(response, 404, { ok: false, error: `dispatch not found: ${dispatchRerun[1]}` });
+          return;
+        }
+        let record;
+        try {
+          record = await dispatch.rerun(dispatchRerun[1], body);
+        } catch (error) {
+          if (error instanceof InputError) {
+            sendJson(response, 400, { ok: false, error: error.message });
+          } else {
+            sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+          }
+          return;
+        }
+        const status = record.admission?.decision === 'DENIED' ? 402 : 202;
+        sendJson(response, status, {
+          ok: true,
+          dispatch_id: record.dispatch_id,
+          status: record.status,
+          admission: record.admission,
+        });
+      })();
+      return;
+    }
     if (route === 'GET /api/workspaces') {
       sendJson(response, 200, { ok: true, workspaces: dispatch.listWorkspaces() });
       return;

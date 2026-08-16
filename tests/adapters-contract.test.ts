@@ -68,3 +68,35 @@ test('adapter contract rejects non-string arguments', () => {
   };
   assert.throws(() => validateAdapterContract(base), /arguments/i);
 });
+
+test('GP-22: adapter contract accepts and preserves effort_levels + effort_injection', () => {
+  const contract = validateAdapterContract({
+    adapter_id: 'claude-code',
+    executable: 'claude',
+    arguments: ['-p'],
+    protocol: 'stream-json',
+    prompt_transport: 'argument',
+    expected_provider: 'anthropic',
+    expected_model_id: 'claude-sonnet-5',
+    effort_levels: ['LOW', 'MEDIUM', 'HIGH', 'XHIGH', 'MAX'],
+    effort_injection: { kind: 'flag', name: '--effort' },
+  });
+  assert.deepEqual(contract.effort_levels, ['LOW', 'MEDIUM', 'HIGH', 'XHIGH', 'MAX']);
+  assert.deepEqual(contract.effort_injection, { kind: 'flag', name: '--effort' });
+});
+
+test('GP-22: adapter contract rejects malformed effort_levels / effort_injection fail-closed', () => {
+  const base = {
+    adapter_id: 'x',
+    executable: 'cmd',
+    arguments: [],
+    protocol: 't1',
+    prompt_transport: 'stdin',
+    expected_provider: 'p',
+    expected_model_id: 'm',
+  };
+  assert.throws(() => validateAdapterContract({ ...base, effort_levels: [] }), /effort_levels/i);
+  assert.throws(() => validateAdapterContract({ ...base, effort_levels: ['', 'LOW'] }), /effort_levels/i);
+  assert.throws(() => validateAdapterContract({ ...base, effort_injection: { kind: 'auto' } }), /effort_injection/i);
+  assert.throws(() => validateAdapterContract({ ...base, effort_injection: { kind: 'flag', name: ' ' } }), /effort_injection/i);
+});

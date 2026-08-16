@@ -29,6 +29,10 @@ export function buildDeepSeekContract(channel: DeepSeekChannel): AdapterContract
       // 变体轴 flash/pro：切换通道待定（dsh headless 无 --model、env 无效、
       // --patch 需 loader-entry 覆盖格式——F-G9-02），先作为身份期望声明。
       variants: ['deepseek-v4-flash', 'deepseek-v4-pro'],
+      // GP-22：dsh --help 无 effort/thinking 档位（2026-08-17 本机抓取）；
+      // headless 单发无档 → kind=none + 单档占位 default。
+      effort_levels: ['DEFAULT'],
+      effort_injection: { kind: 'none' },
     });
   }
   return validateAdapterContract({
@@ -39,6 +43,9 @@ export function buildDeepSeekContract(channel: DeepSeekChannel): AdapterContract
     prompt_transport: 'stdin',
     expected_provider: 'deepseek',
     expected_model_id: 'deepseek-v4-pro',
+    // GP-22：pi --help 未公开 effort 档位；同 dsh 占位 none。
+    effort_levels: ['DEFAULT'],
+    effort_injection: { kind: 'none' },
   });
 }
 

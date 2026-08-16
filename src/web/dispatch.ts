@@ -8,15 +8,17 @@
  */
 
 import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import path from 'node:path';
 import { UsdBudgetLedger, type UsdAdmissionEntry } from '../core/budget.ts';
-import { validateAdapterContract, type AdapterContract } from '../adapters/contract.ts';
+import { validateAdapterContract, type AdapterContract, type EffortInjection } from '../adapters/contract.ts';
 import { buildDeepSeekContract } from '../adapters/deepseek.ts';
 import { buildClaudeContract } from '../adapters/claude.ts';
 import { buildZcodeContract } from '../adapters/zcode.ts';
 import { buildCodexContract } from '../adapters/codex.ts';
 import { buildOpencodeContract } from '../adapters/opencode.ts';
+import { buildKimiContract } from '../adapters/kimi.ts';
 import { buildHeadDogContract, extractSessionId } from '../adapters/head-dog.ts';
 import { runT1, type SpawnFn } from '../adapters/t1-runner.ts';
 import type { BoardPersistence } from './persistence.ts';
@@ -41,6 +43,19 @@ export interface DispatchLifecycleEvent {
   payload: Record<string, unknown>;
 }
 
+/** GP-10：rerun 所需的历史请求快照（不含 amount_usd 虚报风险字段）。 */
+export interface DispatchRequestSnapshot {
+  adapter_id: string;
+  prompt: string;
+  effort: string;
+  workspace: string;
+  timeout_s: number;
+  model_id?: string;
+  profile?: string;
+  cap_usd: number;
+  real: boolean;
+}
+
 export interface DispatchRecord {
   dispatch_id: string;
   adapter_id: string;
@@ -54,6 +69,8 @@ export interface DispatchRecord {
   stderr_tail: { text: string; truncated: boolean } | null;
   /** G011：犬侧会话 id（会话续跑锚点）。 */
   session_id: string | null;
+  /** GP-10（契约 v1.4）：rerun 用的历史请求快照；旧记录缺省无此字段。 */
+  request?: DispatchRequestSnapshot;
 }
 
 /** 尾部截断（UTF-8 字符安全）：超长保留末段并标记 truncated。 */
@@ -91,6 +108,8 @@ export interface DispatchPipelineOptions {
   registryPath?: string;
   /** GP-03：持久化三件套接入；缺省纯内存。 */
   persistence?: BoardPersistence;
+  /** GP-21：dsh preset 根目录；缺省 ~/.dsh/profiles（测试可注入临时目录）。 */
+  profilesRoot?: string;
 }
 
 export interface WorkspaceInfo {
@@ -118,6 +137,7 @@ function baseContracts(): Record<string, AdapterContract> {
     zcode: buildZcodeContract(),
     codex: buildCodexContract(),
     opencode: buildOpencodeContract(),
+    'kimi-code': buildKimiContract(),
     'head-dog': buildHeadDogContract(),
   };
 }
@@ -170,7 +190,22 @@ function applyModelVariant(contract: AdapterContract, modelId: string): AdapterC
   });
 }
 
+/** GP-21：把合同参数中的 `--profile <默认>` 替换为请求指定的 preset 名。 */
+function applyProfile(contract: AdapterContract, profileName: string): AdapterContract {
+  if (!contract.arguments.includes('--profile')) {
+    throw new InputError(`adapter ${contract.adapter_id} does not support profile`);
+  }
+  const args = [...contract.arguments];
+  const index = args.indexOf('--profile');
+  if (index + 1 >= args.length) {
+    throw new InputError(`adapter ${contract.adapter_id} has malformed --profile default`);
+  }
+  args[index + 1] = profileName;
+  return validateAdapterContract({ ...contract, arguments: args });
+}
+
 const EFFORTS = new Set(['LOW', 'HIGH', 'XHIGH']);
+const DEFAULT_EFFORT_LEVELS: readonly string[] = ['LOW', 'HIGH', 'XHIGH'];
 
 function sha256Hex(text: string): string {
   return createHash('sha256').update(text, 'utf8').digest('hex').toUpperCase();
@@ -189,6 +224,8 @@ export class DispatchPipeline {
   private selectedWorkspace: string | null = null;
   private now: () => Date;
   private readonly persistence: BoardPersistence | null;
+  private readonly profilesRoot: string;
+  private profileDirsCache: Set<string> | null = null;
 
   constructor(options: DispatchPipelineOptions) {
     this.workspaceRoot = path.resolve(options.workspaceRoot);
@@ -207,6 +244,7 @@ export class DispatchPipeline {
     this.onEvent = options.onEvent ?? (() => {});
     this.now = options.now ?? (() => new Date());
     this.persistence = options.persistence ?? null;
+    this.profilesRoot = path.resolve(options.profilesRoot ?? path.join(homedir(), '.dsh', 'profiles'));
     // GP-03：重启回放——已落盘的派发记录重新入内存（recent() 跨重启可用）。
     // DEF-05 修复：header.status 只反映落盘瞬间，事件链才是权威——回放时
     // 以最后一个生命周期事件的状态为准（747c7040 曾显示 ADMITTED 而实为超时）。
@@ -311,6 +349,43 @@ export class DispatchPipeline {
     writeFileSync(this.ledgerPath, JSON.stringify(entry) + '\n', { flag: 'a', encoding: 'utf8' });
   }
 
+  /** GP-21：探测一次并缓存 ~/.dsh/profiles 下的目录名；缓存后不再反复读盘。 */
+  private profileDirs(): Set<string> {
+    if (this.profileDirsCache !== null) return this.profileDirsCache;
+    const dirs = new Set<string>();
+    try {
+      if (existsSync(this.profilesRoot)) {
+        for (const name of readdirSync(this.profilesRoot)) {
+          const full = path.join(this.profilesRoot, name);
+          try {
+            if (statSync(full).isDirectory()) dirs.add(name);
+          } catch {
+            // 单个不可读目录 fail-closed：不加入白名单。
+          }
+        }
+      }
+    } catch {
+      // profilesRoot 不可读 → 空白名单，所有 profile 请求 fail-closed。
+    }
+    this.profileDirsCache = dirs;
+    return dirs;
+  }
+
+  /** GP-21：profile 必须是非空目录名且位于 profilesRoot 内（防路径穿越）。 */
+  private resolveProfile(profileName: string): string {
+    if (profileName.trim() === '') throw new InputError('profile must be non-blank when present');
+    const dirs = this.profileDirs();
+    if (!dirs.has(profileName)) {
+      throw new InputError(`profile '${profileName}' not found under ${this.profilesRoot}`);
+    }
+    const resolved = path.resolve(this.profilesRoot, profileName);
+    const relative = path.relative(this.profilesRoot, resolved);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw new InputError('profile path traversal is not allowed');
+    }
+    return resolved;
+  }
+
   /** schema fail-closed：任何字段违规抛 InputError（HTTP 400）。 */
   async dispatch(input: unknown): Promise<DispatchRecord> {
     if (input === null || typeof input !== 'object' || Array.isArray(input)) {
@@ -322,12 +397,20 @@ export class DispatchPipeline {
     if (contract === undefined) throw new InputError(`unknown adapter: ${adapterId}`);
     // G009：模型变体选择——必须属于合同声明的 variants（fail-closed）。
     let effectiveContract = contract;
+    let modelId: string | undefined;
     if (body.model_id !== undefined) {
-      const modelId = String(body.model_id);
+      modelId = String(body.model_id);
       if (contract.variants === undefined || !contract.variants.includes(modelId)) {
         throw new InputError(`model_id '${modelId}' not in variants of ${adapterId}`);
       }
       effectiveContract = applyModelVariant(contract, modelId);
+    }
+    // GP-21：dsh preset——只允许 ~/.dsh/profiles 下真实目录；替换合同默认 --profile。
+    let profile: string | undefined;
+    if (body.profile !== undefined) {
+      profile = String(body.profile);
+      this.resolveProfile(profile);
+      effectiveContract = applyProfile(effectiveContract, profile);
     }
     // G011：会话续跑——resume_flag 通道追加 <flag> <session_id>（dsh --resume 等）。
     if (body.resume_session !== undefined) {
@@ -343,8 +426,14 @@ export class DispatchPipeline {
     }
     const prompt = typeof body.prompt === 'string' ? body.prompt : '';
     if (prompt.trim() === '' || prompt.length > 64000) throw new InputError('prompt must be 1..64000 chars');
-    const effort = body.effort === undefined ? 'LOW' : String(body.effort).toUpperCase();
-    if (!EFFORTS.has(effort)) throw new InputError("effort must be LOW|HIGH|XHIGH");
+    // GP-22：effort 必须属于该合同声明的 effort_levels（缺省合同回退旧三档）。
+    const effortLevels = (effectiveContract.effort_levels ?? DEFAULT_EFFORT_LEVELS).map((level) => level.toUpperCase());
+    const defaultEffort = effortLevels.includes('LOW') ? 'LOW' : effortLevels[0];
+    const rawEffort = body.effort === undefined ? defaultEffort : String(body.effort);
+    const effort = rawEffort.toUpperCase();
+    if (!effortLevels.includes(effort)) {
+      throw new InputError(`effort must be one of ${effortLevels.join('|')} for ${adapterId}`);
+    }
     const capUsd = body.cap_usd === undefined ? 5 : Number(body.cap_usd);
     if (!Number.isFinite(capUsd) || capUsd <= 0) throw new InputError('cap_usd must be > 0');
     const amountUsd = body.amount_usd === undefined ? 0 : Number(body.amount_usd);
@@ -366,6 +455,17 @@ export class DispatchPipeline {
     }
 
     const dispatchId = randomUUID().replace(/-/g, '');
+    const request: DispatchRequestSnapshot = {
+      adapter_id: adapterId,
+      prompt,
+      effort,
+      workspace,
+      timeout_s: timeoutSec,
+      cap_usd: capUsd,
+      real,
+      ...(modelId !== undefined ? { model_id: modelId } : {}),
+      ...(profile !== undefined ? { profile } : {}),
+    };
     const record: DispatchRecord = {
       dispatch_id: dispatchId,
       adapter_id: adapterId,
@@ -377,13 +477,14 @@ export class DispatchPipeline {
       stdout_tail: null,
       stderr_tail: null,
       session_id: null,
+      request,
     };
 
     const admission = this.ledger.admit({
       actorId: adapterId,
       capUsd,
       amountUsd,
-      meta: { dispatch_id: dispatchId, effort, real, prompt_sha256: sha256Hex(prompt) },
+      meta: { dispatch_id: dispatchId, effort, real, profile, prompt_sha256: sha256Hex(prompt) },
     });
     record.admission = { decision: admission.decision, remaining_usd: admission.remainingUsd };
     this.records.set(dispatchId, record);
@@ -431,6 +532,7 @@ export class DispatchPipeline {
       prompt_sha256: sha256Hex(prompt),
       effort,
       real,
+      profile,
       exit_code: run.exitCode,
       timed_out: run.timedOut,
       child_killed: run.childKilled,
@@ -447,6 +549,29 @@ export class DispatchPipeline {
     return record;
   }
 
+  /** GP-10：派发重跑——克隆历史请求快照，生成新 dispatch；amount_usd 不克隆。 */
+  async rerun(dispatchId: string, overrides: Record<string, unknown> = {}): Promise<DispatchRecord> {
+    const original = this.get(dispatchId);
+    if (original === null) throw new InputError(`dispatch not found: ${dispatchId}`);
+    if (original.request === undefined) {
+      throw new InputError(`dispatch ${dispatchId} has no replayable request snapshot (created before v1.4)`);
+    }
+    const request = original.request;
+    const real = overrides.real === undefined ? request.real : overrides.real === true;
+    const capUsd = overrides.cap_usd === undefined ? request.cap_usd : Number(overrides.cap_usd);
+    return this.dispatch({
+      adapter_id: request.adapter_id,
+      prompt: request.prompt,
+      effort: request.effort,
+      workspace: request.workspace,
+      timeout_s: request.timeout_s,
+      model_id: request.model_id,
+      profile: request.profile,
+      cap_usd: capUsd,
+      real,
+    });
+  }
+
   get(dispatchId: string): DispatchRecord | null {
     return this.records.get(dispatchId) ?? null;
   }
@@ -455,7 +580,17 @@ export class DispatchPipeline {
    * 只含身份字段，不含 executable 路径等敏感细节。
    * 测试假犬（fake-t1）不进名册——owner 2026-08-17 反馈：生产下拉不应出现
    * 测试夹具；合同表保留（测试/开发冒烟仍可显式 dispatch）。 */
-  roster(): Array<{ adapter_id: string; protocol: string; expected_provider: string; expected_model_id: string; variants?: string[]; model_flag?: string; role: 'head' | 'executor' }> {
+  roster(): Array<{
+    adapter_id: string;
+    protocol: string;
+    expected_provider: string;
+    expected_model_id: string;
+    variants?: string[];
+    model_flag?: string;
+    role: 'head' | 'executor';
+    effort_levels?: string[];
+    effort_injection?: EffortInjection;
+  }> {
     return Object.values(this.contracts)
       .filter((contract) => contract.adapter_id !== 'fake-t1' || process.env.MUSH_INCLUDE_FAKE_ROSTER === '1')
       .map((contract) => ({
@@ -466,6 +601,8 @@ export class DispatchPipeline {
         role: contract.role ?? 'executor',
         ...(contract.variants !== undefined ? { variants: [...contract.variants] } : {}),
         ...(contract.model_flag !== undefined ? { model_flag: contract.model_flag } : {}),
+        ...(contract.effort_levels !== undefined ? { effort_levels: [...contract.effort_levels] } : {}),
+        ...(contract.effort_injection !== undefined ? { effort_injection: { ...contract.effort_injection } } : {}),
       }));
   }
 

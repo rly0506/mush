@@ -55,6 +55,26 @@ test('dispatch records persist header + events and reload across instances', () 
   assert.deepEqual(loaded[0].events.map((e) => e.phase), ['ADMISSION', 'EXECUTE', 'REPORT', 'REVIEW']);
 });
 
+test('GP-10: dispatch header persists request snapshot so rerun works across restart', () => {
+  const root = fixtureRuntime();
+  const persistence = new BoardPersistence(root);
+  const record = makeRecord('d2');
+  record.request = {
+    adapter_id: 'fake-t1',
+    prompt: 'rerun after restart',
+    effort: 'HIGH',
+    workspace: 'D:/ws',
+    timeout_s: 30,
+    cap_usd: 3,
+    real: false,
+  };
+  persistence.saveDispatchHeader(record);
+
+  const loaded = new BoardPersistence(root).loadDispatchRecords();
+  assert.equal(loaded.length, 1);
+  assert.deepEqual(loaded[0].request, record.request);
+});
+
 test('ledger lines are hash-chained and verification survives reload', () => {
   const root = fixtureRuntime();
   const persistence = new BoardPersistence(root);

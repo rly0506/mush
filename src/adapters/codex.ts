@@ -19,6 +19,11 @@ export function buildCodexContract(): AdapterContract {
     prompt_transport: 'argument',
     expected_provider: 'openai',
     expected_model_id: 'UNKNOWN',
+    // GP-22：codex exec --help 未直接列 effort 旗标；官方配置以
+    //   --config reasoning.effort=<level> 注入（M3+ 通道接入时实现）。
+    // 档位按 OpenAI reasoning effort 五档类：minimal/low/medium/high/xhigh。
+    effort_levels: ['MINIMAL', 'LOW', 'MEDIUM', 'HIGH', 'XHIGH'],
+    effort_injection: { kind: 'flag', name: '--config' },
   });
 }
 

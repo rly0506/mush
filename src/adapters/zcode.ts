@@ -19,6 +19,11 @@ export function buildZcodeContract(): AdapterContract {
     prompt_transport: 'argument',
     expected_provider: 'z.ai',
     expected_model_id: 'UNKNOWN',
+    // GP-22：zcode --help（2026-08-17 本机抓取）未见 effort/thinking 档位；
+    // 真实档位 UNKNOWN。为避免破坏既有派发，暂沿用旧通用三档占位，通道接入前
+    // 不做注入承诺。
+    effort_levels: ['LOW', 'HIGH', 'XHIGH'],
+    effort_injection: { kind: 'none' },
   });
 }
 

@@ -28,6 +28,10 @@ export function buildClaudeContract(expectedModelId: string): AdapterContract {
     // G009：变体切换实证可用（claude-real-011 经 --model 下发生效）。
     variants: ['claude-sonnet-5', 'claude-sonnet-4-5'],
     model_flag: '--model',
+    // GP-22：claude --help 实测（2026-08-17）：
+    //   --effort <level>  Effort level for the current session (low, medium, high, xhigh, max)
+    effort_levels: ['LOW', 'MEDIUM', 'HIGH', 'XHIGH', 'MAX'],
+    effort_injection: { kind: 'flag', name: '--effort' },
   });
 }
 
