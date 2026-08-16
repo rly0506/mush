@@ -310,6 +310,7 @@ export function renderBoardPage(): string {
       // upsert：SSE 后续帧（EXECUTE/REPORT/PASS）必须刷新既有卡片。
       var wasTerminal = TERMINAL_STATUSES[existing.status] === 1;
       existing.status = status;
+      delete detailCache[dispatchId]; // DEF-08：状态变化 → 详情缓存失效
       existing.at_utc = new Date().toISOString();
       renderDispatches();
       if (!wasTerminal && TERMINAL_STATUSES[status] === 1) {
@@ -334,6 +335,51 @@ export function renderBoardPage(): string {
     return seconds + 's';
   }
 
+  // DEF-08：展开态与详情缓存——每秒计时器/SSE 会全量重渲染 dispatch 列表，
+  // 展开的卡片与已加载的详情必须跨渲染保持（否则"点开即被抹平"）。
+  var openDetails = {};
+  var detailCache = {};
+
+  function buildDetailHtml(data) {
+    var d = data.dispatch;
+    var events = (d.events || []).map(function (ev) {
+      return '<tr><td>' + esc(ev.phase || ev.kind || '') + '</td><td>' + esc(ev.status || '') + '</td><td class="mono">' + esc(ev.at_utc || '') + '</td></tr>';
+    }).join('');
+    var stdoutBlock = '';
+    if (d.stdout_tail && d.stdout_tail.text) {
+      stdoutBlock = '<dt style="color:#7c8791">任务输出（末段' + (d.stdout_tail.truncated ? '，已截断' : '') + '）</dt>' +
+        '<dd><pre class="mono" style="white-space:pre-wrap;max-height:200px;overflow:auto;margin:4px 0">' + esc(d.stdout_tail.text) + '</pre></dd>';
+    }
+    if (d.stderr_tail && d.stderr_tail.text) {
+      stdoutBlock += '<dt style="color:#7c8791">stderr（末段' + (d.stderr_tail.truncated ? '，已截断' : '') + '）</dt>' +
+        '<dd><pre class="mono" style="white-space:pre-wrap;max-height:120px;overflow:auto;margin:4px 0">' + esc(d.stderr_tail.text) + '</pre></dd>';
+    }
+    return '<dl style="margin:0">' +
+      '<dt style="color:#7c8791">状态</dt><dd><span class="badge ' + esc(d.status) + '">' + esc(d.status) + '</span></dd>' +
+      '<dt style="color:#7c8791">回执锚点</dt><dd class="mono hash">' + esc(d.receipt_path || '（未落盘）') + '</dd>' + stdoutBlock + '</dl>' +
+      (events ? '<table><tbody>' + events + '</tbody></table>' : '');
+  }
+
+  function applyDetail(id) {
+    var card = document.querySelector('.dispatch-card[data-dispatch="' + id + '"]');
+    if (!card) return;
+    card.classList.add('open');
+    var detail = card.querySelector('.detail');
+    if (detail && detailCache[id]) detail.innerHTML = detailCache[id];
+  }
+
+  function loadDetail(id) {
+    getJson('/api/dispatch/' + encodeURIComponent(id)).then(function (data) {
+      detailCache[id] = data.ok && data.dispatch
+        ? buildDetailHtml(data)
+        : '<span class="hash">' + esc((data && data.error) || '无详情') + '</span>';
+      if (openDetails[id]) applyDetail(id);
+    }).catch(function (error) {
+      detailCache[id] = '加载失败：' + esc(String(error));
+      if (openDetails[id]) applyDetail(id);
+    });
+  }
+
   function renderDispatches() {
     var el = document.getElementById('dispatch-list');
     var fromSnapshot = (snapshot && snapshot.dispatches) || [];
@@ -344,44 +390,38 @@ export function renderBoardPage(): string {
     if (list.length === 0) { el.innerHTML = '<div class="empty">暂无派发记录</div>'; return; }
     el.innerHTML = list.map(function (d) {
       var elapsed = elapsedText(d);
-      return '<div class="dispatch-card" data-dispatch="' + esc(d.dispatch_id) + '">' +
+      return '<div class="dispatch-card' + (openDetails[d.dispatch_id] ? ' open' : '') + '" data-dispatch="' + esc(d.dispatch_id) + '">' +
         '<span class="badge ' + esc(d.status) + '">' + esc(d.status) + '</span> ' +
         '<span class="mono">' + esc(String(d.dispatch_id).slice(0, 12)) + '…</span> ' +
         esc(d.adapter_id || '') + ' <span class="meta">' + esc(d.at_utc || '') + '</span>' +
         (elapsed ? '<span class="elapsed">' + elapsed + '</span>' : '') +
-        '<div class="detail">加载中…</div></div>';
+        '<div class="detail">' + (detailCache[d.dispatch_id] || '加载中…') + '</div></div>';
     }).join('');
     el.querySelectorAll('.dispatch-card').forEach(function (card) {
       card.addEventListener('click', function () { toggleDispatchDetail(card); });
     });
+    // 展开但无缓存的（如刚重渲染）：异步补载。
+    Object.keys(openDetails).forEach(function (id) {
+      if (!detailCache[id] && known[id]) loadDetail(id);
+    });
   }
 
   function toggleDispatchDetail(card) {
-    var detail = card.querySelector('.detail');
-    if (card.classList.contains('open')) { card.classList.remove('open'); return; }
-    card.classList.add('open');
+    // DEF-08：展开态走注册表（跨重渲染保持），详情走缓存（状态变化失效）。
     var dispatchId = card.getAttribute('data-dispatch');
-    getJson('/api/dispatch/' + encodeURIComponent(dispatchId)).then(function (data) {
-      if (!data.ok || !data.dispatch) { detail.innerHTML = '<span class="hash">' + esc(data.error || '无详情') + '</span>'; return; }
-      var d = data.dispatch;
-      var events = (d.events || []).map(function (ev) {
-        return '<tr><td>' + esc(ev.phase || ev.kind || '') + '</td><td>' + esc(ev.status || '') + '</td><td class="mono">' + esc(ev.at_utc || '') + '</td></tr>';
-      }).join('');
-      var stdoutBlock = '';
-      if (d.stdout_tail && d.stdout_tail.text) {
-        stdoutBlock = '<dt style="color:#7c8791">任务输出（末段' + (d.stdout_tail.truncated ? '，已截断' : '') + '）</dt>' +
-          '<dd><pre class="mono" style="white-space:pre-wrap;max-height:200px;overflow:auto;margin:4px 0">' + esc(d.stdout_tail.text) + '</pre></dd>';
-      }
-      if (d.stderr_tail && d.stderr_tail.text) {
-        stdoutBlock += '<dt style="color:#7c8791">stderr（末段' + (d.stderr_tail.truncated ? '，已截断' : '') + '）</dt>' +
-          '<dd><pre class="mono" style="white-space:pre-wrap;max-height:120px;overflow:auto;margin:4px 0">' + esc(d.stderr_tail.text) + '</pre></dd>';
-      }
-      detail.innerHTML = '<dl style="margin:0">' +
-        '<dt style="color:#7c8791">状态</dt><dd><span class="badge ' + esc(d.status) + '">' + esc(d.status) + '</span></dd>' +
-        '<dt style="color:#7c8791">回执锚点</dt><dd class="mono hash">' + esc(d.receipt_path || '（未落盘）') + '</dd>' +
-        stdoutBlock + '</dl>' +
-        (events ? '<table><tbody>' + events + '</tbody></table>' : '');
-    }).catch(function (error) { detail.textContent = '加载失败：' + error; });
+    if (openDetails[dispatchId]) {
+      delete openDetails[dispatchId];
+      card.classList.remove('open');
+      return;
+    }
+    openDetails[dispatchId] = true;
+    card.classList.add('open');
+    if (detailCache[dispatchId]) {
+      var detail = card.querySelector('.detail');
+      if (detail) detail.innerHTML = detailCache[dispatchId];
+    } else {
+      loadDetail(dispatchId);
+    }
   }
 
   /* ---------- 犬队状态（G009：活动为空时回退 roster 名册；G7B-D3：roster 行聚合最近派发） ---------- */
