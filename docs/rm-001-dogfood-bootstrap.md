@@ -28,7 +28,9 @@ loop 任务就是开发 mush 自己。
 
 - DeepSeek（经 pi 或 dsh，headless 已验证）+ Claude Code；
 - 合同语言无关：executable + 参数 + 协议；运行时模型身份 fail-closed；
-- 每只犬一次真实有界 dispatch 验收。
+- 每只犬一次真实有界 dispatch 验收；
+- M3 收尾接 **CLI 化（D21）**：`bin/mush` 入口 + workspace-root 参数贯通，
+  同机任意工作区可调用。
 
 ### M4 dogfood 首个 live loop
 
