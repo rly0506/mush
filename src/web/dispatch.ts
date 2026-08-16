@@ -280,6 +280,12 @@ export class DispatchPipeline {
     const real = body.real === true;
     const workspace = typeof body.workspace === 'string' && body.workspace.trim() !== '' ? path.resolve(body.workspace) : this.workspaceRoot;
     if (!existsSync(workspace)) throw new InputError(`workspace does not exist: ${workspace}`);
+    // F-41（安全审查 2026-08-17）：workspace 白名单——dispatch 只允许落在
+    // 服务根目录或已登记（known-workspaces/当前选中）的工作区，防止任意
+    // 本地目录被选为犬的执行范围（纵深防御，配合 DEF-04 Host 校验）。
+    if (workspace !== this.workspaceRoot && !this.isKnownWorkspace(workspace)) {
+      throw new InputError(`workspace not registered: ${workspace}（先经 POST /api/workspaces/select 登记）`);
+    }
 
     const dispatchId = randomUUID().replace(/-/g, '');
     const record: DispatchRecord = {
@@ -461,6 +467,14 @@ export class DispatchPipeline {
       if (error instanceof SyntaxError) return []; // JSON 损坏 fail-closed
       throw error; // 编程错误（如未导入符号）不得静默吞掉
     }
+  }
+
+  /** F-41：路径是否在白名单内（服务根 + 当前选中 + known-workspaces 持久化
+   * 列表；比较前统一 path.resolve 归一，兼治 F-39 双条目形态）。 */
+  private isKnownWorkspace(resolved: string): boolean {
+    if (resolved === this.workspaceRoot) return true;
+    if (this.selectedWorkspace !== null && path.resolve(this.selectedWorkspace) === resolved) return true;
+    return this.knownWorkspaces().some((known) => path.resolve(known) === resolved);
   }
 }
 

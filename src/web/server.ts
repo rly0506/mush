@@ -168,6 +168,16 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
   }
 
   const server = createServer((request, response) => {
+    // DEF-04（安全审查 2026-08-17）：Host 头白名单——阻断 DNS rebinding。
+    // 仅绑定 127.0.0.1 不是防线：恶意页面可将其域名 rebind 到 127.0.0.1，
+    // 同源策略随之放行；服务端必须自己校验请求的目标主机。
+    const hostHeader = (request.headers.host ?? '').toLowerCase();
+    const hostName = hostHeader.split(':')[0];
+    if (hostName !== '127.0.0.1' && hostName !== 'localhost' && hostName !== '[::1]') {
+      response.writeHead(403, { 'content-type': 'application/json; charset=utf-8' });
+      response.end(JSON.stringify({ ok: false, error: 'forbidden: host header not in loopback allowlist (DEF-04)' }) + '\n');
+      return;
+    }
     const url = new URL(request.url ?? '/', `http://${host}`);
     const route = `${request.method} ${url.pathname}`;
     if (route === 'GET /') {
