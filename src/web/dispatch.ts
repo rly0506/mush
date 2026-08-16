@@ -25,6 +25,7 @@ export type DispatchStatus =
   | 'DRY_RUN'
   | 'BLOCKED_WAITING_OWNER'
   | 'BLOCKED_ENV'
+  | 'TIMEOUT'
   | 'FAIL'
   | 'PASS';
 
@@ -300,6 +301,12 @@ export class DispatchPipeline {
     if (!Number.isFinite(capUsd) || capUsd <= 0) throw new InputError('cap_usd must be > 0');
     const amountUsd = body.amount_usd === undefined ? 0 : Number(body.amount_usd);
     if (!Number.isFinite(amountUsd) || amountUsd < 0) throw new InputError('amount_usd must be >= 0');
+    // 超时可配（秒）：真实任务远超旧 120s 硬编码（dispatch 747c7040 教训：
+    // RF-C 诊断犬 120s 被掐）。默认 real=900 / dry=5，范围 5..3600。
+    const timeoutSec = body.timeout_s === undefined ? (body.real === true ? 900 : 5) : Number(body.timeout_s);
+    if (!Number.isFinite(timeoutSec) || timeoutSec < 5 || timeoutSec > 3600) {
+      throw new InputError('timeout_s must be 5..3600 seconds');
+    }
     const real = body.real === true;
     const workspace = typeof body.workspace === 'string' && body.workspace.trim() !== '' ? path.resolve(body.workspace) : this.workspaceRoot;
     if (!existsSync(workspace)) throw new InputError(`workspace does not exist: ${workspace}`);
@@ -362,7 +369,7 @@ export class DispatchPipeline {
     const run = await this.runAdapter(effectiveContract, prompt, {
       workspaceRoot: workspace,
       receiptPath,
-      timeoutMs: real ? 120_000 : 5_000,
+      timeoutMs: timeoutSec * 1000,
     });
     record.receipt_path = receiptPath;
     record.stdout_tail = tailOf(run.stdout, 2048);
@@ -383,7 +390,7 @@ export class DispatchPipeline {
     };
     writeFileSync(receiptPath, JSON.stringify(receipt) + '\n', 'utf8');
     const pass = run.exitCode === 0 && !run.timedOut;
-    record.status = pass ? (real ? 'PASS' : 'DRY_RUN') : run.timedOut ? 'BLOCKED_ENV' : 'FAIL';
+    record.status = pass ? (real ? 'PASS' : 'DRY_RUN') : run.timedOut ? 'TIMEOUT' : 'FAIL';
     record.error = pass ? null : run.stderr || `runner exit ${run.exitCode}`;
     this.emit(record, 'REPORT', record.status, { receipt_path: receiptPath, exit_code: run.exitCode });
     this.emit(record, 'REVIEW', record.status, { verdict: pass ? 'PASS' : 'FAIL' });
