@@ -1,0 +1,31 @@
+{
+  "goal_id": "MUSH-GOAL-008",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "dsh/deepseek headless",
+  "changed_paths": [
+    "src/adapters/codex.ts",
+    "src/adapters/opencode.ts",
+    "tests/adapters-codex-opencode.test.ts",
+    "goals/receipts/dispatch-events/codex-real-001.json",
+    "goals/receipts/dispatch-events/codex-real-002.json",
+    "goals/receipts/dispatch-events/opencode-real-001.json",
+    "goals/receipts/capability-probes/zcode-headless-three-gates.json",
+    "goals/receipts/capability-probes/registry-g8-expansion-2026-08-17.json",
+    "goals/receipts/BATCH-28/30-*"
+  ],
+  "tests_run": "合同与解析测试 5/5 全绿；跟踪面 211/211（BATCH-28）；真实 nonce 注册尝试证据全部落盘。",
+  "ported_assertions": [
+    {
+      "test": "adapters-codex-opencode.test.ts（5 tests）",
+      "ps_source": "harness-landscape + D13 + GOAL-008",
+      "assertions": 20
+    }
+  ],
+  "open_findings": [
+    "F-34 codex 真实注册 BLOCKED_ENV（沙箱 EPERM），按 D22 停，不烧第二次",
+    "F-35 opencode 真实注册 BLOCKED_ENV，按 D22 停",
+    "F-30 zcode headless 三关 FAIL，交互式在册兜底（D22 允许）",
+    "三犬均 REGISTERED-UNVERIFIED/INTERACTIVE；真实身份证明待普通环境补跑"
+  ],
+  "spent_estimate_usd": 0.07
+}

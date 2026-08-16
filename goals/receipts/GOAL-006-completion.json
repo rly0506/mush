@@ -1,0 +1,32 @@
+{
+  "goal_id": "MUSH-GOAL-006",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "dsh/deepseek headless",
+  "changed_paths": [
+    "src/web/api-contract.md",
+    "src/web/dispatch.ts",
+    "src/web/loop-stream.ts",
+    "src/web/server.ts",
+    "src/core/budget.ts",
+    "tests/web-dispatch.test.ts",
+    "goals/receipts/BATCH-27/29/31-*"
+  ],
+  "tests_run": "npm test 全量真实执行：tests 222 / pass 222 / fail 0 / exit 0；含本 Goal 9 个派发管线/端点/SSE 测试（fake adapter 路径全覆盖）。",
+  "ported_assertions": [
+    {
+      "test": "web-dispatch.test.ts（9 tests：schema fail-closed / dry-run 全生命周期 / 402 超预算 / real 审批门 / workspace 持久化 / budget 投影 / HTTP 端点契约 / fake 全流程 smoke / SSE 实测 dispatch 帧）",
+      "ps_source": "src/web/api-contract.md v1 + GOAL-006",
+      "assertions": 45
+    }
+  ],
+  "evidence": [
+    { "path": "goals/receipts/BATCH-31-test-output.txt", "sha256": "见 BATCH-31 提交" },
+    { "path": "src/web/api-contract.md", "sha256": "契约与实现同提交核验" }
+  ],
+  "open_findings": [
+    "F-33 core/budget.ts 增 allEntries() 最小投影（已回报）",
+    "F-36 server.ts 与 kimi 的 snapshot.dispatches 协作改动同批提交",
+    "真实 dispatch 走审批门；本 Goal 验收用 fake 路径（D22 要求）"
+  ],
+  "spent_estimate_usd": 0.08
+}

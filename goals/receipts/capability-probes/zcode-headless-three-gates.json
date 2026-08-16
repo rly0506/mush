@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "adapter_id": "zcode",
+  "recorded_at_utc": "2026-08-17T00:00:00Z",
+  "headless_three_gates": [
+    {
+      "gate": "G1 --json 参数",
+      "result": "FAIL",
+      "evidence": "zcode 3.7.7-13 实测无 --json 选项（zcode --help 无此项；预探测为疑带）；见 BATCH-23 zcode-real-001",
+      "retries": 1
+    },
+    {
+      "gate": "G2 ~/.zcode EPERM",
+      "result": "FAIL",
+      "evidence": "沙箱拦截 ~/.zcode/plugins 写入（EPERM）；见 BATCH-23 zcode-real-002",
+      "retries": 1
+    },
+    {
+      "gate": "G3 ZCODE_STORAGE_DIR 重定向 + SQLite readonly",
+      "result": "FAIL",
+      "evidence": "ZCODE_STORAGE_DIR=D:\\mush\\.zcode-storage 后仍报 attempt to write a readonly database；见 BATCH-23 zcode-real-003",
+      "retries": 1
+    }
+  ],
+  "fallback": "zcode 保持交互式在册（已有 zcode-identity-probe 实证）；headless 能力 UNKNOWN 诚实记录，不阻塞本 Goal",
+  "capability": {
+    "adapter_id": "zcode",
+    "provider": "z.ai",
+    "model_id": "UNKNOWN",
+    "credential_status": "UNKNOWN",
+    "identity_source": "interactive-registered",
+    "model_tier": "UNKNOWN",
+    "thinking_level": "UNKNOWN",
+    "channels": "T1 headless(blocked-in-sandbox) / T3 app-server(UNKNOWN)"
+  }
+}

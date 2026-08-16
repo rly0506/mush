@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-08-17T00:00:00Z",
+  "records": [
+    {
+      "adapter_id": "codex",
+      "provider": "openai",
+      "model_id": "UNKNOWN",
+      "credential_status": "UNKNOWN",
+      "identity_source": "T1-contract-registered",
+      "model_tier": "UNKNOWN",
+      "thinking_level": "UNKNOWN",
+      "channels": "T1 codex exec（合同与解析测试在册）",
+      "identity_evidence": "codex-real-001/002 = BLOCKED_ENV（沙箱 EPERM）",
+      "status": "REGISTERED-UNVERIFIED"
+    },
+    {
+      "adapter_id": "opencode",
+      "provider": "opencode",
+      "model_id": "UNKNOWN",
+      "credential_status": "UNKNOWN",
+      "identity_source": "T1-contract-registered",
+      "model_tier": "UNKNOWN",
+      "thinking_level": "UNKNOWN",
+      "channels": "T1 opencode run（合同与解析测试在册；ACP/HTTP 后续升级项）",
+      "identity_evidence": "opencode-real-001 = BLOCKED_ENV（沙箱环境）",
+      "status": "REGISTERED-UNVERIFIED"
+    },
+    {
+      "adapter_id": "zcode",
+      "provider": "z.ai",
+      "model_id": "UNKNOWN",
+      "credential_status": "UNKNOWN",
+      "identity_source": "interactive-registered",
+      "model_tier": "UNKNOWN",
+      "thinking_level": "UNKNOWN",
+      "channels": "交互式在册；headless 三关 FAIL（见 zcode-headless-three-gates.json）",
+      "status": "REGISTERED-INTERACTIVE"
+    }
+  ]
+}
