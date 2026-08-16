@@ -1,10 +1,7 @@
 # mush Board API 契约 v1
 
-- 状态：`v1.2`（2026-08-17 定稿 v1；GOAL-007B 追加 v1.1；GP-02 追加 v1.2，见下）
-- **前端契约说明（GOAL-012，2026-08-17）**：本文件当前 checkout 自 master，
-  未含 v1.3 聊天节；前端按 g011-deepseek 分支（提交 a300083）的 v1.3 节
-  消费 `POST /api/chat` / `GET /api/chat/history` / roster `role` 字段。
-  M1 联调合并时以 g011-deepseek 的 v1.3 节文本为权威源，本节删除。
+- 状态：`v1.3`（2026-08-17 定稿 v1；GOAL-007B 追加 v1.1；GP-02 追加 v1.2；
+  GOAL-011 追加 v1.3 聊天节——M1 已合并 master，本文件即为权威源）
 - 宿主：`src/web/`（node:http，零依赖）；默认只绑 `127.0.0.1`（对外暴露 = 触发门 4，不实现）
 - 序列化：JSON（UTF-8，LF 结尾）；SSE 用 `text/event-stream`，帧格式 `data: <json>\n\n`
 - 错误约定：失败响应一律 `{ "ok": false, "error": "<human-readable>" }`

@@ -1,7 +1,7 @@
 {
   "goal_id": "MUSH-GOAL-012",
   "title": "对话面板与体验（RM-003 / M2）",
-  "status": "AUTO_ACCEPTED_PENDING_OWNER",
+  "status": "AUTO_ACCEPTED",
   "branch": "g012",
   "worktree": "runtime/worktrees/kimi",
   "executor": "kimi-k3 (thinking high)",
@@ -19,7 +19,11 @@
     "parse_regression": "tests/web-page-parse.test.ts PASS 每批必过（vm.Script 真解析，DEF-07 防线）",
     "full_output": "goals/receipts/GOAL-012-full-test-output.txt"
   },
-  "batches": ["BATCH-36 (chat panel core)", "BATCH-37 (notifications)", "BATCH-38 (logos + visual identity)"],
+  "batches": [
+    "BATCH-36 (chat panel core)",
+    "BATCH-37 (notifications)",
+    "BATCH-38 (logos + visual identity)"
+  ],
   "commits": [
     "64bdaeb docs(G12): land M1 chat API contract v1.3 section (contract-first)",
     "17f957a feat(G12): chat panel — message stream + action cards + gate直通 + head-dog badge + roster roles (263/263)",
@@ -37,5 +41,10 @@
   "followups": [
     "M1 联调批：g011-deepseek 合并后跑一次真实多轮对话（RM-003 DoD），届时删除 api-contract.md 顶部指向说明",
     "M3（GOAL-013） preset/effort 档位/kimi 入册非本 Goal 范围"
-  ]
+  ],
+  "acceptance": {
+    "mode": "D15",
+    "applied": "2026-08-17",
+    "machine_checks": "263/263 worktree; merged 268/268; live 2-round chat PASS (AD-28)"
+  }
 }

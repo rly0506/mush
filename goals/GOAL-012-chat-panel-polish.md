@@ -1,6 +1,6 @@
 ---
 goal_id: MUSH-GOAL-012
-status: QUEUED（RM-003 / M2；契约先行，M1 聊天契约落盘即开工）
+status: AUTO_ACCEPTED（D15，2026-08-17；合并+联调 PASS，AD-28）
 mode: LIGHT
 rm: RM-003 / M2 对话面板与体验
 executor_model_profile: kimi-code（前端，thinking high）

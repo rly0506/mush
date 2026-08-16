@@ -392,3 +392,22 @@ RM-001、RM-002 全部构件正式收官。另：派发包编号改带 RM 前缀
   "更优"假说无法用 nonce 计时单独回答，且 dsh 当前形态 Windows 侧完全
   够用。**搁置为 GP-28**（owner 需要时再攻）；镜像与 Dockerfile 已入仓
   可随时续。
+
+## AD-28 · GOAL-012 验收 + 合并 + M1 联调（2026-08-17，头犬 zcode 会话）
+
+- **隔离验证**：worktree g012 263/263 全绿（web-page-parse 每批必过）；
+  设计问责在案（BATCH-38 design_rationale：极夜雪橇队母题 + 两 skill
+  采纳/舍弃逐条）。
+- **合并**：g012 → master，268/268 全绿；契约升 v1.3 权威源（删除分支
+  指向注）。
+- **M1 联调（真实两轮）PASS**：合并后 master 上 POST /api/chat 两轮，
+  上下文缝合正确（round2 准确复述 round1 指令）。
+- **事故与修复（DEF-11）**：联调首跑 FAIL——两层环境伤：① Windows 侧
+  dsh 安装损坏（lib/ 目录丢失，原因未明，重装 0.1.0-rc.6 修复）；
+  ② **Linux 实验（AD-27）的 RW 容器挂载在 ~/.dsh 留下坏 reparse point**
+  （Linux 符号链接物化为 Windows 不可读重解析点 → EACCES）——ACL 重置
+  无效，删除 profiles/node_modules（包管理产物可重建）后 dsh 自愈。
+  **教训入册：容器挂载宿主配置目录必须 :ro 或专项卷，RW 直挂 = ACL/
+  reparse 污染（GP-28 前置约束更新）。**
+- **验收**：GOAL-012 **AUTO_ACCEPTED**（executor kimi-k3，g012 @ ddd4d4f）。
+  RM-003 M1+M2 完成；剩余 DoD：owner 经面板实操多轮对话 + G013（M3）。
