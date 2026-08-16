@@ -180,6 +180,17 @@ export function renderBoardPage(): string {
   var currentApproval = null;
   var trackedDispatches = [];
 
+  // 时间显示本地化（存储仍为 UTC；owner 2026-08-17 反馈：20 点显示 12:xx Z 造成误读）。
+  function fmtTime(iso) {
+    if (!iso) return '';
+    var t = new Date(iso);
+    if (isNaN(t.getTime())) return String(iso);
+    function p2(n) { return (n < 10 ? '0' : '') + n; }
+    return (t.getMonth() + 1) + '-' + p2(t.getDate()) + ' ' + p2(t.getHours()) + ':' + p2(t.getMinutes()) + ':' + p2(t.getSeconds());
+  }
+
+  function escTime(iso) { return esc(fmtTime(iso)); }
+
   function esc(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
@@ -343,7 +354,7 @@ export function renderBoardPage(): string {
   function buildDetailHtml(data) {
     var d = data.dispatch;
     var events = (d.events || []).map(function (ev) {
-      return '<tr><td>' + esc(ev.phase || ev.kind || '') + '</td><td>' + esc(ev.status || '') + '</td><td class="mono">' + esc(ev.at_utc || '') + '</td></tr>';
+      return '<tr><td>' + esc(ev.phase || ev.kind || '') + '</td><td>' + esc(ev.status || '') + '</td><td class="mono">' + escTime(ev.at_utc || '') + '</td></tr>';
     }).join('');
     var stdoutBlock = '';
     if (d.stdout_tail && d.stdout_tail.text) {
@@ -393,7 +404,7 @@ export function renderBoardPage(): string {
       return '<div class="dispatch-card' + (openDetails[d.dispatch_id] ? ' open' : '') + '" data-dispatch="' + esc(d.dispatch_id) + '">' +
         '<span class="badge ' + esc(d.status) + '">' + esc(d.status) + '</span> ' +
         '<span class="mono">' + esc(String(d.dispatch_id).slice(0, 12)) + '…</span> ' +
-        esc(d.adapter_id || '') + ' <span class="meta">' + esc(d.at_utc || '') + '</span>' +
+        esc(d.adapter_id || '') + ' <span class="meta">' + escTime(d.at_utc || '') + '</span>' +
         (elapsed ? '<span class="elapsed">' + elapsed + '</span>' : '') +
         '<div class="detail">' + (detailCache[d.dispatch_id] || '加载中…') + '</div></div>';
     }).join('');
@@ -446,7 +457,7 @@ export function renderBoardPage(): string {
         var stats = dispatchStats(r.adapter_id);
         var activity = stats.count === 0
           ? '（未活动，注册在册）'
-          : stats.count + ' 次 · <span class="badge ' + esc(stats.latest.status) + '">' + esc(stats.latest.status) + '</span> <span class="mono">' + esc(stats.latest.at_utc || '') + '</span>';
+          : stats.count + ' 次 · <span class="badge ' + esc(stats.latest.status) + '">' + esc(stats.latest.status) + '</span> <span class="mono">' + escTime(stats.latest.at_utc || '') + '</span>';
         return '<tr><td class="mono">' + esc(r.adapter_id) + '</td><td>—</td>' +
           '<td>' + esc(r.expected_provider) + '</td><td>' + esc(r.expected_model_id) + '</td>' +
           '<td class="mono">' + esc((r.variants || []).join(' | ')) + '</td>' +
@@ -474,7 +485,7 @@ export function renderBoardPage(): string {
         return '<tr><td class="mono">' + esc(d.dispatch_id.slice(0, 12)) + '</td>' +
           '<td>' + esc(d.adapter_id) + '</td>' +
           '<td><span class="badge ' + esc(d.status) + '">' + esc(d.status) + '</span></td>' +
-          '<td class="mono">' + esc(d.at_utc || '') + '</td></tr>';
+          '<td class="mono">' + escTime(d.at_utc || '') + '</td></tr>';
       }).join('');
       el.innerHTML = '<div class="hint">（无 epoch 链时显示派发生命周期记录）</div>' +
         '<table><thead><tr><th>dispatch</th><th>犬</th><th>状态</th><th>最近时间</th></tr></thead><tbody>' + dr + '</tbody></table>';
@@ -490,7 +501,7 @@ export function renderBoardPage(): string {
           '<td>' + esc(ev.summary || '') + '</td>' +
           '<td class="hash">' + shortHash(ev.sha256) + '</td>' +
           '<td class="hash">' + (ev.previous_sha256 ? shortHash(ev.previous_sha256) : 'genesis') + '</td>' +
-          '<td class="mono">' + esc(ev.created_at_utc) + '</td></tr>';
+          '<td class="mono">' + escTime(ev.created_at_utc) + '</td></tr>';
       }).join('');
       return '<div class="card"><h3>run ' + esc(epoch.run_id) + ' · epoch ' + epoch.assignment_epoch +
         ' · ' + epoch.event_count + ' 事件 ' + chainBadge +
@@ -512,7 +523,7 @@ export function renderBoardPage(): string {
       var spent = actor.spent_usd || 0;
       var pct = cap > 0 ? Math.min(100, (spent / cap) * 100) : 0;
       var entries = (actor.entries || []).slice(-5).reverse().map(function (entry) {
-        return '<tr><td class="mono">' + esc(entry.at_utc) + '</td><td>' + esc(entry.decision) + '</td>' +
+        return '<tr><td class="mono">' + escTime(entry.at_utc) + '</td><td>' + esc(entry.decision) + '</td>' +
           '<td>$' + Number(entry.amount_usd).toFixed(4) + '</td><td>$' + Number(entry.remaining_usd).toFixed(4) + '</td></tr>';
       }).join('');
       return '<div class="card"><h3>' + esc(actor.actor_id) + '</h3>' +
@@ -533,7 +544,7 @@ export function renderBoardPage(): string {
     var rows = snapshot.approvals.map(function (a, index) {
       var action = a.status === 'WAITING'
         ? '<button class="act approve" data-approval="' + index + '">处理</button>'
-        : esc(a.response ? a.response.responded_at_utc : '');
+        : escTime(a.response ? a.response.responded_at_utc : '');
       return '<tr><td class="mono">' + esc(a.request_file) + '</td><td>' + esc(a.gate) + '</td>' +
         '<td class="mono">' + esc(a.actor_id) + '</td><td>' + esc(a.reason || '') + '</td>' +
         '<td><span class="badge ' + a.status + '">' + a.status + '</span></td><td>' + action + '</td></tr>';
@@ -552,7 +563,7 @@ export function renderBoardPage(): string {
       '<dt>门</dt><dd>' + esc(approval.gate) + '</dd>' +
       '<dt>actor</dt><dd class="mono">' + esc(approval.actor_id) + '</dd>' +
       '<dt>事由</dt><dd>' + esc(approval.reason || '') + '</dd>' +
-      '<dt>请求时间</dt><dd class="mono">' + esc(approval.requested_at_utc) + '</dd>';
+      '<dt>请求时间</dt><dd class="mono">' + escTime(approval.requested_at_utc) + '</dd>';
     document.getElementById('approval-dialog').showModal();
   }
 
@@ -573,7 +584,7 @@ export function renderBoardPage(): string {
   /* ---------- 汇总刷新 ---------- */
   function renderAll() {
     if (!snapshot) return;
-    document.getElementById('generated').textContent = '快照 ' + snapshot.generated_at_utc;
+    document.getElementById('generated').textContent = '快照 ' + escTime(snapshot.generated_at_utc) + '（本地时间）';
     renderAdapterOptions();
     renderDispatches();
     renderDogs();
