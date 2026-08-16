@@ -8,7 +8,7 @@ import {
   buildScenarioCompletion,
   validateTaskPacket,
   type CompletionScenario,
-} from './support/pi-rpc-completion.ts';
+} from '../src/core/pi-rpc-completion.ts';
 import {
   agentSettled,
   messageEnd,
@@ -21,7 +21,7 @@ import {
   type RpcChildScript,
   type RpcSessionOptions,
   type RpcSessionResult,
-} from './support/pi-rpc-session.ts';
+} from '../src/core/pi-rpc-session.ts';
 
 // PS 源追溯（黄金参照，只读）：
 //   D:\意向项目\.agent-bridge\tools\tests\bridge-pi-rpc.tests.ps1 L283-L504

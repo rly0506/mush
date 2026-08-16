@@ -1,0 +1,76 @@
+{
+  "goal_id": "MUSH-GOAL-002",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "dsh/deepseek headless",
+  "changed_paths": [
+    "src/core/event-log.ts",
+    "src/core/epoch-state-machine.ts",
+    "src/core/identity.ts",
+    "src/core/lease.ts",
+    "src/core/capability.ts",
+    "src/core/budget.ts",
+    "src/core/pi-rpc-wire.ts",
+    "src/core/pi-rpc-completion.ts",
+    "src/core/pi-rpc-session.ts",
+    "src/core/pi-adapter.ts",
+    "src/core/pi-adapter-extra.ts",
+    "src/core/process-clixml.ts",
+    "src/core/process-job.ts",
+    "src/core/dispatch-gate.ts",
+    "src/core/windows-argument.ts",
+    "src/core/strict-utf8.ts",
+    "src/schema/events.ts",
+    "src/schema/state.ts",
+    "src/schema/epoch.ts",
+    "src/schema/index.ts",
+    "tests/core-event-log.test.ts",
+    "tests/core-lease.test.ts",
+    "tests/core-capability.test.ts",
+    "tests/core-budget.test.ts",
+    "tests/shadow-replay-epoch21-50.test.ts",
+    "tests/fixtures/replay/epoch21-50-index.json",
+    "tests/fixtures/replay/RM065-GOAL-010-epoch*/state.json（18 个可得状态）",
+    "tests/support/*（改为 src 兼容垫片）",
+    "goals/receipts/BATCH-07..11-*（各批回报与真实测试输出）"
+  ],
+  "tests_run": "npm test：tests 124 / pass 124 / fail 0 / exit 0（GOAL-002 全程真实执行；U1-U5 每批输出与 SHA-256 见 BATCH-07..11-test-output.txt）。",
+  "ported_assertions": [
+    {
+      "test": "core-event-log.test.ts（10 tests / 48 断言）",
+      "ps_source": "start-goal-orchestrator.ps1:L1540-L1868 + epoch50 fixtures"
+    },
+    {
+      "test": "core-lease.test.ts（10 tests / 28 断言）",
+      "ps_source": "bridge-orchestrator.lease.tests.ps1:L247-L277 + rebind L641/L655 + recovery L241"
+    },
+    {
+      "test": "core-capability.test.ts（5 tests / 29 断言）",
+      "ps_source": "BridgeCapabilityRegistry.psm1:L95-L248 + D20"
+    },
+    {
+      "test": "core-budget.test.ts（5 tests / 20 断言）",
+      "ps_source": "bridge-quota.tests.ps1:L67-L74 + CONSTITUTION §1.1"
+    },
+    {
+      "test": "shadow-replay-epoch21-50.test.ts（3 tests / 21 静态断言，运行时展开约 118）",
+      "ps_source": "RM065-GOAL-010-epoch21..50 run roots（只读副本+哈希索引）"
+    }
+  ],
+  "evidence": [
+    { "path": "goals/receipts/BATCH-11-test-output.txt", "sha256": "24CAFBC82C6346EEAA6D538814667AA678D7EF84F598BFFF674AE867C88F644D" },
+    { "path": "src/core/event-log.ts", "sha256": "F5336207F9BD4D7EF9ECA0B0D9C220DA1C67408F51B76D66A26971A4EFAEBF78" },
+    { "path": "src/core/lease.ts", "sha256": "07A423467DAC5AFFE1CD6C4E279EF2EF0188E5CB3B2E5A62E8B426BB7B895124" },
+    { "path": "src/core/capability.ts", "sha256": "CA761B468E1EB95BAA1B6D5D4E6B37F57AF5C9AA8DF4ED1CDC13FA61F35CE923" },
+    { "path": "src/core/budget.ts", "sha256": "AD4332F254E3A077958028C9B48CFAD097285AB63AE67729C5F596369A6DC51D" },
+    { "path": "tests/fixtures/replay/epoch21-50-index.json", "sha256": "47C47E1DCC614E7810485BE0D65DF11A3D7AAE175679E381869303F9770F331D" },
+    { "path": "tests/shadow-replay-epoch21-50.test.ts", "sha256": "0B9E8C12BADD740261F80EA47F0FE7F64A962F4011B04885CB62691D48E8695F" }
+  ],
+  "open_findings": [
+    "F-11 lease 为语义模型；rebind/recovery 文件级集成留后续里程碑",
+    "F-12 D20 真实探测留 M3；本 Goal 只做 fake-provider 结构测试（UNKNOWN 诚实记录已就位）",
+    "F-13 epoch21-49 events/active 为空、epoch32/34 缺失；影子回放以可得证据为准（18 状态 + epoch50 两事件），索引诚实记录覆盖",
+    "F-14 schema 修正：sequence>=0 与 last_event_id nullable（黄金初始态）",
+    "F-15 D19 push 在 U1-U5 均因本环境无 GitHub 凭据失败（SEC_E_NO_CREDENTIALS）；本地 commit 为准，AD-07/AD-08 已记录"
+  ],
+  "spent_estimate_usd": 0.25
+}

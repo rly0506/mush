@@ -4,7 +4,7 @@ import {
   encodeJsonlCommand,
   assertWireFraming,
   stripOuterJsonFence,
-} from './support/pi-rpc-wire.ts';
+} from '../src/core/pi-rpc-wire.ts';
 
 // PS 源追溯（黄金参照，只读）：
 //   D:\意向项目\.agent-bridge\tools\tests\bridge-pi-rpc.tests.ps1

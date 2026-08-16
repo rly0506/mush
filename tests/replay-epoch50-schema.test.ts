@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { parseBridgeEventV2, type BridgeEventV2 } from './support/event-schema.ts';
+import { parseBridgeEventV2, type BridgeEventV2 } from '../src/schema/events.ts';
 
 // U3 回放冒烟：用 agent-bridge 已录 epoch50 事件流验证其 schema 可被 TS 类型解析。
 // 黄金参照（只读）：

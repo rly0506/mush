@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { removeBridgeProgressClixml } from './support/process-clixml.ts';
-import { quoteWindowsArgument } from './support/windows-argument.ts';
+import { removeBridgeProgressClixml } from '../src/core/process-clixml.ts';
+import { quoteWindowsArgument } from '../src/core/windows-argument.ts';
 
 // PS 源追溯（黄金参照，只读）：
 //   D:\意向项目\.agent-bridge\tools\tests\bridge-process-job.tests.ps1

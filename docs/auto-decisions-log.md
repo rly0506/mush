@@ -81,3 +81,11 @@ b47afd7c0fd93fdead7b48392b3dcc1e9e46791d991776330e49a83540d91403  .test-fixtures
   本环境无 GitHub 凭据（schannel SEC_E_NO_CREDENTIALS，push exit 128）；
   U1 本地 commit `b4b12c1` 为准。后续单元仍按包继续尝试，凭据问题不由本
   Goal 内解决（不接触密钥路径、不弹门）。
+
+## AD-08 · GOAL-002 U2-U5 远端同步持续失败（同一环境因，本地 commit 为准）
+
+- **对象**：U2 `e14f28c`、U3 `5537e35`、U4 `2e169b2`、U5 收口 commit 的
+  `git push origin master` 尝试。
+- **裁决**：与 AD-07 同因（本环境无凭据，SEC_E_NO_CREDENTIALS），按包
+  "失败不阻塞"继续；每单元已尝试一次并保留本地 commit 链为权威。owner
+  配置凭据后一条 `git push origin master` 即可同步全部。

@@ -10,7 +10,7 @@ import {
   simulateManagedPiActorWithRestarts,
   validateManagedPiIpcEvent,
   type PiCapability,
-} from './support/pi-adapter.ts';
+} from '../src/core/pi-adapter.ts';
 
 // PS 源追溯（黄金参照，只读）：
 //   D:\意向项目\.agent-bridge\tools\tests\bridge-pi-adapter.tests.ps1

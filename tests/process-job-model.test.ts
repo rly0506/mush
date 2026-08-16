@@ -13,8 +13,8 @@ import {
   stopOwnedProcessTree,
   stopProcessSnapshot,
   type GateView,
-} from './support/process-job.ts';
-import { writeDispatchGateAtomic } from './support/dispatch-gate.ts';
+} from '../src/core/process-job.ts';
+import { writeDispatchGateAtomic } from '../src/core/dispatch-gate.ts';
 
 // PS 源追溯（黄金参照，只读）：
 //   D:\意向项目\.agent-bridge\tools\tests\bridge-process-job.tests.ps1
@@ -182,6 +182,6 @@ function gateView(dispatchId: string): GateView {
 }
 
 function launcherStartedActor(launcher: Launcher): boolean {
-  // 通过 Job 归属判断：assign 后 actor 即被 job 持有（见 support/process-job.ts 语义）。
+  // 通过 Job 归属判断：assign 后 actor 即被 job 持有（见 src/core/process-job.ts 语义）。
   return (launcher as unknown as { started: boolean }).started === true;
 }

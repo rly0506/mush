@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { validateCompletion, validateTaskPacket } from './support/pi-rpc-completion.ts';
-import { readStrictUtf8 } from './support/strict-utf8.ts';
+import { validateCompletion, validateTaskPacket } from '../src/core/pi-rpc-completion.ts';
+import { readStrictUtf8 } from '../src/core/strict-utf8.ts';
 import {
   agentSettled,
   messageEnd,
@@ -12,7 +12,7 @@ import {
   runRpcSession,
   stateResponse,
   type RpcSessionOptions,
-} from './support/pi-rpc-session.ts';
+} from '../src/core/pi-rpc-session.ts';
 
 // PS 源追溯（黄金参照，只读）：
 //   D:\意向项目\.agent-bridge\tools\invoke-managed-pi-agent.ps1
