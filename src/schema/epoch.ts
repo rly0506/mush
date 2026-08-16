@@ -17,7 +17,10 @@ export interface EpochIndex {
 }
 
 /** 由已解析状态 + 事件链构建 epoch 索引；序列必须严格递增且状态闭环。 */
-export function buildEpochIndex(state: OrchestratorStateV2, events: BridgeEventV2[]): EpochIndex {
+export function buildEpochIndex(
+  state: Pick<OrchestratorStateV2, 'assignment_epoch' | 'run_id' | 'last_event_id'>,
+  events: BridgeEventV2[],
+): EpochIndex {
   if (events.length === 0) {
     throw new Error('epoch index requires at least one event');
   }
