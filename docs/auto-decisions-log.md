@@ -160,3 +160,16 @@ b47afd7c0fd93fdead7b48392b3dcc1e9e46791d991776330e49a83540d91403  .test-fixtures
 - **预算门 APPROVAL_REQUEST**（AD-11 小额探测）→ RM DoD"真实弹审批"记录保留
   OPEN，等 owner 批准/否决（不阻塞队列）。
 - **对调实验真跑** → 真实花钱执行需一次有界 dispatch 确认，随 F-28 一并问 owner。
+
+## AD-13 · WSL 不可用 → Docker 路线（路线 B）落地（2026-08-17）
+
+- **背景**：owner 亲测路线 A 失败（管理员下 `wsl --update` 仍 403、Ubuntu 仍
+  E_UNEXPECTED）→ 授权路线 B。
+- **落地**：Docker Desktop daemon 拉起；`docker/dsh.Dockerfile` 构建本地镜像
+  **mush-dsh:local**（node:24-slim + dsh + wrapper，dsh 包缺 bin 链接的怪癖已
+  解决）；容器内 `dsh --version` 冒烟通过；`D:\mush` 挂载进容器可用。
+- **新 finding F-29**：Linux 容器内 `npm test` 4 失败（reparse×2、CLI status
+  路径形态、commit-phase 超时竞态）——Windows 专属语义的预期差异 + 一处值得
+  收紧的慢环境竞态；Windows 基线 182/182 仍为权威。详见 `docker/README.md`。
+- **凭据注入方式**：真实 dispatch 时 key 经 `-e DEEPSEEK_API_KEY` 进程内注入，
+  不落盘不镜像不入库（门 5 合规）。
