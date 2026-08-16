@@ -1,0 +1,21 @@
+{
+  "batch": "BATCH-37",
+  "goal_id": "MUSH-GOAL-012",
+  "rm": "RM-003 / M2 对话面板与体验",
+  "branch": "g012",
+  "at_utc": "2026-08-17T05:40:00Z",
+  "executor": "kimi-k3 (thinking high)",
+  "scope": [
+    "GP-18 完成通知：派发终态 toast 强化 —— 单例 #toast 改为通知栈 #toast-stack（多条叠放、上限 4 条、入场动画、4.5s 自消）",
+    "浏览器 Notification API：聊天工具栏开关 #notify-toggle，默认关；开启即 requestPermission；denied/不支持均优雅回退并提示",
+    "三重门控：notifyPref.browser（localStorage 'mush.notify' 持久化）+ Notification.permission==='granted' + document.hidden（页面可见时不打扰）",
+    "通知内容：终态 status + adapter_id（PASS/DRY_RUN 与失败终态分标题），不含任何任务内容/路径（凭据红线延伸：通知不携敏感载荷）",
+    "toast 偏好同样持久化（notifyPref.toast，默认开）"
+  ],
+  "tests": {
+    "assertions": "tests/web-chat-panel.test.ts 'completion notification' 用例（notify-toggle / Notification / requestPermission / notifyPref 四断言）",
+    "focused_run": "9/9 PASS → goals/receipts/BATCH-37-test-output.txt"
+  },
+  "red_lines": "通知零外链零载荷；权限必须用户授权（不可静默）；127.0.0.1 不变",
+  "acceptance": "D15：机检全绿，待头犬审核 + owner 显式接受"
+}
