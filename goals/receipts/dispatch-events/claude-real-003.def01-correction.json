@@ -1,0 +1,8 @@
+{
+    "schema_version":  1,
+    "corrects":  "claude-real-003.json",
+    "corrected_at_utc":  "2026-08-16T03:48:16.0260281Z",
+    "finding":  "DEF-01",
+    "decision":  "claude-real-003 PASS 撤回：nonce 只证明后端一致；stream-json 运行时 model=deepseek-v4-flash 不符合 anthropic claude 合同，不得作为 Claude Code 犬可用证据",
+    "status":  "REVOKED-FAIL-IDENTITY-MISMATCH"
+}

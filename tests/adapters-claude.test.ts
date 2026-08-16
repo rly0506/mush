@@ -107,6 +107,29 @@ test('claude nonce mismatch and missing model are recorded honestly and verify f
   assert.throws(() => verifyNonceProbeResult(probe), /nonce|identity/i);
 });
 
+test('DEF-01: claude contract fails closed when the runtime stream serves a non-claude model family', async () => {
+  const nonce = makeNonce();
+  const stream = [
+    '{"type":"system","subtype":"init","model":"deepseek-v4-flash"}',
+    '{"type":"result","subtype":"success","result":"' + nonce.expectedSha256 + '","total_cost_usd":0.0001}',
+  ].join('\n');
+  const spawn: SpawnFn = () => makeFakeChild(stream);
+  const probe = await runClaudeStreamNonceProbe({
+    contract: buildClaudeContract('claude-sonnet-4-5'),
+    workspaceRoot: WORKSPACE,
+    evidencePath: EVIDENCE,
+    timeoutMs: 1000,
+    nonce,
+    spawn,
+  });
+  assert.equal(probe.matched, true, 'nonce matches, but that only proves a consistent backend');
+  assert.equal(probe.identityMismatch, true, 'deepseek model under anthropic contract must be flagged');
+  assert.throws(() => verifyNonceProbeResult(probe), /identity|mismatch/i);
+  const evidence = JSON.parse(readFileSync(EVIDENCE, 'utf8')) as Record<string, unknown>;
+  assert.equal(evidence.identity_mismatch, true);
+  assert.equal(evidence.identity_proven, false);
+});
+
 test('identity extraction returns proven only when stream declares a non-UNKNOWN model', () => {
   const withModel: StreamIdentity = parseClaudeStreamJson(
     '{"type":"system","subtype":"init","model":"claude-opus-4-6"}',

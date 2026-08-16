@@ -15,6 +15,7 @@ events/
 # M3 local harness config redirections (may contain credential material; NEVER commit)
 .dsh-home/
 .claude-config/
+.zcode-storage/
 
 # node
 node_modules/

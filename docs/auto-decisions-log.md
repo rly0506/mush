@@ -173,3 +173,22 @@ b47afd7c0fd93fdead7b48392b3dcc1e9e46791d991776330e49a83540d91403  .test-fixtures
   收紧的慢环境竞态；Windows 基线 182/182 仍为权威。详见 `docker/README.md`。
 - **凭据注入方式**：真实 dispatch 时 key 经 `-e DEEPSEEK_API_KEY` 进程内注入，
   不落盘不镜像不入库（门 5 合规）。
+
+## AD-14 · DEF-01 修复 + owner 三项授权执行结果（2026-08-17，dsh 执行）
+
+- **owner 授权**：`授权探测，批准预算，可以执行对调`（已落
+  `goals/receipts/dispatch-approvals/owner-unlock-2026-08-17.json`）。
+- **DEF-01 修复**：`src/adapters/claude.ts` 增加 runtime model-family 校验
+  （anthropic 合同要求模型前缀 `claude-`，否则 identity_mismatch + FAIL）；
+  回归测试在案；`claude-real-003` 已用 append-only correction 文件撤回
+  （REVOKED-FAIL-IDENTITY-MISMATCH）；closure 同步下调 claude=NOT-READY-DEF-01。
+- **真实 anthropic 通道尝试**：cc-switch `claude-official`（无 env）、
+  `pixelapi 官方claude key`（403：group 不允许 /v1/messages dispatch）均不可用
+  → 本环境暂无第二模型家族；claude 犬身份真实化待 owner 提供可用通道。
+- **zcode 真实探测**：owner 已授权后尝试 3 次均环境失败（无效参数 /
+  ~/.zcode EPERM / ZCODE_STORAGE_DIR 重定向后 SQLite readonly）→ 按包纪律停
+  该项，能力保持 UNKNOWN（F-30）。
+- **预算门**：owner 已批准（owner-response 落盘）→ RM DoD“真实弹审批并得到
+  owner 应答”闭环完成。
+- **对调实验**：无第二模型家族（DEF-01 未解），不造假执行；状态 BLOCKED_DEF-01，
+  骨架已备，claude 真实通道就绪后补跑。

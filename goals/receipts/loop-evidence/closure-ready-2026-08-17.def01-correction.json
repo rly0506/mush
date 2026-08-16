@@ -1,0 +1,17 @@
+{
+    "schema_version":  1,
+    "corrects":  "closure-ready-2026-08-17.json",
+    "corrected_at_utc":  "2026-08-16T03:48:16.0260281Z",
+    "finding":  "DEF-01",
+    "decision":  "closure 下调：deepseek-dsh READY；claude-code NOT-READY（真实 anthropic 端点未验证前不得作为第二模型家族）",
+    "dogs":  [
+                 {
+                     "adapter_id":  "deepseek-dsh",
+                     "status":  "READY"
+                 },
+                 {
+                     "adapter_id":  "claude-code",
+                     "status":  "NOT-READY-DEF-01"
+                 }
+             ]
+}

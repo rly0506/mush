@@ -1,0 +1,22 @@
+{
+    "schema_version":  1,
+    "dispatch_id":  "claude-real-005",
+    "adapter_id":  "claude-code",
+    "owner_approval":  "goals/receipts/dispatch-approvals/claude-code.approved.json",
+    "started_at_utc":  "2026-08-16T03:53:38.1595987Z",
+    "finished_at_utc":  "2026-08-16T03:53:44.2420053Z",
+    "provider":  "anthropic",
+    "model_id":  "claude-opus-4-8",
+    "identity_proven":  true,
+    "identity_mismatch":  false,
+    "nonce":  "9c8a9fea18454088bec5f11644b76be8",
+    "expected_sha256":  "9be4e68c0d0cc95684904a16abc36c6ddf73d3f66baa7d025edb384955ea3e80",
+    "observed":  null,
+    "marker_ok":  false,
+    "nonce_matched":  false,
+    "exit_code":  1,
+    "timed_out":  false,
+    "stdout_sha256":  "0801603AD6ECE9817A0D8BB7A926790601F0885CB345F48F79782F567A3C7824",
+    "stdout_len":  3633,
+    "status":  "FAIL"
+}

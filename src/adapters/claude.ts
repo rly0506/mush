@@ -110,6 +110,9 @@ export interface ClaudeNonceProbeResult {
   evidencePath: string;
   stdoutSha256: string;
   exitCode: number;
+  contractProvider: string;
+  contractModelId: string;
+  identityMismatch: boolean;
 }
 
 export interface ClaudeStreamNonceProbeOptions {
@@ -182,6 +185,11 @@ export async function runClaudeStreamNonceProbe(
 
   const stream = parseClaudeStreamJson(stdout);
   const parsed = parseNonceResponse(stream.resultText, nonce.expectedSha256);
+  // DEF-01（宪法 §3 fail-closed）：运行时 model_id 必须匹配合同 provider 期望。
+  // nonce 只证明“后端一致”，不证明“它是 claude 合同犬”。
+  const identityMismatch =
+    options.contract.expected_provider === 'anthropic' &&
+    !/^claude-/i.test(stream.identity.modelId);
   const evidence = {
     schema_version: 1,
     adapter_id: options.contract.adapter_id,
@@ -190,7 +198,8 @@ export async function runClaudeStreamNonceProbe(
     finished_at_utc: new Date().toISOString(),
     provider: stream.identity.provider,
     model_id: stream.identity.modelId,
-    identity_proven: stream.identity.proven,
+    identity_proven: stream.identity.proven && !identityMismatch,
+    identity_mismatch: identityMismatch,
     nonce: nonce.nonce,
     expected_sha256: nonce.expectedSha256,
     observed: parsed.observed,
@@ -213,14 +222,18 @@ export async function runClaudeStreamNonceProbe(
     evidencePath: options.evidencePath,
     stdoutSha256: evidence.stdout_sha256,
     exitCode,
+    contractProvider: options.contract.expected_provider,
+    contractModelId: options.contract.expected_model_id,
+    identityMismatch,
   };
 }
 
-/** D13 fail-closed：nonce 不匹配或身份不可证明即禁止继续 dispatch。 */
+/** D13 + DEF-01 fail-closed：nonce 匹配 + 运行时模型家族必须符合合同，否则禁止 dispatch。 */
 export function verifyNonceProbeResult(probe: ClaudeNonceProbeResult): void {
-  if (!probe.matched || !probe.identity.proven || probe.exitCode !== 0) {
+  if (!probe.matched || !probe.identity.proven || probe.identityMismatch || probe.exitCode !== 0) {
     throw new Error(
-      `claude nonce probe failed: matched=${probe.matched} identity=${probe.identity.modelId} exit=${probe.exitCode}`,
+      `claude nonce probe failed: matched=${probe.matched} identity=${probe.identity.modelId} ` +
+        `identityMismatch=${probe.identityMismatch} exit=${probe.exitCode}`,
     );
   }
 }

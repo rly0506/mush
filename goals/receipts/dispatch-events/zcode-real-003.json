@@ -1,0 +1,21 @@
+{
+    "schema_version":  1,
+    "dispatch_id":  "zcode-real-003",
+    "adapter_id":  "zcode",
+    "owner_approval":  "goals/receipts/dispatch-approvals/owner-unlock-2026-08-17.json",
+    "started_at_utc":  "2026-08-16T03:50:35.0665757Z",
+    "finished_at_utc":  "2026-08-16T03:50:38.0094107Z",
+    "provider":  "z.ai",
+    "model_id":  "UNKNOWN",
+    "identity_proven":  false,
+    "nonce":  "b3d044411aef4328b7be208680f70ba5",
+    "expected_sha256":  "f28906f6a582df55e4fe5a2324a5024f4e9a8b4bee8802a948f7e0df1f5b67ac",
+    "observed":  null,
+    "marker_ok":  false,
+    "nonce_matched":  false,
+    "exit_code":  1,
+    "timed_out":  false,
+    "stdout_sha256":  "5F82B8802DB8410DB1C4428BE9F69A30EA2AD790D8F4149E035FED6471D559C0",
+    "stdout_len":  462,
+    "status":  "FAIL"
+}

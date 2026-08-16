@@ -1,0 +1,8 @@
+{
+    "schema_version":  1,
+    "request_file":  "budget-gate-mush-goal-004-probe-2026-08-16T03-29-26-3047981Z.json",
+    "responded_at_utc":  "2026-08-16T03:47:24.2231209Z",
+    "owner_decision":  "APPROVED",
+    "owner_evidence":  "owner 2026-08-17：批准预算",
+    "note":  "RM DoD 真实弹审批闭环：owner 已应答（预算门机制验证完成）"
+}
