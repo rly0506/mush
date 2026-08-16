@@ -301,3 +301,19 @@ b47afd7c0fd93fdead7b48392b3dcc1e9e46791d991776330e49a83540d91403  .test-fixtures
 - **意义**：GOAL-007B 四项修复经 owner 实操确认；workspace 正确落在
   playground（D1 修复验证）；RM-002 DoD 剩余：意向项目收官任务（owner 指定）
   + 扩编犬 nonce 补跑（普通环境）。
+
+## AD-21 · GP-02 验收 + 并行协作新规则（2026-08-17，头犬 zcode 会话）
+
+- **隔离验证（git worktree @ c106abc）**：248/248 全绿；活体验证 create 201 /
+  重复 409 / 相对路径 400 / 正斜杠登记归一回显 selected=true 无双条目——
+  kimi 交付时点 252/252 主张属实（当时树无 deepseek 在途文件）。
+- **验收**：GP-02 **AUTO_ACCEPTED**（executor kimi-k3，commits 2b2515d/c106abc）。
+- **F-45（流程改进，源自本次干扰）**：共享工作树的并行批次第三次交错
+  （BATCH 撞号、F-37 全量红、本次 11 fail），头犬验收被迫 worktree 隔离。
+  **新规则（即日生效）：并行派发包必须配 per-dog git worktree**（如
+  `runtime/worktrees/<dog>`），完成后由头犬合并——dashi-taskboard worktree
+  协作教训的直接落地。写入派发包模板。
+- **F-46（悬案，待 owner 说明）**：`gargantua-raytracer/`（web 项目，
+  2026-08-16 17:42 创建，含 .npm-cache2）在 D:\mush 内、无任何派发/回执
+  记录对应——来源不明，非 mush 治理内产物。头犬未动；请 owner 确认来源
+  （自行实验/其他工具产物/可归档删除）。
