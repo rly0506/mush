@@ -1,6 +1,6 @@
 {
   "goal_id": "MUSH-GOAL-010",
-  "status": "AUTO_ACCEPTED",
+  "status": "DONE",
   "executor": "dsh/deepseek headless",
   "changed_paths": [
     "src/adapters/ccswitch-probe.ts",
@@ -32,5 +32,10 @@
     "mode": "D15",
     "applied": "2026-08-17",
     "machine_checks": "head verified: tracked 9/9, full 242/242, registry clean, roster live 19/61/2/2 (AD-18)"
+  },
+  "done": {
+    "by": "owner",
+    "at": "2026-08-17",
+    "via": "AD-25 batch ratification"
   }
 }

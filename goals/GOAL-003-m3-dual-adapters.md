@@ -1,6 +1,6 @@
 ---
 goal_id: MUSH-GOAL-003
-status: QUEUED（队列自续，DECISIONS D17）
+status: DONE（owner 2026-08-17 一句话转正，AD-25）
 mode: LIGHT（宪法 §1 轻量档；触发门照常生效）
 rm: RM-001 / M3 双犬适配器（含 D21 CLI 化、D20 实测注册）
 executor_model_profile: 头犬派发（dsh/deepseek headless 或等价可用 harness）

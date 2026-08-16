@@ -1,6 +1,6 @@
 {
   "goal_id": "MUSH-GOAL-004",
-  "status": "COMPLETE_REQUESTED",
+  "status": "DONE",
   "executor": "dsh/deepseek headless",
   "changed_paths": [
     "docs/dispatch/004-deepseek-dsh-m4-dogfood.md",
@@ -39,9 +39,18 @@
     }
   ],
   "evidence": [
-    { "path": "goals/receipts/BATCH-21-test-output.txt", "sha256": "D9A05C0336B6C9979E0950D85C3D2BFA3077519C0CD29942E207E266DD92CBA8" },
-    { "path": "goals/receipts/loop-evidence/scan-2026-08-17.json", "sha256": "24EEB9ED8E93D849182B18227C92E2C9D3E3FAB4778884DF2628621BF52E5EC1" },
-    { "path": "goals/receipts/loop-evidence/closure-2026-08-17.json", "sha256": "C5ECD8E07F7C741AB122B5816B660709BA817EEA84EC9F5CB93AA41008BE2F52" }
+    {
+      "path": "goals/receipts/BATCH-21-test-output.txt",
+      "sha256": "D9A05C0336B6C9979E0950D85C3D2BFA3077519C0CD29942E207E266DD92CBA8"
+    },
+    {
+      "path": "goals/receipts/loop-evidence/scan-2026-08-17.json",
+      "sha256": "24EEB9ED8E93D849182B18227C92E2C9D3E3FAB4778884DF2628621BF52E5EC1"
+    },
+    {
+      "path": "goals/receipts/loop-evidence/closure-2026-08-17.json",
+      "sha256": "C5ECD8E07F7C741AB122B5816B660709BA817EEA84EC9F5CB93AA41008BE2F52"
+    }
   ],
   "open_findings": [
     "F-26 U3/U4 同批实现（审核门与对调骨架共享状态机依赖）",
@@ -55,5 +64,10 @@
       "owner has not selected first task (m5-board | zcode-adapter)"
     ]
   },
-  "spent_estimate_usd": 0.08
+  "spent_estimate_usd": 0.08,
+  "done": {
+    "by": "owner",
+    "at": "2026-08-17",
+    "via": "AD-25 batch ratification"
+  }
 }

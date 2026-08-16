@@ -355,3 +355,10 @@ b47afd7c0fd93fdead7b48392b3dcc1e9e46791d991776330e49a83540d91403  .test-fixtures
 - **里程碑**：RM-002 DoD 全满足——owner 实操全流程 ✅ + 意向项目真实任务 ✅。
   RM-002 状态 COMPLETE_REQUESTED，DONE 待 owner 一句话。
 - GP-18（完成通知）升级为 owner 明确诉求；DEF-10 记入池。
+
+## AD-25 · 批量转正（2026-08-17，owner 一句话"全部转正"）
+
+GOAL-001 / 002 / 003 / 004 / 005 / 007B / GP-02 / GP-03 / GOAL-010 全部
+AUTO_ACCEPTED → **DONE**（goal 文件与 completion 回执同步更新）。至此
+RM-001、RM-002 全部构件正式收官。另：派发包编号改带 RM 前缀（rm003-pNN），
+杜绝 Goal 号/包号歧义（GOAL-010 重复领单教训）。

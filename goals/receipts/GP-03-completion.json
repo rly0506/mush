@@ -1,6 +1,6 @@
 {
   "goal_id": "GP-03",
-  "status": "COMPLETE_REQUESTED",
+  "status": "DONE",
   "executor": "dsh/deepseek headless",
   "changed_paths": [
     "src/web/persistence.ts",
@@ -34,5 +34,10 @@
     "F-38 同进程重入放行（嵌入式多 server 需要；跨进程防线在案）",
     "F-39 进程级杀-重启冒烟受沙箱限制，以同进程 close→重启等价测试替代"
   ],
-  "spent_estimate_usd": 0.04
+  "spent_estimate_usd": 0.04,
+  "done": {
+    "by": "owner",
+    "at": "2026-08-17",
+    "via": "AD-25 batch ratification"
+  }
 }

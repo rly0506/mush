@@ -1,6 +1,6 @@
 {
   "goal_id": "MUSH-GOAL-001",
-  "status": "AUTO_ACCEPTED",
+  "status": "DONE",
   "acceptance": {
     "mode": "standing-default D15（非阻断验收，试行）",
     "applied": "2026-08-16",
@@ -47,19 +47,58 @@
     }
   ],
   "evidence": [
-    { "path": "goals/receipts/BATCH-01-test-output.txt", "sha256": "632CCC4A8BD624696028E84A252690778F292C5E8BF420FCD7849865ACF2A5A5" },
-    { "path": "tests/pi-rpc-completion-state-machine.test.ts", "sha256": "0868A806E8157512B4F2A22B08B20393D18C0C14B4F853461C2026B17FD64860" },
-    { "path": "tests/pi-adapter-capability.test.ts", "sha256": "00BBCBB6993152E75047EAF03FA1221717A1C472C9A2AE43BE81E6242449FB80" },
-    { "path": "tests/process-job-clixml.test.ts", "sha256": "7898B9125FC1029FBB4CC14C510624A01FD832BD5D79273326F6C8D3938423E4" },
-    { "path": "tests/pi-rpc-wire-codec.test.ts", "sha256": "6712073C1A9562995548C2EBFFF04EC1DDA41F8EFC0596DFB01C6B3FBDDAB4A0" },
-    { "path": "tests/support/pi-rpc-wire.ts", "sha256": "350600B797855EA012E47E079826508C4F74490006267395F792AD4D425C62BC" },
-    { "path": "tests/support/pi-rpc-completion.ts", "sha256": "4C99C7403954FBE39FABD63EAC35B956331126AA09361CC279D5B9B65C4568A6" },
-    { "path": "tests/support/pi-rpc-session.ts", "sha256": "F9B276B4C1077B34DBF829F0C51E0422426CA50A6EB0B08D998F5545446DEE1E" },
-    { "path": "tests/support/pi-adapter.ts", "sha256": "EFA3681B9250682FFE11AB3FFAC82B06C3BE6720BF0231E5969481D859424420" },
-    { "path": "tests/support/process-clixml.ts", "sha256": "6BBC0DAFC5553D54C8A953782851F330184C1C3C06BD37C7836566E0660D748D" },
-    { "path": "tests/support/windows-argument.ts", "sha256": "B7D68C9C80AD74EC5199CE8039EAE0FA1DFFCA674C9962A3754FEA9297863853" },
-    { "path": "package.json", "sha256": "CB715E528692A01B17C0BDB9DCE8E36A717F0312A7AFB71FD19E917B305B4CA1" },
-    { "path": "tsconfig.json", "sha256": "13DFEE6FD9896AF95E458E6F2E281F55AA0FAA5A458FFF07C25497F3C33FBF99" }
+    {
+      "path": "goals/receipts/BATCH-01-test-output.txt",
+      "sha256": "632CCC4A8BD624696028E84A252690778F292C5E8BF420FCD7849865ACF2A5A5"
+    },
+    {
+      "path": "tests/pi-rpc-completion-state-machine.test.ts",
+      "sha256": "0868A806E8157512B4F2A22B08B20393D18C0C14B4F853461C2026B17FD64860"
+    },
+    {
+      "path": "tests/pi-adapter-capability.test.ts",
+      "sha256": "00BBCBB6993152E75047EAF03FA1221717A1C472C9A2AE43BE81E6242449FB80"
+    },
+    {
+      "path": "tests/process-job-clixml.test.ts",
+      "sha256": "7898B9125FC1029FBB4CC14C510624A01FD832BD5D79273326F6C8D3938423E4"
+    },
+    {
+      "path": "tests/pi-rpc-wire-codec.test.ts",
+      "sha256": "6712073C1A9562995548C2EBFFF04EC1DDA41F8EFC0596DFB01C6B3FBDDAB4A0"
+    },
+    {
+      "path": "tests/support/pi-rpc-wire.ts",
+      "sha256": "350600B797855EA012E47E079826508C4F74490006267395F792AD4D425C62BC"
+    },
+    {
+      "path": "tests/support/pi-rpc-completion.ts",
+      "sha256": "4C99C7403954FBE39FABD63EAC35B956331126AA09361CC279D5B9B65C4568A6"
+    },
+    {
+      "path": "tests/support/pi-rpc-session.ts",
+      "sha256": "F9B276B4C1077B34DBF829F0C51E0422426CA50A6EB0B08D998F5545446DEE1E"
+    },
+    {
+      "path": "tests/support/pi-adapter.ts",
+      "sha256": "EFA3681B9250682FFE11AB3FFAC82B06C3BE6720BF0231E5969481D859424420"
+    },
+    {
+      "path": "tests/support/process-clixml.ts",
+      "sha256": "6BBC0DAFC5553D54C8A953782851F330184C1C3C06BD37C7836566E0660D748D"
+    },
+    {
+      "path": "tests/support/windows-argument.ts",
+      "sha256": "B7D68C9C80AD74EC5199CE8039EAE0FA1DFFCA674C9962A3754FEA9297863853"
+    },
+    {
+      "path": "package.json",
+      "sha256": "CB715E528692A01B17C0BDB9DCE8E36A717F0312A7AFB71FD19E917B305B4CA1"
+    },
+    {
+      "path": "tsconfig.json",
+      "sha256": "13DFEE6FD9896AF95E458E6F2E281F55AA0FAA5A458FFF07C25497F3C33FBF99"
+    }
   ],
   "open_findings": [
     "F-01 sandbox EPERM：npm test 使用 --test-isolation=none 绕过 harness 对 piped-stdio spawn 的封锁；零依赖。",
@@ -69,5 +108,10 @@
     "F-05 Job Object / reparse / named-pipe IPC / gated launcher 进程树用例留待 U2-U3。",
     "F-06 .test-fixtures 运行时物累积（禁删文件），已 gitignore。"
   ],
-  "spent_estimate_usd": 0.05
+  "spent_estimate_usd": 0.05,
+  "done": {
+    "by": "owner",
+    "at": "2026-08-17",
+    "via": "AD-25 batch ratification"
+  }
 }

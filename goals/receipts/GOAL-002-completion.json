@@ -1,6 +1,6 @@
 {
   "goal_id": "MUSH-GOAL-002",
-  "status": "AUTO_ACCEPTED",
+  "status": "DONE",
   "acceptance": {
     "mode": "standing-default D15（非阻断验收）",
     "applied": "2026-08-17",
@@ -63,13 +63,34 @@
     }
   ],
   "evidence": [
-    { "path": "goals/receipts/BATCH-11-test-output.txt", "sha256": "24CAFBC82C6346EEAA6D538814667AA678D7EF84F598BFFF674AE867C88F644D" },
-    { "path": "src/core/event-log.ts", "sha256": "F5336207F9BD4D7EF9ECA0B0D9C220DA1C67408F51B76D66A26971A4EFAEBF78" },
-    { "path": "src/core/lease.ts", "sha256": "07A423467DAC5AFFE1CD6C4E279EF2EF0188E5CB3B2E5A62E8B426BB7B895124" },
-    { "path": "src/core/capability.ts", "sha256": "CA761B468E1EB95BAA1B6D5D4E6B37F57AF5C9AA8DF4ED1CDC13FA61F35CE923" },
-    { "path": "src/core/budget.ts", "sha256": "AD4332F254E3A077958028C9B48CFAD097285AB63AE67729C5F596369A6DC51D" },
-    { "path": "tests/fixtures/replay/epoch21-50-index.json", "sha256": "47C47E1DCC614E7810485BE0D65DF11A3D7AAE175679E381869303F9770F331D" },
-    { "path": "tests/shadow-replay-epoch21-50.test.ts", "sha256": "0B9E8C12BADD740261F80EA47F0FE7F64A962F4011B04885CB62691D48E8695F" }
+    {
+      "path": "goals/receipts/BATCH-11-test-output.txt",
+      "sha256": "24CAFBC82C6346EEAA6D538814667AA678D7EF84F598BFFF674AE867C88F644D"
+    },
+    {
+      "path": "src/core/event-log.ts",
+      "sha256": "F5336207F9BD4D7EF9ECA0B0D9C220DA1C67408F51B76D66A26971A4EFAEBF78"
+    },
+    {
+      "path": "src/core/lease.ts",
+      "sha256": "07A423467DAC5AFFE1CD6C4E279EF2EF0188E5CB3B2E5A62E8B426BB7B895124"
+    },
+    {
+      "path": "src/core/capability.ts",
+      "sha256": "CA761B468E1EB95BAA1B6D5D4E6B37F57AF5C9AA8DF4ED1CDC13FA61F35CE923"
+    },
+    {
+      "path": "src/core/budget.ts",
+      "sha256": "AD4332F254E3A077958028C9B48CFAD097285AB63AE67729C5F596369A6DC51D"
+    },
+    {
+      "path": "tests/fixtures/replay/epoch21-50-index.json",
+      "sha256": "47C47E1DCC614E7810485BE0D65DF11A3D7AAE175679E381869303F9770F331D"
+    },
+    {
+      "path": "tests/shadow-replay-epoch21-50.test.ts",
+      "sha256": "0B9E8C12BADD740261F80EA47F0FE7F64A962F4011B04885CB62691D48E8695F"
+    }
   ],
   "open_findings": [
     "F-11 lease 为语义模型；rebind/recovery 文件级集成留后续里程碑",
@@ -78,5 +99,10 @@
     "F-14 schema 修正：sequence>=0 与 last_event_id nullable（黄金初始态）",
     "F-15 D19 push 在 U1-U5 均因本环境无 GitHub 凭据失败（SEC_E_NO_CREDENTIALS）；本地 commit 为准，AD-07/AD-08 已记录"
   ],
-  "spent_estimate_usd": 0.25
+  "spent_estimate_usd": 0.25,
+  "done": {
+    "by": "owner",
+    "at": "2026-08-17",
+    "via": "AD-25 batch ratification"
+  }
 }

@@ -1,6 +1,6 @@
 ---
 goal_id: MUSH-GOAL-004
-status: QUEUED（队列自续，DECISIONS D17）
+status: DONE（owner 2026-08-17 一句话转正，AD-25）
 mode: LIGHT（宪法 §1 轻量档；触发门照常生效）
 rm: RM-001 / M4 dogfood 首个 live loop
 executor_model_profile: 头犬 mush 自身（编排）；执行犬 Claude Code（对调实验时

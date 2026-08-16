@@ -1,11 +1,15 @@
 {
   "goal_id": "MUSH-GOAL-005",
   "rm": "RM-001 / M5 Web 看板最小版",
-  "status": "COMPLETE_REQUESTED",
+  "status": "DONE",
   "semantics": "D15：机检验收规格全绿，请求 AUTO_ACCEPTED；DONE 与否决权仍归 owner",
   "executor": "kimi-k3 (goal mode)",
   "completed_at_utc": "2026-08-16T05:46:00Z",
-  "batches": ["BATCH-24", "BATCH-25", "BATCH-26"],
+  "batches": [
+    "BATCH-24",
+    "BATCH-25",
+    "BATCH-26"
+  ],
   "commits": [
     "a652e91 feat(G5-U1): board data-source projection layer",
     "208b03a docs(G5-U1): BATCH-24 completion receipt",
@@ -30,15 +34,42 @@
     }
   },
   "evidence_paths_and_hashes": [
-    { "path": "src/web/sources.ts", "sha256": "F879F7DA17143853790F40BA954996AB246EF278FCCD5CEED22A9768E910E5C8" },
-    { "path": "src/web/server.ts", "sha256": "F76C30F76CE2967AA5794C8B822EDB8CE72E3D8CAD56E4E10CB08B6183A73363" },
-    { "path": "src/web/page.ts", "sha256": "2855D8953179F7CDD5877C3E096701D89ACC447B3FBC15B94B34C37F77EC5814" },
-    { "path": "src/cli.ts", "sha256": "537836876944D196E380EE7E68E6675C4547976A0DAF483EFE8BCD8D27BE7CE2" },
-    { "path": "bin/mush", "sha256": "341FB84B66B749F9496B8D75709B400D5F76CD8EE20BA6795D76128CE9168320" },
-    { "path": "tests/web-sources.test.ts", "sha256": "661052C75B79C9570228F86E6CE1D38C6E4F4068B0CD7A4356488F175AF4AEA9" },
-    { "path": "tests/web-server.test.ts", "sha256": "8E6A346693750DD0CDF4B364B8B55D93FFA203C311D062A372BA4ED7A1AAA99E" },
-    { "path": "tests/web-board-cli.test.ts", "sha256": "BF581D5AFF7A4205BBFCD0036B7563F4758BCDD8C53EEDA65847051A899BDE72" },
-    { "path": "goals/receipts/BATCH-26-test-output.txt", "sha256": "7D858AD8A8C8CD94AA95A9EF0409CFD556A7E683E2A80A8C8F1744BE2E76D4B6" }
+    {
+      "path": "src/web/sources.ts",
+      "sha256": "F879F7DA17143853790F40BA954996AB246EF278FCCD5CEED22A9768E910E5C8"
+    },
+    {
+      "path": "src/web/server.ts",
+      "sha256": "F76C30F76CE2967AA5794C8B822EDB8CE72E3D8CAD56E4E10CB08B6183A73363"
+    },
+    {
+      "path": "src/web/page.ts",
+      "sha256": "2855D8953179F7CDD5877C3E096701D89ACC447B3FBC15B94B34C37F77EC5814"
+    },
+    {
+      "path": "src/cli.ts",
+      "sha256": "537836876944D196E380EE7E68E6675C4547976A0DAF483EFE8BCD8D27BE7CE2"
+    },
+    {
+      "path": "bin/mush",
+      "sha256": "341FB84B66B749F9496B8D75709B400D5F76CD8EE20BA6795D76128CE9168320"
+    },
+    {
+      "path": "tests/web-sources.test.ts",
+      "sha256": "661052C75B79C9570228F86E6CE1D38C6E4F4068B0CD7A4356488F175AF4AEA9"
+    },
+    {
+      "path": "tests/web-server.test.ts",
+      "sha256": "8E6A346693750DD0CDF4B364B8B55D93FFA203C311D062A372BA4ED7A1AAA99E"
+    },
+    {
+      "path": "tests/web-board-cli.test.ts",
+      "sha256": "BF581D5AFF7A4205BBFCD0036B7563F4758BCDD8C53EEDA65847051A899BDE72"
+    },
+    {
+      "path": "goals/receipts/BATCH-26-test-output.txt",
+      "sha256": "7D858AD8A8C8CD94AA95A9EF0409CFD556A7E683E2A80A8C8F1744BE2E76D4B6"
+    }
   ],
   "open_findings": [
     "F-G5-01 goals/receipts/dispatch-events/swap-deepseek-real-001.json.t1-receipt.json 为 GOAL-004 遗留未跟踪文件，不属本 Goal 范围，未动（范围纪律）",
@@ -46,5 +77,10 @@
     "F-G5-03 看板对外暴露（局域网手机访问）属触发门 4，未实现开关，待 owner 明确开启"
   ],
   "spent_estimate_usd_total": 1.05,
-  "per_actor_cap_usd": 5
+  "per_actor_cap_usd": 5,
+  "done": {
+    "by": "owner",
+    "at": "2026-08-17",
+    "via": "AD-25 batch ratification"
+  }
 }

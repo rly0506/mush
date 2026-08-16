@@ -1,7 +1,7 @@
 {
   "goal_id": "MUSH-GOAL-007B",
   "rm": "RM-002 / 看板前端错误排查与优化（owner 实测反馈）",
-  "status": "AUTO_ACCEPTED",
+  "status": "DONE",
   "semantics": "D15：机检验收规格全绿 + live 冒烟真实执行，请求 AUTO_ACCEPTED；DONE 与否决权仍归 owner",
   "executor": "kimi-k3 (goal mode, dispatch packet docs/dispatch/006-kimi-frontend-triage.md)",
   "completed_at_utc": "2026-08-16T08:30:00Z",
@@ -63,5 +63,10 @@
     "mode": "D15",
     "applied": "2026-08-17",
     "machine_checks": "head verified live: selected/tail/upsert all working (AD-19)"
+  },
+  "done": {
+    "by": "owner",
+    "at": "2026-08-17",
+    "via": "AD-25 batch ratification"
   }
 }

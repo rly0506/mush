@@ -1,6 +1,6 @@
 ---
 goal_id: MUSH-GOAL-010
-status: AUTO_ACCEPTED（D15，2026-08-17；DONE 待 owner 转正）
+status: DONE（owner 2026-08-17 一句话转正，AD-25）
 mode: LIGHT（触发门照常生效）
 rm: RM-002 / D20 完整落地
 executor_model_profile: deepseek-dsh（后端）

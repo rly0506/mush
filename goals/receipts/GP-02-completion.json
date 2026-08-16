@@ -1,11 +1,13 @@
 {
   "goal_id": "MUSH-GP-02",
   "rm": "RM-002 / goal-pool GP-02（P2 前端批：workspace 自主登记 + 路径归一）",
-  "status": "COMPLETE_REQUESTED",
+  "status": "DONE",
   "semantics": "D15：机检验收规格全绿 + live 冒烟真实执行，请求 AUTO_ACCEPTED；DONE 与否决权仍归 owner",
   "executor": "kimi-k3 (goal mode, dispatch packet docs/dispatch/008-kimi-p2-workspace.md)",
   "completed_at_utc": "2026-08-16T09:05:00Z",
-  "batches": ["BATCH-33"],
+  "batches": [
+    "BATCH-33"
+  ],
   "commits": [
     "2b2515d feat(G-P2): workspace self-registration (F-40) + path normalization (F-39) — POST /api/workspaces/create, register input + confirm dialog, frozen-zone refusal; contract v1.2 (252/252 green)"
   ],
@@ -21,13 +23,34 @@
     "live_smoke": "真实起服冒烟三项全过：正斜杠登记 playground → 回显归一 selected=true 无重复条目；create 新目录 → 201 + 目录真实创建 + WorkspaceInfo；重复 409 / 相对路径 400；冒烟后进程已终止"
   },
   "evidence_paths_and_hashes": [
-    { "path": "src/web/page.ts", "sha256": "CFEAF00B2396259819B706CA626F7E16DE4C1AA712660EE0FDB9E690FE49C33B" },
-    { "path": "src/web/dispatch.ts", "sha256": "00C2C50F32A580E90355522EC0D971E365CF20FBB4DDB0F094B0DCB8D60894DE" },
-    { "path": "src/web/server.ts", "sha256": "7AD6A05ABE73F34196C7F4389DFEBE5B4ED16D43B94D6104421CA5FE8A85A22D" },
-    { "path": "src/web/api-contract.md", "sha256": "00650D3F1889CB20E770A1549402E7969444737CBFBE1D88AFF78414B421815F" },
-    { "path": "tests/web-workspace-create.test.ts", "sha256": "B0C410EC1F8A41670864F6282A98578AE0D4B78DD0A5ECBA2DA6FA406E59CDB9" },
-    { "path": "tests/web-workspace-register-page.test.ts", "sha256": "0DA9291DCCF235709D1B3D480CACCF5AD29BAADC7341F2E925063348E43A0F4A" },
-    { "path": "goals/receipts/BATCH-33-test-output.txt", "sha256": "E73A86FFDB118683A33B0E0011130749F794545DFA1A288461E35AAA59E48F78" }
+    {
+      "path": "src/web/page.ts",
+      "sha256": "CFEAF00B2396259819B706CA626F7E16DE4C1AA712660EE0FDB9E690FE49C33B"
+    },
+    {
+      "path": "src/web/dispatch.ts",
+      "sha256": "00C2C50F32A580E90355522EC0D971E365CF20FBB4DDB0F094B0DCB8D60894DE"
+    },
+    {
+      "path": "src/web/server.ts",
+      "sha256": "7AD6A05ABE73F34196C7F4389DFEBE5B4ED16D43B94D6104421CA5FE8A85A22D"
+    },
+    {
+      "path": "src/web/api-contract.md",
+      "sha256": "00650D3F1889CB20E770A1549402E7969444737CBFBE1D88AFF78414B421815F"
+    },
+    {
+      "path": "tests/web-workspace-create.test.ts",
+      "sha256": "B0C410EC1F8A41670864F6282A98578AE0D4B78DD0A5ECBA2DA6FA406E59CDB9"
+    },
+    {
+      "path": "tests/web-workspace-register-page.test.ts",
+      "sha256": "0DA9291DCCF235709D1B3D480CACCF5AD29BAADC7341F2E925063348E43A0F4A"
+    },
+    {
+      "path": "goals/receipts/BATCH-33-test-output.txt",
+      "sha256": "E73A86FFDB118683A33B0E0011130749F794545DFA1A288461E35AAA59E48F78"
+    }
   ],
   "open_findings": [
     "F-GP02-01 意向项目后端硬拦截属 GP-14 范围，本包只做前端纵深防御提示层（派发包明示）",
@@ -35,5 +58,10 @@
     "F-GP02-03 冒烟登记了 .test-fixtures/gp02-created-ws 进 known-workspaces.json（运行态 gitignore 内），如需清理 owner 可删"
   ],
   "spent_estimate_usd_total": 0.5,
-  "per_actor_cap_usd": 5
+  "per_actor_cap_usd": 5,
+  "done": {
+    "by": "owner",
+    "at": "2026-08-17",
+    "via": "AD-25 batch ratification"
+  }
 }
