@@ -339,3 +339,19 @@ b47afd7c0fd93fdead7b48392b3dcc1e9e46791d991776330e49a83540d91403  .test-fixtures
   落盘（5 行全链），属回放聚合缺陷。归 GP-10（运行历史）或下一后端批顺手修。
 - **F-40/编号事件**：deepseek 误用 BATCH-33 后已 git 恢复 kimi 原文并规范为
   BATCH-34——核验通过（两份回执俱在）。
+
+## AD-24 · GP-01 验收：意向项目首个真实任务完成——RM-002 DoD 全满足（2026-08-17）
+
+- **任务**：RM-055-RF-C discovery 0 seeds 只读诊断（dispatch `f49de5c7`，deepseek-dsh，
+  real，20:26-20:42 本地，PASS）。
+- **产物**：`D:\意向项目\spec\rf-c-discovery-diagnosis-2026-08-17.md`（201 行，
+  frontmatter 规范，结论：0 seeds 属"collectors 返回零/上游运输层失败"而非过滤删光；
+  证据带 file:line，discovery.db 以 mode=ro 打开）。
+- **红线核验**：意向项目 git status 与执行前一致 + 仅新增报告与 mush 运行时目录；
+  backend untracked 文件均为 8 月初既有脏状态（F-02），非犬产物；.agent-bridge/ 零接触。
+- **历程备案**（诚实记录）：两次被误杀（120s 旧超时；头犬重启孤儿化）+ 一次头犬
+  派发漏 workspace 字段跑错仓库（已终止，DEF-10：派发默认工作区应取持久化选择）。
+  第四次成功——机制修复（900s/僵尸回收/重启纪律）逐一兑现。
+- **里程碑**：RM-002 DoD 全满足——owner 实操全流程 ✅ + 意向项目真实任务 ✅。
+  RM-002 状态 COMPLETE_REQUESTED，DONE 待 owner 一句话。
+- GP-18（完成通知）升级为 owner 明确诉求；DEF-10 记入池。

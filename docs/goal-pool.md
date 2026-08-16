@@ -8,7 +8,7 @@
 
 | ID | 标题 | 来源 | 优先 | 状态 | 依赖 | 备注 |
 | --- | --- | --- | --- | --- | --- | --- |
-| GP-01 | RM-002 收官：意向项目首个真实任务 | D22 | 高 | queued | P1✅ P2 | 任务内容 owner 指定（开放槽） |
+| GP-01 | RM-002 收官：意向项目首个真实任务 | D22 | 高 | done（AD-24，f49de5c7 PASS，RF-C 诊断报告落盘） | P1✅ P2 | — |
 | GP-02 | P2 前端批：F-40 自由输入/新建 workspace + F-39 显示归一 | owner 复盘 | 高 | done（AD-21，2026-08-17） | — | kimi |
 | GP-03 | P3 持久化批：记录/事件链落盘 + 台账哈希锚点 + 单实例锁（F-42） | 复盘 §一a | 高 | done（AD-23，2026-08-17；DEF-05 回放聚合小缺陷随 GP-10） | — | deepseek；宪法 §2 审计链补全 |
 | GP-04 | P4 补编批：kimi adapter 入册 + flaky 竞态修复 + 会话续跑（dsh --resume / claude --continue 接管线） | 复盘 §一b/e | 中 | idea | GP-03 | kimi 犬入册后看板可派 kimi |
@@ -63,3 +63,5 @@
 | GP-22 | effort 档位按模型适配：合同声明 effort_levels + 注入方式（flag/env），从各 harness 官方文档核对（GPT 5 档等），UI 按犬渲染 | owner Q3 | 中 | idea | — | 替换硬编码 LOW/HIGH/XHIGH |
 | GP-23 | 前端美化：运行中犬只动效 logo（CSS 动画 + 内联 SVG，零外链红线内）；整体视觉升级 | owner Q4 | 中 | idea | — | kimi |
 | GP-24 | 意向项目登记 UX：冻结区拒绝改为"警示+owner 确认 carve-out"（整树只读默认，owner 圈定范围开放），替代一刀切前端拒绝 | owner Q1 | 中 | idea | GP-14 | 头犬 API 登记已可用的正式化 |
+
+| GP-27 | DEF-10：派发默认工作区取持久化选择（.mush/workspace.json 启动恢复）；GP-18 完成通知升级 | owner 2026-08-17 | 中 | idea | — | 头犬派发漏字段的教训 + 等待无反馈诉求 |
