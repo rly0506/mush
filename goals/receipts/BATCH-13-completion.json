@@ -1,0 +1,41 @@
+{
+  "batch": "BATCH-13",
+  "unit": "U2",
+  "goal_id": "MUSH-GOAL-003",
+  "status": "COMPLETE_REQUESTED",
+  "executor": "dsh/deepseek headless",
+  "changed_paths": [
+    "tests/adapters-deepseek.test.ts",
+    "src/adapters/deepseek.ts",
+    "goals/receipts/nonce-probes/deepseek-dsh-2026-08-17.json",
+    "goals/receipts/BATCH-13-test-output.txt",
+    "goals/receipts/BATCH-13-completion.json"
+  ],
+  "tests_run": "npm test 真实执行：tests 141 / pass 141 / fail 0 / exit code 0（本批新增 7 tests / 35 断言，基线 134 保持全绿）；完整输出见 BATCH-13-test-output.txt",
+  "test_output_summary": "141/141 全绿，0 fail，0 skipped，duration ~0.87s；sha256 AA8797624E8194119FEAFAB516E71D5DD0B5D1D0C75B1ED22BBF0F70E81F54DF",
+  "ps_source_trace": [
+    "harness-landscape-2026-08-16.md：dsh --profile headless（T1，GOAL-001 实证）/ pi --mode rpc（pi-rpc 由 src/core 覆盖）",
+    "D13：nonce 身份探测 fail-closed、UNKNOWN 诚实记录",
+    "黄金参照对照：invoke-managed-pi-agent.ps1 L351-L352（wrong-runtime-model 即停）"
+  ],
+  "ported_assertions": [
+    {
+      "test": "adapters-deepseek.test.ts（7 tests：dsh/pi 合同、dump-config 身份、nonce 生成/解析/证据/verify）",
+      "ps_source": "harness-landscape + D13 + wrapper L351-L352",
+      "assertions": 35
+    }
+  ],
+  "open_findings": [
+    {
+      "id": "F-17",
+      "severity": "warn",
+      "detail": "真实 dsh nonce 探测在本沙箱失败：dsh 启动时试图写 C:\\Users\\...\\.dsh\\profiles\\headless\\cordis.yml，被沙箱 EPERM 拦下（超出\"只写 D:\\mush\"授权，不予升级）。证据文件已诚实记录 provider/model=UNKNOWN、matched=false、exit=1；fail-closed 断言由 fake 探测测试覆盖。普通环境重跑 dsh 探测即可补齐真值。"
+    },
+    {
+      "id": "F-18",
+      "severity": "info",
+      "detail": "DeepSeek pi 通道合同已建（pi-rpc 由 src/core/pi-rpc-* 覆盖），真实 pi nonce 探测与真实 dispatch 一样等 owner D6 确认后一并做（避免重复花钱）。"
+    }
+  ],
+  "spent_estimate_usd": 0.02
+}

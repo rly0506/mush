@@ -1,0 +1,15 @@
+{
+    "identity_proven":  false,
+    "nonce":  "9f55d4cc91984e7cac25e467558bf808",
+    "expected_sha256":  "57f99d5d1e92a3541b651cc4c235ff207ce9cfa0d4bf515f1d1a5337e669dbf1",
+    "schema_version":  1,
+    "provider":  "UNKNOWN",
+    "observed":  null,
+    "matched":  false,
+    "channel":  "t1",
+    "probe_at_utc":  "2026-08-16T02:30:53.0707342Z",
+    "stdout_sha256":  "560293EB750F4FAF986CC077D488CBE2D80A832666026B01F007F16AB6A64180",
+    "model_id":  "UNKNOWN",
+    "adapter_id":  "deepseek-dsh",
+    "exit_code":  1
+}
