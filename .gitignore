@@ -32,3 +32,6 @@ Thumbs.db
 
 # mush runtime (known-workspaces, workspace selection)
 .mush/
+
+# mush runtime worktrees (F-45 per-dog isolation)
+runtime/worktrees/
