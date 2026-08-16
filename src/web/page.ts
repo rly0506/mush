@@ -181,16 +181,36 @@ export function renderBoardPage(): string {
   .thinking-dots i:nth-child(3) { animation-delay: .36s; }
   @keyframes think-dot { 0%, 100% { opacity: .25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
   .thinking-elapsed { color: var(--ink-dim); }
-  /* ---------- GOAL-012：动效 logo（内联 SVG，运行中带 logo-anim 呼吸动画） ---------- */
+  /* ---------- GOAL-012 + GOAL-013L：犬只标识（官方品牌 img 优先，手绘 SVG 兜底）与三态动效 ---------- */
   .dog-logo { display: inline-flex; vertical-align: middle; }
-  .dog-logo svg { width: 22px; height: 22px; display: block; }
-  .dog-logo.running svg { animation: logo-anim 1.4s ease-in-out infinite; transform-origin: 50% 50%; }
-  @keyframes logo-anim {
-    0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 transparent); }
-    50% { transform: scale(1.12); filter: drop-shadow(0 0 4px currentColor); }
+  .dog-logo svg, .dog-logo img { width: 22px; height: 22px; display: block; }
+  /* working：小跳/抖动循环（translateY ≤6px + 轻微 squash）叠加辉光呼吸 —— 一眼看出谁在跑 */
+  .dog-logo.working svg, .dog-logo.working img { animation: logo-hop 1.2s ease-in-out infinite, logo-anim 1.4s ease-in-out infinite; transform-origin: 50% 80%; }
+  @keyframes logo-hop {
+    0%, 100% { transform: translateY(0) scale(1, 1); }
+    35% { transform: translateY(-5px) scale(0.96, 1.05); }
+    60% { transform: translateY(0) scale(1.04, 0.94); }
+    80% { transform: translateY(-2px) scale(0.99, 1.02); }
   }
+  @keyframes logo-anim {
+    0%, 100% { filter: drop-shadow(0 0 0 transparent); }
+    50% { filter: drop-shadow(0 0 4px currentColor); }
+  }
+  /* terminal-flash：终态到达时一次落定闪（PASS 绿 / FAIL 红），一次即停 */
+  .dog-logo.terminal-flash.flash-pass svg, .dog-logo.terminal-flash.flash-pass img { animation: logo-settle-flash 0.7s ease-out 1; --flash-color: #5fd08a; }
+  .dog-logo.terminal-flash.flash-fail svg, .dog-logo.terminal-flash.flash-fail img { animation: logo-settle-flash 0.7s ease-out 1; --flash-color: #f0665a; }
+  @keyframes logo-settle-flash {
+    0% { transform: translateY(-6px) scale(1.06); filter: drop-shadow(0 0 8px var(--flash-color)); }
+    55% { transform: translateY(1px) scale(0.97); filter: drop-shadow(0 0 5px var(--flash-color)); }
+    100% { transform: none; filter: none; }
+  }
+  /* idle：静止，仅悬停微反馈 */
+  .dog-logo:not(.working):hover svg, .dog-logo:not(.working):hover img { transform: translateY(-1px); }
   @media (prefers-reduced-motion: reduce) {
-    .dog-logo.running svg, .badge.RUNNING::before, .toast, .thinking-dots i { animation: none; }
+    /* 降级为辉光呼吸（无位移） */
+    .dog-logo.working svg, .dog-logo.working img { animation: logo-anim 1.4s ease-in-out infinite; }
+    .dog-logo.terminal-flash svg, .dog-logo.terminal-flash img { animation: logo-anim 0.7s ease-out 1; }
+    .badge.RUNNING::before, .toast, .thinking-dots i { animation: none; }
   }
 </style>
 </head>
@@ -422,15 +442,62 @@ export function renderBoardPage(): string {
       '<circle cx="13.8" cy="6.8" r="1.9" fill="currentColor"/><circle cx="17.5" cy="9.5" r="1.9" fill="currentColor"/>'
   };
 
-  // dogLogo：运行中的犬只 logo 带 logo-anim 呼吸动画（CSS keyframes，reduced-motion 尊重）。
-  function dogLogo(hint, running) {
+  // GOAL-013L：官方品牌图标兜底链 —— adapter → assets/brands/<name>.svg 存在即用
+  // 官方 <img>（currentColor 主题化由资产内 fill=currentColor + 容器 color 继承）；
+  // 加载失败（onerror）静默回退手绘内联 SVG，不留破图；codex/zcode 直接手绘。
+  // 将来新增官方图标只需把 SVG 丢进 assets/brands/（如 openai.svg → codex 自动切换）。
+  var BRAND_MAP = {
+    'deepseek-dsh': 'deepseek',
+    'claude-code': 'claude',
+    'kimi': 'kimi',
+    'opencode': 'opencode',
+    'head-dog': 'deepseek' // 头犬徽章与 deepseek 通道同源
+  };
+
+  function brandAssetFor(hint) {
+    var t = String(hint || '').toLowerCase();
+    // 先按 adapter 全名精确映射（词边界防 deepseek-dsh-x 之类误配），再按包含回退。
+    var ids = Object.keys(BRAND_MAP);
+    for (var i = 0; i < ids.length; i += 1) {
+      if (new RegExp('(^|[^a-z0-9])' + ids[i].replace(/-/g, '\\-') + '([^a-z0-9]|$)').test(t)) return BRAND_MAP[ids[i]];
+    }
+    if (t.indexOf('deepseek') >= 0) return 'deepseek';
+    if (t.indexOf('claude') >= 0) return 'claude';
+    if (t.indexOf('kimi') >= 0 || t.indexOf('moonshot') >= 0) return 'kimi';
+    if (t.indexOf('opencode') >= 0) return 'opencode';
+    return null;
+  }
+
+  // dogLogo(hint, state)：state ∈ 'idle' | 'working' | 'flash-pass' | 'flash-fail'
+  // （兼容旧布尔：true → working）。三态动效作用于容器内图标（img 与手绘同待遇）。
+  function dogLogo(hint, state) {
+    var mode = state === true ? 'working' : (state || 'idle');
     var family = detectFamily(hint);
     var color = FAMILY_COLORS[family];
-    return '<span class="dog-logo' + (running ? ' running' : '') + '" style="color:' + color + '" title="' + esc(family) + '">' +
-      '<svg viewBox="0 0 24 24" aria-hidden="true">' + LOGO_SHAPES[family] + '</svg></span>';
+    var cls = 'dog-logo';
+    if (mode === 'working') cls += ' working';
+    if (mode === 'flash-pass' || mode === 'flash-fail') cls += ' terminal-flash ' + mode;
+    var brand = brandAssetFor(hint);
+    var inner;
+    if (brand !== null) {
+      inner = '<img src="/assets/brands/' + brand + '.svg" alt="' + esc(brand) + '" ' +
+        'onerror="this.onerror=null;var s=document.createElement(&quot;span&quot;);s.innerHTML=this.getAttribute(&quot;data-fallback&quot;);this.parentNode.replaceChild(s.firstChild,this);" ' +
+        'data-fallback="' + esc('<svg viewBox="0 0 24 24" aria-hidden="true">' + LOGO_SHAPES[family] + '</svg>') + '">';
+    } else {
+      inner = '<svg viewBox="0 0 24 24" aria-hidden="true">' + LOGO_SHAPES[family] + '</svg>';
+    }
+    return '<span class="' + cls + '" style="color:' + color + '" title="' + esc(family) + '">' + inner + '</span>';
   }
 
   /* ---------- 当前头犬标识（页头常驻；roster v1.3 role 字段，缺省 head-dog） ---------- */
+  // GOAL-013L：处理中（chatPending）徽章 working 跳动；终态到达落定闪一次（headFlashUntil）。
+  var headFlashUntil = 0;
+
+  function headBadgeState() {
+    if (chatPending) return 'working';
+    return 'idle';
+  }
+
   function renderHeadDogBadge() {
     var nameEl = document.getElementById('head-dog-name');
     var logoEl = document.getElementById('head-dog-logo');
@@ -441,7 +508,7 @@ export function renderBoardPage(): string {
     }
     var label = head ? head.adapter_id : 'head-dog';
     nameEl.textContent = '当前头犬：' + label;
-    logoEl.innerHTML = dogLogo(label + ' ' + (head ? head.expected_model_id || '' : ''), false);
+    logoEl.innerHTML = dogLogo(label + ' ' + (head ? head.expected_model_id || '' : ''), headBadgeState());
     // D1（GOAL-012B）：头犬选择下拉 —— 数据源 roster.role==='head'；选中项联动徽章。
     var sel = document.getElementById('chat-head-select');
     if (sel) {
@@ -454,7 +521,7 @@ export function renderBoardPage(): string {
       if (prev && heads.some(function (r) { return r.adapter_id === prev; })) sel.value = prev;
       nameEl.textContent = '当前头犬：' + sel.value;
       var current = heads.filter(function (r) { return r.adapter_id === sel.value; })[0];
-      logoEl.innerHTML = dogLogo(sel.value + ' ' + (current ? current.expected_model_id || '' : ''), false);
+      logoEl.innerHTML = dogLogo(sel.value + ' ' + (current ? current.expected_model_id || '' : ''), headBadgeState());
     }
   }
 
@@ -551,6 +618,9 @@ export function renderBoardPage(): string {
 
   /* ---------- 派发跟踪卡片（G7B-D2：upsert 更新 + 已耗时计时 + 完成 toast） ---------- */
   var TERMINAL_STATUSES = { DRY_RUN: 1, PASS: 1, FAIL: 1, BLOCKED_WAITING_OWNER: 1, BLOCKED_ENV: 1, TIMEOUT: 1, INTERRUPTED: 1 };
+  // GOAL-013L：终态落定闪登记 —— adapter_id → 最近一次新到终态 status
+  // （渲染消费一次后清除，下一次同犬新终态再闪）。
+  var flashRegistry = {};
 
   function trackDispatch(dispatchId, adapterId, status) {
     if (!dispatchId) return;
@@ -564,12 +634,17 @@ export function renderBoardPage(): string {
       existing.status = status;
       delete detailCache[dispatchId]; // DEF-08：状态变化 → 详情缓存失效
       existing.at_utc = new Date().toISOString();
-      renderDispatches();
       if (!wasTerminal && TERMINAL_STATUSES[status] === 1) {
+        flashRegistry[adapterId] = status; // 终态闪一次（roster 行）
+        flashRegistry[dispatchId] = status; // 派发卡头行图标同步落定闪
+        headFlashUntil = Date.now() + 1200; // 页头头犬徽章同步落定闪
         toast('完成：' + status + '（' + adapterId + '）', status === 'PASS' || status === 'DRY_RUN');
         notifyTerminal(status, adapterId); // GP-18：浏览器通知（开关+授权+后台三条件）
         chatActionFor(dispatchId, adapterId, status); // GOAL-012：终态回填会话动作卡
       }
+      renderDispatches();
+      renderDogs();
+      renderHeadDogBadge();
       return;
     }
     trackedDispatches.unshift({
@@ -644,8 +719,13 @@ export function renderBoardPage(): string {
     if (list.length === 0) { el.innerHTML = '<div class="empty">暂无派发记录</div>'; return; }
     el.innerHTML = list.map(function (d) {
       var elapsed = elapsedText(d);
+      var cardRunning = isRunningStatus(d.status);
+      // GOAL-013L：派发卡头行嵌入犬只图标——RUNNING 时 working 跳动，新到终态落定闪一次。
+      var cardFlash = !cardRunning && flashRegistry[d.dispatch_id] === d.status
+        ? 'flash-' + (d.status === 'PASS' || d.status === 'DRY_RUN' ? 'pass' : 'fail') : 'idle';
       return '<div class="dispatch-card' + (openDetails[d.dispatch_id] ? ' open' : '') + '" data-dispatch="' + esc(d.dispatch_id) + '">' +
         '<div class="head-row">' +
+        dogLogo(d.adapter_id || '', cardRunning ? 'working' : cardFlash) + ' ' +
         '<span class="badge ' + esc(d.status) + '">' + esc(d.status) + '</span> ' +
         '<span class="mono">' + esc(String(d.dispatch_id).slice(0, 12)) + '…</span> ' +
         esc(d.adapter_id || '') + ' <span class="meta">' + escTime(d.at_utc || '') + '</span>' +
@@ -725,6 +805,9 @@ export function renderBoardPage(): string {
       var rr = roster.map(function (r) {
         var stats = dispatchStats(r.adapter_id);
         var running = stats.latest ? isRunningStatus(stats.latest.status) : false;
+        // GOAL-013L 三态：working（非终态）/ terminal-flash（本批新到终态）/ idle
+        var logoState = running ? 'working'
+          : (stats.latest && flashRegistry[r.adapter_id] === stats.latest.status ? 'flash-' + (stats.latest.status === 'PASS' || stats.latest.status === 'DRY_RUN' ? 'pass' : 'fail') : 'idle');
         var role = r.role || 'executor'; // v1.3 role 字段；未升级后端缺省 executor
         var roleBadge = role === 'head'
           ? '<span class="badge role-head">head 头犬</span>'
@@ -732,7 +815,7 @@ export function renderBoardPage(): string {
         var activity = stats.count === 0
           ? '（未活动，注册在册）'
           : stats.count + ' 次 · <span class="badge ' + esc(stats.latest.status) + '">' + esc(stats.latest.status) + '</span> <span class="mono">' + escTime(stats.latest.at_utc || '') + '</span>';
-        return '<tr><td class="mono">' + dogLogo(r.adapter_id + ' ' + (r.expected_model_id || ''), running) + ' ' + esc(r.adapter_id) + '</td>' +
+        return '<tr><td class="mono">' + dogLogo(r.adapter_id + ' ' + (r.expected_model_id || ''), logoState) + ' ' + esc(r.adapter_id) + '</td>' +
           '<td>' + roleBadge + '</td>' +
           '<td>' + esc(r.expected_provider) + '</td><td>' + esc(r.expected_model_id) + '</td>' +
           '<td class="mono">' + esc((r.variants || []).join(' | ')) + '</td>' +
@@ -744,11 +827,13 @@ export function renderBoardPage(): string {
     var rows = actors.map(function (a) {
       var last = latest[a.actor_instance_id] || null;
       var running = last ? isRunningStatus(last.status) : false;
+      var logoState = running ? 'working'
+        : (last && flashRegistry[a.actor_instance_id] === last.status ? 'flash-' + (last.status === 'PASS' || last.status === 'DRY_RUN' ? 'pass' : 'fail') : 'idle');
       var role = a.role || 'executor';
       var roleBadge = role === 'head'
         ? '<span class="badge role-head">head 头犬</span>'
         : '<span class="badge role-executor">' + esc(role) + '</span>';
-      return '<tr><td class="mono">' + dogLogo(a.actor_instance_id + ' ' + (a.model_id || ''), running) + ' ' + esc(a.actor_instance_id) + '</td>' +
+      return '<tr><td class="mono">' + dogLogo(a.actor_instance_id + ' ' + (a.model_id || ''), logoState) + ' ' + esc(a.actor_instance_id) + '</td>' +
         '<td>' + roleBadge + '</td>' +
         '<td>' + esc(a.provider) + '</td><td>' + esc(a.model_id) + '</td>' +
         '<td class="mono">' + shortHash(a.capability_id) + '</td>' +
@@ -938,6 +1023,7 @@ export function renderBoardPage(): string {
     chatPending = pending;
     // D2（GOAL-012B）：发送期间输入框保持可编辑（排队下一条），仅按钮态变化。
     document.getElementById('chat-send').textContent = pending ? '发送中…' : '发送';
+    renderHeadDogBadge(); // GOAL-013L：页头徽章处理中 working 跳动
   }
 
   /* ---------- D2：思考中占位气泡（三点呼吸动画 + 已耗时秒表） ---------- */

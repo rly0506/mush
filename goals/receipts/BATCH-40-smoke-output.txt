@@ -1,0 +1,11 @@
+PASS  GET /assets/brands/deepseek.svg 200  — status=200
+PASS  svg 头 + image/svg+xml
+PASS  短缓存头
+PASS  缺失资产 404
+PASS  路径穿越拒绝 404
+PASS  页面含官方 img 引用路径
+PASS  页面含 onerror 静默回退
+PASS  页面含手绘兜底（LOGO_SHAPES 共存）
+PASS  页面含三态动效（logo-hop / terminal-flash / reduced-motion）
+
+=== g013l smoke: 9/9 PASS ===

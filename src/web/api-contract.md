@@ -1,6 +1,6 @@
 # mush Board API 契约 v1
 
-- 状态：`v1.4`（2026-08-17 定稿 v1；v1.1 GOAL-007B；v1.2 GP-02；v1.3 GOAL-011 聊天节；v1.3.1 GOAL-012B chat adapter_id/effort + 200 同步 reply；v1.4 GOAL-013 profile/effort 合同/rerun——本文件为权威源）
+- 状态：`v1.4`（2026-08-17 定稿 v1；v1.1 GOAL-007B；v1.2 GP-02；v1.3 GOAL-011 聊天节；v1.3.1 GOAL-012B chat 参数化+reply；v1.4 GOAL-013 profile/effort 合同/rerun **及** GOAL-013L 静态品牌资产路由 /assets/brands/:name.svg——本文件为权威源）
 - 宿主：`src/web/`（node:http，零依赖）；默认只绑 `127.0.0.1`（对外暴露 = 触发门 4，不实现）
 - 序列化：JSON（UTF-8，LF 结尾）；SSE 用 `text/event-stream`，帧格式 `data: <json>\n\n`
 - 错误约定：失败响应一律 `{ "ok": false, "error": "<human-readable>" }`
@@ -177,10 +177,28 @@ status ∈ `DRY_RUN | ADMITTED | BLOCKED_WAITING_OWNER | BLOCKED_ENV | FAIL | PA
 `GET /api/snapshot` 及 roster 消费点的犬只条目新增 `"role": "head" | "executor"`；
 `head-dog` 为唯一 head，其余为 executor。
 
+<<<<<<< HEAD
 ### roster effort 字段（v1.4）
 
 roster 条目新增 `effort_levels?: string[]` 与 `effort_injection?:
 {kind: 'flag'|'env'|'none', name?}`，供 UI 按犬渲染档位。
+=======
+## 静态品牌资产（v1.4，GOAL-013L / rm003-p13 新增）
+
+### GET /assets/brands/:name.svg
+
+- 语义：看板自供品牌图标（Simple Icons CC0，仓内 `assets/brands/`），页面犬只
+  标识兜底链的官方图标来源；零外部请求，127.0.0.1 假设不变；
+- 响应 `200`：`content-type: image/svg+xml; charset=utf-8` +
+  `cache-control: public, max-age=300`（短缓存），body 为 SVG 原文；
+- `404`（fail-closed，一律 `{ok:false,error}`）：文件不存在、`name` 非纯文件名
+  （`^[A-Za-z0-9_-]+\.svg$` 之外，含 `..`/子路径/非 .svg 后缀一律拒绝）、
+  `path.resolve` 前缀复核逃逸白名单目录；
+- 前端消费约定（page.ts）：映射表 `deepseek-dsh→deepseek / claude-code→claude /
+  kimi→kimi / opencode→opencode / head-dog→deepseek`；`<img>` `onerror` 静默回退
+  手绘内联 SVG（codex/zcode 直接手绘）；资产内 `fill=currentColor`，容器 `color`
+  继承实现主题化。
+>>>>>>> g013-logo
 
 ## 实现与契约一致性
 
