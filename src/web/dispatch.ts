@@ -51,6 +51,14 @@ import {
   type WorkStream,
   type HandoffBlock,
 } from './workstreams.ts';
+import {
+  loadTasks,
+  appendTask,
+  createTask,
+  transitionTask,
+  linkDispatchToTask,
+  type Task,
+} from './tasks.ts';
 
 export type DispatchStatus =
   | 'ADMITTED'
@@ -86,6 +94,7 @@ export interface DispatchRequestSnapshot {
   stream_id?: string;
   goal_id?: string;
   resume_session?: string;
+  task_id?: string;
   cap_usd: number;
   real: boolean;
 }
@@ -105,6 +114,8 @@ export interface DispatchRecord {
   session_id: string | null;
   /** GOAL-018 U1：work-stream 关联。 */
   stream_id?: string;
+  /** GOAL-019 U3：任务池回链。 */
+  task_id?: string;
   /** GP-10（契约 v1.4）：rerun 用的历史请求快照；旧记录缺省无此字段。 */
   request?: DispatchRequestSnapshot;
 }
@@ -173,6 +184,8 @@ export interface DispatchPipelineOptions {
   budgetCapsPath?: string;
   /** GOAL-018 U1：work-stream 日志路径；缺省 <workspaceRoot>/runtime/streams.jsonl。 */
   streamsPath?: string;
+  /** GOAL-019 U1：任务池日志路径；缺省 <workspaceRoot>/runtime/tasks.jsonl。 */
+  tasksPath?: string;
 }
 
 export interface WorkspaceInfo {
@@ -321,6 +334,7 @@ export class DispatchPipeline {
   private readonly baseAdapterIds: Set<string>;
   private readonly streamsPath: string;
   private streams: WorkStream[];
+  private readonly tasksPath: string;
 
   constructor(options: DispatchPipelineOptions) {
     this.workspaceRoot = path.resolve(options.workspaceRoot);
@@ -368,6 +382,9 @@ export class DispatchPipeline {
       options.streamsPath ?? path.join(this.workspaceRoot, 'runtime', 'streams.jsonl'),
     );
     this.streams = loadStreams(this.streamsPath);
+    this.tasksPath = path.resolve(
+      options.tasksPath ?? path.join(this.workspaceRoot, 'runtime', 'tasks.jsonl'),
+    );
     this.baseAdapterIds = new Set(Object.keys(baseContracts()));
     // GP-03：重启回放——已落盘的派发记录重新入内存（recent() 跨重启可用）。
     // DEF-05 修复：header.status 只反映落盘瞬间，事件链才是权威——回放时
@@ -649,6 +666,7 @@ export class DispatchPipeline {
       ...(resolvedStream !== null ? { stream_id: resolvedStream.stream_id } : {}),
       ...(goalId !== undefined ? { goal_id: goalId } : {}),
       ...(typeof body.resume_session === 'string' && body.resume_session.trim() !== '' ? { resume_session: body.resume_session } : {}),
+      ...(typeof body.task_id === 'string' && body.task_id.trim() !== '' ? { task_id: body.task_id.trim() } : {}),
     };
     const record: DispatchRecord = {
       dispatch_id: dispatchId,
@@ -662,6 +680,7 @@ export class DispatchPipeline {
       stderr_tail: null,
       session_id: null,
       ...(resolvedStream !== null ? { stream_id: resolvedStream.stream_id } : {}),
+      ...(typeof body.task_id === 'string' && body.task_id.trim() !== '' ? { task_id: body.task_id.trim() } : {}),
       request,
     };
 
@@ -684,6 +703,11 @@ export class DispatchPipeline {
       record.error = 'budget admission denied';
       this.emit(record, 'REVIEW', 'FAIL', { reason: 'budget admission denied' });
       return record;
+    }
+
+    // GOAL-019 U3：派发回链——ADMITTED 后把 dispatch_id 追加进任务记录。
+    if (typeof body.task_id === 'string' && body.task_id.trim() !== '') {
+      this.linkTaskDispatch(body.task_id.trim(), dispatchId);
     }
 
     if (real && internal?.originOwner !== true) {
@@ -781,6 +805,7 @@ export class DispatchPipeline {
         stream_id: request.stream_id,
         goal_id: request.goal_id,
         resume_session: request.resume_session,
+        task_id: request.task_id,
         cap_usd: capUsd,
         real,
       },
@@ -1167,6 +1192,43 @@ export class DispatchPipeline {
     });
     const handoff = parseHandoffBlock(run.stdout, atUtc);
     if (handoff !== null) addHandoffToStream(this.streamsPath, stream, handoff);
+  }
+
+
+  /** GOAL-019 U2：任务列表（读侧折叠最新快照）。 */
+  listTasks(): Task[] {
+    return loadTasks(this.tasksPath);
+  }
+
+  /** GOAL-019 U2：创建任务（append-only 写新行）。 */
+  createTask(input: unknown): Task {
+    const task = createTask(input, this.now);
+    appendTask(this.tasksPath, task);
+    return task;
+  }
+
+  /** GOAL-019 U2：状态迁移（白名单校验，非法抛 InputError）。 */
+  transitionTask(taskId: string, nextStatus: unknown): Task {
+    const tasks = loadTasks(this.tasksPath);
+    const task = tasks.find((entry) => entry.task_id === taskId);
+    if (task === undefined) throw new InputError(`task not found: ${taskId}`);
+    let next: Task;
+    try {
+      next = transitionTask(task, nextStatus, this.now);
+    } catch (error) {
+      throw new InputError(error instanceof Error ? error.message : String(error));
+    }
+    appendTask(this.tasksPath, next);
+    return next;
+  }
+
+  /** GOAL-019 U3：派发回链——ADMITTED 后把 dispatch_id 追加进任务记录。 */
+  private linkTaskDispatch(taskId: string, dispatchId: string): void {
+    const tasks = loadTasks(this.tasksPath);
+    const task = tasks.find((entry) => entry.task_id === taskId);
+    if (task === undefined) throw new InputError(`task not found: ${taskId}`);
+    const next = linkDispatchToTask(task, dispatchId, this.now);
+    appendTask(this.tasksPath, next);
   }
 
 

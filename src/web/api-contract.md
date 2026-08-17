@@ -1,10 +1,23 @@
 # mush Board API 契约 v1
 
-- 状态：`v1.6`（2026-08-17 定稿 v1；v1.1 GOAL-007B；v1.2 GP-02；v1.3 GOAL-011 聊天节；v1.3.1 GOAL-012B chat 参数化+reply；v1.4 GOAL-013 profile/effort 合同/rerun **及** GOAL-013L 静态品牌资产路由；v1.5 GOAL-017A 适配器 CRUD/头犬解耦/budget caps/计数；v1.6 GOAL-018 work-stream/真续跑/换窗/HANDOFF/流 API——本文件为权威源）
+- 状态：`v1.8`（2026-08-17 定稿 v1；v1.1 GOAL-007B；v1.2 GP-02；v1.3 GOAL-011 聊天节；v1.3.1 GOAL-012B chat 参数化+reply；v1.4 GOAL-013 profile/effort 合同/rerun **及** GOAL-013L 静态品牌资产路由；v1.5 GOAL-017A 适配器 CRUD/头犬解耦/budget caps/计数；v1.6 GOAL-018 work-stream/真续跑/换窗/HANDOFF/流 API；v1.7 GOAL-019 任务池；v1.8 GP-32 逐单审批——本文件为权威源）
 - 宿主：`src/web/`（node:http，零依赖）；默认只绑 `127.0.0.1`（对外暴露 = 触发门 4，不实现）
 - 序列化：JSON（UTF-8，LF 结尾）；SSE 用 `text/event-stream`，帧格式 `data: <json>\n\n`
 - 错误约定：失败响应一律 `{ "ok": false, "error": "<human-readable>" }`
 - 版本演进：v1 字段**只能向后兼容新增**；删除/改义/改型 = 破坏性变更，需头犬批准并同步 GOAL-007
+
+
+### v1.7 向后兼容扩展（GOAL-019，2026-08-17）
+
+- 新增任务池后端：
+  - `GET /api/tasks`：任务列表（读侧折叠最新快照）；
+  - `POST /api/tasks`：创建任务（append-only）；
+  - `POST /api/tasks/:id/transition`：状态迁移（白名单校验，非法 400 带原因）。
+- `POST /api/dispatch` 新增可选 `task_id`：ADMITTED 后把 `dispatch_id` 追加进
+  任务记录的 `dispatch_ids[]`（派发回链/认领语义）。
+- 任务字段：`task_id/title/detail/status/priority/source/goal_id?/dispatch_ids[]/
+  created_at/updated_at`；状态集合
+  `IDEA|READY|QUEUED|IN_FLIGHT|DONE|BLOCKED|CANCELLED`。
 
 ### v1.8 逐单审批（GP-32 / D30，2026-08-17；v1.7 号段留给在途任务池包 p19a）
 
@@ -119,6 +132,9 @@
 | `GET /api/streams` | **新**：work-stream 列表+统计 | v1.6 |
 | `GET /api/streams/:id` | **新**：单流时间线（含交接块） | v1.6 |
 | `POST /api/streams/:id/handoff` | **新**：外部补写 HANDOFF 交接 | v1.6 |
+| `GET /api/tasks` | **新**：任务池列表 | v1.7 |
+| `POST /api/tasks` | **新**：创建任务 | v1.7 |
+| `POST /api/tasks/:id/transition` | **新**：任务状态迁移 | v1.7 |
 | `GET /assets/brands/:name.svg` | **新**：品牌图标静态资产 | v1.4 |
 
 ## POST /api/dispatch
@@ -136,6 +152,7 @@
   "stream_id": "string?（v1.6：指定 work-stream；缺省按犬×Goal 自动归流）",
   "goal_id": "string?（v1.6：Goal 关联；窗口键组成部分）",
   "new_stream": "boolean?（v1.6：true 强制新开流）",
+  "task_id": "string?（v1.7：任务池回链；ADMITTED 后 dispatch_id 追加进任务）",
   "cap_usd": "number?（缺省=该 actor 的 budget-caps 值或 5；>0）",
   "amount_usd": "number?（缺省 0=估算后记账）",
   "real": "boolean?（缺省 false=dry-run）"
@@ -183,6 +200,22 @@
 请求 `{ "done"?, "decided"?, "files"?, "next"?, "open_issues"? }`
 - 语义：头犬/owner 在犬暴毙无终态时外部补写 HANDOFF；append-only 归档并哈希锚点；
 - 响应 `201`：`{ "ok": true, "handoff": HandoffBlock }`；流不存在 → `404`。
+
+## GET /api/tasks（v1.7）
+
+`{ "ok": true, "tasks": [ { "task_id", "title", "detail", "status", "priority", "source", "goal_id"?, "dispatch_ids"[], "created_at", "updated_at" } ] }`
+- 读侧折叠最新快照；`dispatch_ids[]` 为派发回链。
+
+## POST /api/tasks（v1.7）
+
+请求 `{ "title": "string", "detail"?: "string", "status"?: "IDEA|...", "priority"?: "高|中|低", "source"?: "string", "goal_id"?: "string" }`
+- 响应 `201`：`{ "ok": true, "task": Task }`；校验失败 `400`。
+
+## POST /api/tasks/:id/transition（v1.7）
+
+请求 `{ "status": "READY|QUEUED|IN_FLIGHT|DONE|BLOCKED|CANCELLED" }`
+- 合法迁移白名单校验；非法迁移 `400` 带原因；任务不存在 `404`。
+
 
 
 ## GET /api/dispatch/:id

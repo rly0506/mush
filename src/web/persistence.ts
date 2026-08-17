@@ -58,6 +58,7 @@ export class BoardPersistence {
       stderr_tail: record.stderr_tail,
       session_id: record.session_id,
       ...(record.stream_id !== undefined ? { stream_id: record.stream_id } : {}),
+      ...(record.task_id !== undefined ? { task_id: record.task_id } : {}),
       ...(record.request !== undefined ? { request: record.request } : {}),
     };
     writeFileSync(file, JSON.stringify(header) + '\n', 'utf8');
@@ -102,6 +103,7 @@ export class BoardPersistence {
         stderr_tail: (header.stderr_tail as DispatchRecord['stderr_tail']) ?? null,
         session_id: typeof header.session_id === 'string' ? header.session_id : null,
         ...(typeof header.stream_id === 'string' ? { stream_id: header.stream_id } : {}),
+        ...(typeof header.task_id === 'string' ? { task_id: header.task_id } : {}),
         ...(header.request !== undefined && header.request !== null
           ? { request: header.request as DispatchRecord['request'] }
           : {}),
