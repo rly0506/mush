@@ -543,3 +543,28 @@ RM-001、RM-002 全部构件正式收官。另：派发包编号改带 RM 前缀
   cc-switch，无本地明细。有界估计：被打断的两段会话（~03:30–03:55Z，
   各约 25 分钟的读包+起步工作）按两犬 cap（$5/$8）封顶，量级预计远低于
   cap；精确数字以 provider 账单为准。教训已由 D30/AD-35 制度化。
+
+## AD-37 · GOAL-018A/018B（会话连续性 v2 / M5）验收 + 合并（2026-08-17，头犬 zcode 会话）
+
+- **合并路径说明**：g018a 系 **owner 本人**于 11:35+0800 自行合入 master
+  （`0d997e2`）——owner 有权直接动 master，非犬只越权；头犬验收改事后
+  补审。g018b 由头犬常规合并（`2c4ba9f`，零冲突，kimi 侧已自行折合）。
+- **g018a 事后安全审查（D23）**：PASS。streams 路由 id 正则无穿越；外部
+  handoff 写入同回环信任域；extractSessionId 字符集受控（无 shell 注入）；
+  dsh 缝合结构常量固定。观察项（不阻断）：①外部 handoff 无长度上限
+  （建议后续加上限）；②session_id 理论可捕获 `--` 前缀串形成参数注入
+  边缘（自毒场景，回环信任域内低危）。
+- **测试**：master 含 g018a 319/319；并入 g018b 后 **324/324 全绿**。
+- **干跑冒烟（零花销，D30 无涉）**：同 goal 两次派发自动归同一流
+  （1 流 2 事件）；`POST /api/streams/:id/handoff` 201 带 sha256；
+  时间线含交接块。脚本 `scripts/g018-merged-smoke.mjs`（初版 process.exit
+  撞 libuv 退出断言，已改 exitCode，复跑 EXIT=0）。
+- **验收**：GOAL-018A **AUTO_ACCEPTED**（deepseek-dsh，g018a @ 49a34c2）；
+  GOAL-018B **AUTO_ACCEPTED**（kimi-k3，g018b @ 51cae80，联调批含
+  v1.6 实契约对齐 + `new_window` 前端提案字段待契约补录）。
+- **悬置项（诚实记录）**：kimi 真实自动压缩实测未做（需长真实会话，
+  涉真实花销——按 D30 走审批卡或留待 GP 项）；代码已保证 `unknown`
+  档不误触发换窗。
+- **RM-004 进度**：M4 ✅ M5 ✅（机检面）。余：M0 carve-out（GP-24）、
+  M1 旗舰（待 owner 切片授权）、M2 聊天流式、M3 任务池；GP-32 单次
+  审批制现已解除阻塞（p18a 已并）。
