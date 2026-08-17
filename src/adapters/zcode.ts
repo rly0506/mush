@@ -26,6 +26,9 @@ export function buildZcodeContract(): AdapterContract {
     // 不做注入承诺。
     effort_levels: ['LOW', 'HIGH', 'XHIGH'],
     effort_injection: { kind: 'none' },
+    // GOAL-018 U2/U3：zcode 支持 --resume <sessionId>；自带自动压缩。
+    resume_flag: '--resume',
+    context_management: 'auto-compact',
   });
 }
 

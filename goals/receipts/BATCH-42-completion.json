@@ -1,0 +1,27 @@
+{
+  "batch": "BATCH-42",
+  "goal_id": "MUSH-GOAL-018A",
+  "packet": "rm004-p18a-deepseek-workstreams",
+  "branch": "g018a",
+  "worktree": "runtime/worktrees/deepseek-d",
+  "at_utc": "2026-08-17T08:00:00Z",
+  "executor": "deepseek-dsh (backend)",
+  "units": {
+    "U1_stream_model": "runtime/streams.jsonl append-only work-stream 模型；dispatch 支持 stream_id/goal_id/new_stream；默认自动归流（犬×Goal）；强制新开。",
+    "U2_resume": "kimi resume_flag=-r、claude --resume、zcode --resume 已声明；同流自动携带上次 session_id；codex 因 F-50 跳过并注释。",
+    "U3_context": "AdapterContract 增 context_management；dsh none 走 75% 阈值换窗；dsh 窗口内固定章程头+流历史+新指令尾缝合。",
+    "U4_handoff": "HANDOFF-BEGIN/END 解析、归档、换窗注入、外部补写 API 均已实现。",
+    "U5_project_brief": "派发 prompt 自动附加工作区 AGENTS.md（超长截断 4000 字符）。",
+    "U6_dsh_web_probe": "只读探测 dsh web bundle：程序化向既有会话发消息可行（Session.prompt RPC），但非公开 REST；报告 goals/receipts/dsh-web-api-probe.md。",
+    "U7_stream_api": "GET /api/streams、GET /api/streams/:id、POST /api/streams/:id/handoff。"
+  },
+  "tests": {
+    "new": [
+      "tests/g018a-workstreams.test.ts（9 用例：自动归流/真续跑/前缀稳定/75% 换窗/HANDOFF 回路/AGENTS.md/流 API/解析器）"
+    ],
+    "full_run": "318/318 PASS",
+    "baseline": "309/309 PASS before additions; after additions 318/318 PASS"
+  },
+  "red_lines": "零框架/零构建/零外链；未改 page.ts；未触碰 D:\\意向项目；未 push；密钥未入库；127.0.0.1 不变。",
+  "acceptance": "D15：机检全绿，待头犬审核 + owner 显式接受"
+}

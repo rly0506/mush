@@ -6,6 +6,7 @@
  *   后续升级项。
  * 凭据边界：mush 只调 executable；凭据由 cc-switch 第三方 profile 自理，
  *   不注入、不读取、不存储。
+ * GOAL-018 U2：codex 因 F-50 通道未解锁，暂不声明 resume 注入；后续解锁后再接。
  */
 
 import { validateAdapterContract, type AdapterContract } from './contract.ts';
@@ -24,6 +25,8 @@ export function buildCodexContract(): AdapterContract {
     // 档位按 OpenAI reasoning effort 五档类：minimal/low/medium/high/xhigh。
     effort_levels: ['MINIMAL', 'LOW', 'MEDIUM', 'HIGH', 'XHIGH'],
     effort_injection: { kind: 'flag', name: '--config' },
+    // GOAL-018 U2/U3：F-50 未解锁，resume 跳过；上下文管理暂按 none。
+    context_management: 'none',
   });
 }
 

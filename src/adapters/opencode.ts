@@ -22,6 +22,8 @@ export function buildOpencodeContract(): AdapterContract {
     //   e.g., high, max, minimal)
     effort_levels: ['MINIMAL', 'LOW', 'MEDIUM', 'HIGH', 'MAX'],
     effort_injection: { kind: 'flag', name: '--variant' },
+    // GOAL-018 U3：未列入本批自动压缩/续跑主路径，暂按 none。
+    context_management: 'none',
   });
 }
 

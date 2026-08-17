@@ -33,6 +33,23 @@ import {
   type AdapterTemplateId,
 } from './adapter-store.ts';
 import { loadBudgetCaps, saveBudgetCaps, DEFAULT_BUDGET_CAP_USD } from './budget-caps.ts';
+import {
+  loadStreams,
+  createStream,
+  addDispatchToStream,
+  addHandoffToStream,
+  setStreamStatus,
+  parseHandoffBlock,
+  streamKey,
+  estimateTokens,
+  shouldSwitchWindow,
+  HANDOFF_PROMPT_SUFFIX,
+  buildDshStitchedPrompt,
+  DSH_CHARTER_FIXED,
+  readProjectBrief,
+  type WorkStream,
+  type HandoffBlock,
+} from './workstreams.ts';
 
 export type DispatchStatus =
   | 'ADMITTED'
@@ -63,6 +80,9 @@ export interface DispatchRequestSnapshot {
   timeout_s: number;
   model_id?: string;
   profile?: string;
+  stream_id?: string;
+  goal_id?: string;
+  resume_session?: string;
   cap_usd: number;
   real: boolean;
 }
@@ -80,6 +100,8 @@ export interface DispatchRecord {
   stderr_tail: { text: string; truncated: boolean } | null;
   /** G011：犬侧会话 id（会话续跑锚点）。 */
   session_id: string | null;
+  /** GOAL-018 U1：work-stream 关联。 */
+  stream_id?: string;
   /** GP-10（契约 v1.4）：rerun 用的历史请求快照；旧记录缺省无此字段。 */
   request?: DispatchRequestSnapshot;
 }
@@ -141,6 +163,8 @@ export interface DispatchPipelineOptions {
   adaptersPath?: string;
   /** GOAL-017A U3：预算 cap 持久化路径；缺省 <workspaceRoot>/runtime/budget-caps.json。 */
   budgetCapsPath?: string;
+  /** GOAL-018 U1：work-stream 日志路径；缺省 <workspaceRoot>/runtime/streams.jsonl。 */
+  streamsPath?: string;
 }
 
 export interface WorkspaceInfo {
@@ -285,6 +309,8 @@ export class DispatchPipeline {
   private readonly budgetCapsPath: string;
   private budgetCaps: Record<string, number>;
   private readonly baseAdapterIds: Set<string>;
+  private readonly streamsPath: string;
+  private streams: WorkStream[];
 
   constructor(options: DispatchPipelineOptions) {
     this.workspaceRoot = path.resolve(options.workspaceRoot);
@@ -320,6 +346,10 @@ export class DispatchPipeline {
       options.budgetCapsPath ?? path.join(this.workspaceRoot, 'runtime', 'budget-caps.json'),
     );
     this.budgetCaps = loadBudgetCaps(this.budgetCapsPath);
+    this.streamsPath = path.resolve(
+      options.streamsPath ?? path.join(this.workspaceRoot, 'runtime', 'streams.jsonl'),
+    );
+    this.streams = loadStreams(this.streamsPath);
     this.baseAdapterIds = new Set(Object.keys(baseContracts()));
     // GP-03：重启回放——已落盘的派发记录重新入内存（recent() 跨重启可用）。
     // DEF-05 修复：header.status 只反映落盘瞬间，事件链才是权威——回放时
@@ -518,6 +548,27 @@ export class DispatchPipeline {
       this.resolveProfile(profile);
       effectiveContract = applyProfile(effectiveContract, profile);
     }
+    // GOAL-018 U1：解析/创建 work-stream，并组装最终 prompt（项目层/交接/dsh 缝合）。
+    const earlyWorkspace = typeof body.workspace === 'string' && body.workspace.trim() !== '' ? path.resolve(body.workspace) : this.defaultWorkspace();
+    const rawPrompt = typeof body.prompt === 'string' ? body.prompt : '';
+    const goalId = typeof body.goal_id === 'string' && body.goal_id.trim() !== '' ? body.goal_id.trim() : undefined;
+    const newStreamRequested = body.new_stream === true;
+    const explicitStreamId = typeof body.stream_id === 'string' && body.stream_id.trim() !== '' ? body.stream_id.trim() : undefined;
+    const prep = this.resolveStreamForDispatch(
+      adapterId,
+      goalId,
+      newStreamRequested,
+      explicitStreamId,
+      effectiveContract,
+      rawPrompt,
+      earlyWorkspace,
+    );
+    body.prompt = prep.prompt;
+    if (prep.resumeSession !== undefined && body.resume_session === undefined) {
+      body.resume_session = prep.resumeSession;
+    }
+    const resolvedStream: WorkStream | null = prep.stream;
+
     // G011：会话续跑——resume_flag 通道追加 <flag> <session_id>（dsh --resume 等）。
     if (body.resume_session !== undefined) {
       const resumeSession = String(body.resume_session);
@@ -571,6 +622,9 @@ export class DispatchPipeline {
       real,
       ...(modelId !== undefined ? { model_id: modelId } : {}),
       ...(profile !== undefined ? { profile } : {}),
+      ...(resolvedStream !== null ? { stream_id: resolvedStream.stream_id } : {}),
+      ...(goalId !== undefined ? { goal_id: goalId } : {}),
+      ...(typeof body.resume_session === 'string' && body.resume_session.trim() !== '' ? { resume_session: body.resume_session } : {}),
     };
     const record: DispatchRecord = {
       dispatch_id: dispatchId,
@@ -583,6 +637,7 @@ export class DispatchPipeline {
       stdout_tail: null,
       stderr_tail: null,
       session_id: null,
+      ...(resolvedStream !== null ? { stream_id: resolvedStream.stream_id } : {}),
       request,
     };
 
@@ -652,6 +707,9 @@ export class DispatchPipeline {
     record.error = pass ? null : run.stderr || `runner exit ${run.exitCode}`;
     this.emit(record, 'REPORT', record.status, { receipt_path: receiptPath, exit_code: run.exitCode });
     this.emit(record, 'REVIEW', record.status, { verdict: pass ? 'PASS' : 'FAIL' });
+    if (resolvedStream !== null) {
+      this.recordStreamDispatch(resolvedStream, dispatchId, adapterId, record.session_id, prompt, run);
+    }
     return record;
   }
 
@@ -673,6 +731,9 @@ export class DispatchPipeline {
       timeout_s: request.timeout_s,
       model_id: request.model_id,
       profile: request.profile,
+      stream_id: request.stream_id,
+      goal_id: request.goal_id,
+      resume_session: request.resume_session,
       cap_usd: capUsd,
       real,
     });
@@ -872,6 +933,137 @@ export class DispatchPipeline {
     this.appendCapChange(actorId, previous, capUsd);
     return capUsd;
   }
+
+  /** GOAL-018 U7：流列表（含统计）。 */
+  listStreams(): WorkStream[] {
+    return this.streams.map((stream) => ({
+      ...stream,
+      events: [...stream.events],
+      handoffs: [...stream.handoffs],
+    }));
+  }
+
+  /** GOAL-018 U7：单流时间线。 */
+  getStream(streamId: string): WorkStream | null {
+    const stream = this.streams.find((entry) => entry.stream_id === streamId);
+    return stream === undefined ? null : { ...stream, events: [...stream.events], handoffs: [...stream.handoffs] };
+  }
+
+  /** GOAL-018 U4：头犬/owner 外部写入交接（兜底入口）。 */
+  addExternalHandoff(streamId: string, input: { done?: string; decided?: string; files?: string; next?: string; open_issues?: string }): HandoffBlock {
+    const stream = this.streams.find((entry) => entry.stream_id === streamId);
+    if (stream === undefined) throw new InputError(`stream not found: ${streamId}`);
+    const atUtc = this.now().toISOString();
+    const raw = [
+      'HANDOFF-BEGIN',
+      `做了什么: ${input.done ?? ''}`,
+      `定了什么: ${input.decided ?? ''}`,
+      `文件在哪: ${input.files ?? ''}`,
+      `下一步: ${input.next ?? ''}`,
+      `未解问题: ${input.open_issues ?? ''}`,
+      'HANDOFF-END',
+    ].join('\n');
+    const block: HandoffBlock = {
+      done: input.done ?? '',
+      decided: input.decided ?? '',
+      files: input.files ?? '',
+      next: input.next ?? '',
+      open_issues: input.open_issues ?? '',
+      raw,
+      sha256: createHash('sha256').update(raw, 'utf8').digest('hex'),
+      at_utc: atUtc,
+    };
+    addHandoffToStream(this.streamsPath, stream, block);
+    return block;
+  }
+
+  /** GOAL-018 U1/U3/U4：解析/创建流、组装 prompt、决定 resume。 */
+  private resolveStreamForDispatch(
+    adapterId: string,
+    goalId: string | undefined,
+    newStream: boolean,
+    explicitStreamId: string | undefined,
+    contract: AdapterContract,
+    rawPrompt: string,
+    workspace: string,
+  ): { stream: WorkStream; prompt: string; resumeSession?: string } {
+    let stream: WorkStream;
+    let handoffToInject: HandoffBlock | null = null;
+    let openedNewWindow = false;
+    const key = streamKey(adapterId, goalId);
+    const makeTitle = (): string => `stream-${adapterId}-${goalId ?? 'none'}-${this.streams.length + 1}`;
+
+    if (newStream) {
+      stream = createStream(this.streamsPath, { key, title: makeTitle(), goalId, adapterId, now: this.now });
+      this.streams.push(stream);
+      openedNewWindow = true;
+    } else if (explicitStreamId !== undefined) {
+      const found = this.streams.find((entry) => entry.stream_id === explicitStreamId);
+      if (found === undefined) throw new InputError(`unknown stream: ${explicitStreamId}`);
+      stream = found;
+      if (shouldSwitchWindow(stream, contract.context_management) && stream.status === 'active') {
+        if (stream.handoffs.length > 0) handoffToInject = stream.handoffs[stream.handoffs.length - 1];
+        setStreamStatus(this.streamsPath, stream, 'handoff', this.now().toISOString());
+        stream = createStream(this.streamsPath, { key, title: makeTitle(), goalId, adapterId, now: this.now });
+        this.streams.push(stream);
+        openedNewWindow = true;
+      }
+    } else {
+      let active = this.streams.find((entry) => entry.key === key && entry.status === 'active');
+      if (active === undefined) {
+        active = createStream(this.streamsPath, { key, title: makeTitle(), goalId, adapterId, now: this.now });
+        this.streams.push(active);
+        openedNewWindow = true;
+      } else if (shouldSwitchWindow(active, contract.context_management)) {
+        if (active.handoffs.length > 0) handoffToInject = active.handoffs[active.handoffs.length - 1];
+        setStreamStatus(this.streamsPath, active, 'handoff', this.now().toISOString());
+        active = createStream(this.streamsPath, { key, title: makeTitle(), goalId, adapterId, now: this.now });
+        this.streams.push(active);
+        openedNewWindow = true;
+      }
+      stream = active;
+    }
+
+    let prompt = rawPrompt;
+    const projectBrief = readProjectBrief(workspace);
+    if (projectBrief !== '') prompt = `[项目层 AGENTS.md]\n${projectBrief}\n\n${prompt}`;
+    if (handoffToInject !== null) {
+      prompt = `[最近交接]\n${handoffToInject.raw}\n\n${prompt}`;
+    } else if (openedNewWindow && stream.handoffs.length > 0) {
+      const last = stream.handoffs[stream.handoffs.length - 1];
+      prompt = `[最近交接]\n${last.raw}\n\n${prompt}`;
+    }
+
+    let resumeSession: string | undefined;
+    if (contract.context_management === 'none') {
+      const history = stream.events.map((event) => event.output_preview ?? '').filter(Boolean).join('\n---\n');
+      prompt = buildDshStitchedPrompt(DSH_CHARTER_FIXED, history, prompt);
+    } else if (!openedNewWindow && contract.resume_flag !== undefined) {
+      const lastEvent = stream.events[stream.events.length - 1];
+      if (lastEvent?.session_id !== undefined && lastEvent.session_id !== null) resumeSession = lastEvent.session_id;
+    }
+
+    return { stream, prompt, resumeSession };
+  }
+
+  /** GOAL-018 U1/U4：派发完成后把事件/交接写回流记录。 */
+  private recordStreamDispatch(stream: WorkStream, dispatchId: string, adapterId: string, sessionId: string | null, prompt: string, run: RunAdapterResult): void {
+    const atUtc = this.now().toISOString();
+    addDispatchToStream(this.streamsPath, stream, {
+      dispatch_id: dispatchId,
+      adapter_id: adapterId,
+      session_id: sessionId,
+      prompt_chars: prompt.length,
+      output_chars: run.stdout.length,
+      context_estimate: estimateTokens(prompt.length + run.stdout.length),
+      at_utc: atUtc,
+      prompt_preview: prompt.slice(-2000),
+      output_preview: run.stdout.slice(-2000),
+    });
+    const handoff = parseHandoffBlock(run.stdout, atUtc);
+    if (handoff !== null) addHandoffToStream(this.streamsPath, stream, handoff);
+  }
+
 
   listWorkspaces(extraCandidates: string[] = []): WorkspaceInfo[] {
     // F-39：候选先入归一化 Set（同路径不同形态/大小写双条目消除）。

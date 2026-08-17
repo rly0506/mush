@@ -33,6 +33,8 @@ export function buildDeepSeekContract(channel: DeepSeekChannel): AdapterContract
       // headless 单发无档 → kind=none + 单档占位 default。
       effort_levels: ['DEFAULT'],
       effort_injection: { kind: 'none' },
+      // GOAL-018 U3：dsh 0.1.0 headless 无自动压缩，mush 侧估算换窗。
+      context_management: 'none',
     });
   }
   return validateAdapterContract({
@@ -46,6 +48,7 @@ export function buildDeepSeekContract(channel: DeepSeekChannel): AdapterContract
     // GP-22：pi --help 未公开 effort 档位；同 dsh 占位 none。
     effort_levels: ['DEFAULT'],
     effort_injection: { kind: 'none' },
+    context_management: 'none',
   });
 }
 
