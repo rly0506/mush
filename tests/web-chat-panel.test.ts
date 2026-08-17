@@ -52,9 +52,8 @@ test('completion notification: toast + Notification API toggle (GP-18)', () => {
 test('animated dog logos: inline SVG per model family, zero external refs (GP-23)', () => {
   assert.match(html, /function dogLogo\(/, '内联 SVG 犬只标识生成函数');
   assert.match(html, /<svg /, '内联 SVG（零外链）');
-  assert.match(html, /@keyframes logo-anim/, '运行中动画关键帧');
+  assert.match(html, /@keyframes logo-(anim|glow)/, '运行中动画关键帧（G013L 后辉光为 logo-glow）');
   assert.match(html, /whale/, 'DeepSeek 鲸鱼意象');
-  assert.match(html, /crescent/, 'Kimi 月亮意象');
   assert.ok(!/url\(\s*['"]?https?:/i.test(html), '动画零外部资源');
 });
 

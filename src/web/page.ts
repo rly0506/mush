@@ -38,6 +38,13 @@ export function renderBoardPage(): string {
     --whale: #4d9fe8;         /* DeepSeek 鲸蓝 */
     --sun: #e8975a;           /* Claude 日冕橙 */
     --knot: #6fd3a5;          /* OpenAI 花结绿 */
+    /* GOAL-017B #4：各家族官方品牌主色（owner 2026-08-17 指定） */
+    --brand-deepseek: #4D6BFE;
+    --brand-claude: #D97757;
+    --brand-kimi: #7C5CFF;
+    --brand-glm: #4E7AC7;
+    --brand-opencode: #F6BF67;
+    --brand-codex: #8a9cb0;   /* codex 手绘灰兜底 */
     --star: #a98ae8;          /* GLM 星紫 */
     --moon: #8fb7d8;          /* Kimi 新月银蓝 */
     --font-body: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
@@ -65,7 +72,18 @@ export function renderBoardPage(): string {
     border-radius: 10px; padding: 3px 11px 3px 5px;
   }
   #head-dog-badge .logo-slot { display: inline-flex; width: 20px; height: 20px; }
-  #head-dog-badge .logo-slot svg { width: 20px; height: 20px; }
+  #head-dog-badge .logo-slot svg, #head-dog-badge .logo-slot img { width: 20px; height: 20px; }
+  /* GOAL-017B：UNVERIFIED 头犬候选灰显 + 原因徽标 */
+  #chat-head-select option.unverified { color: var(--ink-faint); }
+  .badge.unverified { color: var(--ink-faint); border-color: var(--ink-faint); font-size: 10px; }
+  /* GOAL-017B #1：犬只管理（添加/移除） */
+  .roster-manage { margin-bottom: 12px; display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+  .roster-manage label { font-size: 12px; color: var(--ink-dim); display: block; margin-bottom: 4px; }
+  .roster-manage select, .roster-manage input { width: auto; padding: 6px 10px; font-size: 12px; }
+  button.act.remove { color: var(--danger); border-color: var(--danger); padding: 2px 10px; font-size: 11px; }
+  /* GOAL-017B #6：预算 cap 行内编辑 */
+  .cap-input { width: 72px; padding: 2px 6px; font-size: 12px; display: inline-block; }
+  .cap-edit-msg { font-size: 11px; margin-left: 6px; }
   nav { display: flex; gap: 4px; padding: 10px 22px 0; }
   nav button {
     background: var(--panel); color: var(--ink-dim); border: 1px solid var(--line);
@@ -184,17 +202,18 @@ export function renderBoardPage(): string {
   /* ---------- GOAL-012 + GOAL-013L：犬只标识（官方品牌 img 优先，手绘 SVG 兜底）与三态动效 ---------- */
   .dog-logo { display: inline-flex; vertical-align: middle; }
   .dog-logo svg, .dog-logo img { width: 22px; height: 22px; display: block; }
-  /* working：小跳/抖动循环（translateY ≤6px + 轻微 squash）叠加辉光呼吸 —— 一眼看出谁在跑 */
-  .dog-logo.working svg, .dog-logo.working img { animation: logo-hop 1.2s ease-in-out infinite, logo-anim 1.4s ease-in-out infinite; transform-origin: 50% 80%; }
+  /* GOAL-017B #4：常态品牌色着色；运行态 = 边缘 drop-shadow 辉光（品牌色）+ 跳动。
+     品牌色由内联 style --dog-brand 注入（官方主色表），辉光读变量。 */
+  .dog-logo.working svg, .dog-logo.working img { animation: logo-hop 1.2s ease-in-out infinite, logo-glow 1.4s ease-in-out infinite; transform-origin: 50% 80%; }
   @keyframes logo-hop {
     0%, 100% { transform: translateY(0) scale(1, 1); }
     35% { transform: translateY(-5px) scale(0.96, 1.05); }
     60% { transform: translateY(0) scale(1.04, 0.94); }
     80% { transform: translateY(-2px) scale(0.99, 1.02); }
   }
-  @keyframes logo-anim {
-    0%, 100% { filter: drop-shadow(0 0 0 transparent); }
-    50% { filter: drop-shadow(0 0 4px currentColor); }
+  @keyframes logo-glow {
+    0%, 100% { filter: drop-shadow(0 0 1px var(--dog-brand, currentColor)); }
+    50% { filter: drop-shadow(0 0 5px var(--dog-brand, currentColor)); }
   }
   /* terminal-flash：终态到达时一次落定闪（PASS 绿 / FAIL 红），一次即停 */
   .dog-logo.terminal-flash.flash-pass svg, .dog-logo.terminal-flash.flash-pass img { animation: logo-settle-flash 0.7s ease-out 1; --flash-color: #5fd08a; }
@@ -208,8 +227,8 @@ export function renderBoardPage(): string {
   .dog-logo:not(.working):hover svg, .dog-logo:not(.working):hover img { transform: translateY(-1px); }
   @media (prefers-reduced-motion: reduce) {
     /* 降级为辉光呼吸（无位移） */
-    .dog-logo.working svg, .dog-logo.working img { animation: logo-anim 1.4s ease-in-out infinite; }
-    .dog-logo.terminal-flash svg, .dog-logo.terminal-flash img { animation: logo-anim 0.7s ease-out 1; }
+    .dog-logo.working svg, .dog-logo.working img { animation: logo-glow 1.4s ease-in-out infinite; }
+    .dog-logo.terminal-flash svg, .dog-logo.terminal-flash img { animation: logo-glow 0.7s ease-out 1; }
     .badge.RUNNING::before, .toast, .thinking-dots i { animation: none; }
   }
 </style>
@@ -245,6 +264,7 @@ export function renderBoardPage(): string {
     <div class="chat-toolbar">
       <span>你只和头犬说话 —— 它自主派活、审核回报，触发门会弹回这里。</span>
       <label>头犬 <select id="chat-head-select" style="width:auto;padding:3px 8px;font-size:12px"></select></label>
+      <label id="chat-head-variant-wrap" style="display:none">模型 <select id="chat-head-variant" style="width:auto;padding:3px 8px;font-size:12px"></select></label>
       <label>思维 <select id="chat-effort" style="width:auto;padding:3px 8px;font-size:12px">
         <option>LOW</option>
         <option selected>HIGH</option>
@@ -308,7 +328,7 @@ export function renderBoardPage(): string {
     <h3 style="font-size:13px;color:var(--ink-dim)">派发跟踪</h3>
     <div id="dispatch-list"><div class="empty">暂无派发记录</div></div>
   </section>
-  <section id="view-dogs" class="view"></section>
+  <section id="view-dogs" class="view"><div class="roster-manage" id="roster-manage"></div><div id="dogs-table"></div></section>
   <section id="view-epochs" class="view"></section>
   <section id="view-budget" class="view"></section>
   <section id="view-approvals" class="view"></section>
@@ -412,10 +432,11 @@ export function renderBoardPage(): string {
     });
   }
 
-  /* ---------- GOAL-012 / GP-23：动效 logo（内联 SVG，各模型家族意象） ---------- */
-  // 返回 { family, svg }；family 供 CSS currentColor 发光配色。
-  // 意象：DeepSeek 鲸 / Claude 日冕 / OpenAI 花结 / GLM 四角星 / Kimi 新月 crescent / 通用雪橇犬爪。
-  var FAMILY_COLORS = { whale: '#4d9fe8', sun: '#e8975a', knot: '#6fd3a5', star: '#a98ae8', moon: '#8fb7d8', paw: '#8a9cb0' };
+  /* ---------- GOAL-012 / GP-23 + GOAL-017B #4：犬只标识（官方品牌 img 优先，手绘兜底；品牌官方主色） ---------- */
+  // family 供 CSS currentColor 配色；品牌色 = owner 2026-08-17 指定官方主色表。
+  var FAMILY_COLORS = { whale: '#4D6BFE', sun: '#D97757', knot: '#8a9cb0', star: '#4E7AC7', moon: '#7C5CFF', paw: '#8a9cb0' };
+  // GOAL-017B：品牌色按 brand（官方主色）；opencode 官方主色表（owner 指定值）。
+  var BRAND_COLORS = { deepseek: '#4D6BFE', claude: '#D97757', kimi: '#7C5CFF', glm: '#4E7AC7', opencode: '#F6BF67', codex: '#8a9cb0' };
 
   function detectFamily(text) {
     var t = String(text || '').toLowerCase();
@@ -470,14 +491,15 @@ export function renderBoardPage(): string {
 
   // dogLogo(hint, state)：state ∈ 'idle' | 'working' | 'flash-pass' | 'flash-fail'
   // （兼容旧布尔：true → working）。三态动效作用于容器内图标（img 与手绘同待遇）。
+  // GOAL-017B #4：着色用官方品牌主色（BRAND_COLORS）；--dog-brand 注入供辉光读取。
   function dogLogo(hint, state) {
     var mode = state === true ? 'working' : (state || 'idle');
     var family = detectFamily(hint);
-    var color = FAMILY_COLORS[family];
+    var brand = brandAssetFor(hint);
+    var color = brand !== null && BRAND_COLORS[brand] ? BRAND_COLORS[brand] : FAMILY_COLORS[family];
     var cls = 'dog-logo';
     if (mode === 'working') cls += ' working';
     if (mode === 'flash-pass' || mode === 'flash-fail') cls += ' terminal-flash ' + mode;
-    var brand = brandAssetFor(hint);
     var inner;
     if (brand !== null) {
       inner = '<img src="/assets/brands/' + brand + '.svg" alt="' + esc(brand) + '" ' +
@@ -486,11 +508,71 @@ export function renderBoardPage(): string {
     } else {
       inner = '<svg viewBox="0 0 24 24" aria-hidden="true">' + LOGO_SHAPES[family] + '</svg>';
     }
-    return '<span class="' + cls + '" style="color:' + color + '" title="' + esc(family) + '">' + inner + '</span>';
+    return '<span class="' + cls + '" style="color:' + color + ';--dog-brand:' + color + '" title="' + esc(family) + '">' + inner + '</span>';
   }
 
-  /* ---------- 当前头犬标识（页头常驻；roster v1.3 role 字段，缺省 head-dog） ---------- */
-  // GOAL-013L：处理中（chatPending）徽章 working 跳动；终态到达落定闪一次（headFlashUntil）。
+  /* ---------- GOAL-017B #2：头犬级联选择（harness → 模型变体两级） ----------
+     数据：roster verified 项 × variants；UNVERIFIED 项灰显 + 原因徽标（F-50 等）。
+     p17a 契约 v1.5 未落盘前按 mock 字段（verified/verify_reason/variants）开发，
+     缺省视为 verified（向后兼容 v1.3 roster），联调批补真字段。 */
+  var HEAD_WHITELIST = { 'head-dog': 1, 'deepseek-dsh': 1, 'claude-code': 1, 'kimi-code': 1, 'kimi': 1, 'zcode': 1 };
+
+  function headCandidates() {
+    var roster = (snapshot && snapshot.roster) || [];
+    var heads = roster.filter(function (r) { return r.role === 'head' || HEAD_WHITELIST[r.adapter_id] === 1; });
+    if (heads.length === 0) heads = [{ adapter_id: 'head-dog', expected_model_id: '', verified: true }];
+    return heads;
+  }
+
+  function isVerifiedEntry(r) {
+    // mock 语义：verified 字段缺省 true；verified===false 时灰显并附原因徽标。
+    return r.verified !== false;
+  }
+
+  function unverifiedReason(r) {
+    return r.verify_reason || r.unverified_reason || '通道未实证（UNVERIFIED）';
+  }
+
+  function renderHeadCascade() {
+    var sel = document.getElementById('chat-head-select');
+    if (!sel) return;
+    var heads = headCandidates();
+    var prev = sel.value;
+    sel.innerHTML = heads.map(function (r) {
+      var ok = isVerifiedEntry(r);
+      var label = esc(r.adapter_id) + (ok ? '' : '（' + esc(unverifiedReason(r)) + '）');
+      return '<option value="' + esc(r.adapter_id) + '"' + (ok ? '' : ' disabled class="unverified"') + '>' + label + '</option>';
+    }).join('');
+    if (prev && heads.some(function (r) { return r.adapter_id === prev && isVerifiedEntry(r); })) {
+      sel.value = prev;
+    } else {
+      var firstOk = heads.filter(function (r) { return isVerifiedEntry(r); })[0];
+      if (firstOk) sel.value = firstOk.adapter_id;
+    }
+    renderHeadVariantOptions();
+  }
+
+  function renderHeadVariantOptions() {
+    var sel = document.getElementById('chat-head-select');
+    var varSel = document.getElementById('chat-head-variant');
+    if (!sel || !varSel) return;
+    var heads = headCandidates();
+    var current = heads.filter(function (r) { return r.adapter_id === sel.value; })[0] || null;
+    var variants = (current && current.variants) || [];
+    var wrap = document.getElementById('chat-head-variant-wrap');
+    if (variants.length === 0) {
+      wrap.style.display = 'none';
+      varSel.innerHTML = '';
+    } else {
+      wrap.style.display = '';
+      varSel.innerHTML = '<option value="">（默认模型）</option>' + variants.map(function (v) {
+        return '<option value="' + esc(v) + '">' + esc(v) + '</option>';
+      }).join('');
+    }
+    renderHeadDogBadge();
+  }
+
+  /* ---------- 当前头犬标识（GOAL-017B #3：徽章链 = 所选 harness 官方图标 + 模型名，随选择联动） ---------- */
   var headFlashUntil = 0;
 
   function headBadgeState() {
@@ -501,28 +583,15 @@ export function renderBoardPage(): string {
   function renderHeadDogBadge() {
     var nameEl = document.getElementById('head-dog-name');
     var logoEl = document.getElementById('head-dog-logo');
-    var roster = (snapshot && snapshot.roster) || [];
-    var head = null;
-    for (var i = 0; i < roster.length; i += 1) {
-      if (roster[i].role === 'head' || roster[i].adapter_id === 'head-dog') { head = roster[i]; break; }
-    }
-    var label = head ? head.adapter_id : 'head-dog';
-    nameEl.textContent = '当前头犬：' + label;
-    logoEl.innerHTML = dogLogo(label + ' ' + (head ? head.expected_model_id || '' : ''), headBadgeState());
-    // D1（GOAL-012B）：头犬选择下拉 —— 数据源 roster.role==='head'；选中项联动徽章。
+    if (!nameEl || !logoEl) return;
     var sel = document.getElementById('chat-head-select');
-    if (sel) {
-      var heads = roster.filter(function (r) { return r.role === 'head' || r.adapter_id === 'head-dog'; });
-      if (heads.length === 0) heads = [{ adapter_id: 'head-dog', expected_model_id: '' }];
-      var prev = sel.value;
-      sel.innerHTML = heads.map(function (r) {
-        return '<option value="' + esc(r.adapter_id) + '">' + esc(r.adapter_id) + (r.expected_model_id ? '（' + esc(r.expected_model_id) + '）' : '') + '</option>';
-      }).join('');
-      if (prev && heads.some(function (r) { return r.adapter_id === prev; })) sel.value = prev;
-      nameEl.textContent = '当前头犬：' + sel.value;
-      var current = heads.filter(function (r) { return r.adapter_id === sel.value; })[0];
-      logoEl.innerHTML = dogLogo(sel.value + ' ' + (current ? current.expected_model_id || '' : ''), headBadgeState());
-    }
+    var varSel = document.getElementById('chat-head-variant');
+    var heads = headCandidates();
+    var adapterId = sel && sel.value ? sel.value : (heads[0] ? heads[0].adapter_id : 'head-dog');
+    var current = heads.filter(function (r) { return r.adapter_id === adapterId; })[0] || null;
+    var model = varSel && varSel.value ? varSel.value : (current ? current.expected_model_id || '' : '');
+    nameEl.textContent = '当前头犬：' + adapterId + (model ? ' · ' + model : '');
+    logoEl.innerHTML = dogLogo(adapterId + ' ' + model, headBadgeState());
   }
 
   /* ---------- 犬只下拉（G009 修复：取 roster 注册名册；无活动时也应有犬可选） ---------- */
@@ -786,11 +855,56 @@ export function renderBoardPage(): string {
 
   function isRunningStatus(status) { return TERMINAL_STATUSES[status] !== 1 && status !== undefined; }
 
+  /* ---------- GOAL-017B #1：犬只管理（契约 v1.5 mock：p17a 未落盘前按描述开发） ---------- */
+  var ADAPTER_TEMPLATES = ['dsh', 'claude', 'codex', 'kimi', 'opencode', 'zcode'];
+
+  function renderRosterManage() {
+    var el = document.getElementById('roster-manage');
+    if (!el) return;
+    el.innerHTML = '<div><label for="adapter-template">基础模板</label>' +
+      '<select id="adapter-template">' + ADAPTER_TEMPLATES.map(function (t) { return '<option>' + t + '</option>'; }).join('') + '</select></div>' +
+      '<div><label for="adapter-new-id">命名（adapter_id）</label>' +
+      '<input type="text" id="adapter-new-id" placeholder="如 zcode-2"></div>' +
+      '<button class="act approve" id="btn-adapter-add" type="button">添加犬只</button>';
+    document.getElementById('btn-adapter-add').addEventListener('click', addAdapter);
+  }
+
+  function addAdapter() {
+    var template = document.getElementById('adapter-template').value;
+    var id = document.getElementById('adapter-new-id').value.trim();
+    if (!id) { toast('请给新犬命名（adapter_id）', false); return; }
+    postJson('/api/adapters', { template: template, adapter_id: id }).then(function (result) {
+      if (result.status === 201 && result.body && result.body.ok) {
+        toast('已添加犬只：' + id, true);
+        document.getElementById('adapter-new-id').value = '';
+        refresh(); // roster 即时刷新
+      } else {
+        toast('添加失败：' + ((result.body && result.body.error) || result.status), false);
+      }
+    }).catch(function (error) { toast('添加失败：' + error, false); });
+  }
+
+  function removeAdapter(adapterId) {
+    // 软删语义说明：roster 隐藏，历史派发/台账不受影响（append-only）。
+    if (!window.confirm('移除犬只 ' + adapterId + '？\\n软删：roster 隐藏，历史派发记录与预算台账保留（append-only 不改写）。')) return;
+    fetch('/api/adapters/' + encodeURIComponent(adapterId), { method: 'DELETE' }).then(function (res) {
+      return res.json().then(function (data) { return { status: res.status, body: data }; });
+    }).then(function (result) {
+      if (result.status === 200 && result.body && result.body.ok) {
+        toast('已移除（软删）：' + adapterId, true);
+        refresh();
+      } else {
+        toast('移除失败：' + ((result.body && result.body.error) || result.status), false);
+      }
+    }).catch(function (error) { toast('移除失败：' + error, false); });
+  }
+
   function renderDogs() {
-    var el = document.getElementById('view-dogs');
+    var el = document.getElementById('dogs-table');
     var actors = snapshot.actors;
     var dispatches = snapshot.dispatches || [];
     var latest = latestDispatchPerAdapter();
+    renderRosterManage(); // GOAL-017B #1：管理条（模板+命名+添加）
     function dispatchStats(adapterId) {
       var count = 0;
       var last = latest[adapterId] || null;
@@ -812,6 +926,7 @@ export function renderBoardPage(): string {
         var roleBadge = role === 'head'
           ? '<span class="badge role-head">head 头犬</span>'
           : '<span class="badge role-executor">executor</span>';
+        if (!isVerifiedEntry(r)) roleBadge += ' <span class="badge unverified">' + esc(unverifiedReason(r)) + '</span>';
         var activity = stats.count === 0
           ? '（未活动，注册在册）'
           : stats.count + ' 次 · <span class="badge ' + esc(stats.latest.status) + '">' + esc(stats.latest.status) + '</span> <span class="mono">' + escTime(stats.latest.at_utc || '') + '</span>';
@@ -819,9 +934,13 @@ export function renderBoardPage(): string {
           '<td>' + roleBadge + '</td>' +
           '<td>' + esc(r.expected_provider) + '</td><td>' + esc(r.expected_model_id) + '</td>' +
           '<td class="mono">' + esc((r.variants || []).join(' | ')) + '</td>' +
-          '<td>' + activity + '</td></tr>';
+          '<td>' + activity + '</td>' +
+          '<td><button class="act remove" data-remove="' + esc(r.adapter_id) + '" type="button">移除</button></td></tr>';
       }).join('');
-      el.innerHTML = '<table><thead><tr><th>犬（合同）</th><th>角色</th><th>provider</th><th>model</th><th>变体</th><th>最近派发</th></tr></thead><tbody>' + rr + '</tbody></table>';
+      el.innerHTML = '<table><thead><tr><th>犬（合同）</th><th>角色</th><th>provider</th><th>model</th><th>变体</th><th>最近派发</th><th>管理</th></tr></thead><tbody>' + rr + '</tbody></table>';
+      el.querySelectorAll('button[data-remove]').forEach(function (btn) {
+        btn.addEventListener('click', function () { removeAdapter(btn.getAttribute('data-remove')); });
+      });
       return;
     }
     var rows = actors.map(function (a) {
@@ -839,7 +958,8 @@ export function renderBoardPage(): string {
         '<td class="mono">' + shortHash(a.capability_id) + '</td>' +
         '<td>' + a.event_count + '</td><td>' + esc(a.last_event_type) + '</td></tr>';
     }).join('');
-    el.innerHTML = '<table><thead><tr><th>犬（实例）</th><th>角色</th><th>provider</th><th>model</th><th>capability</th><th>事件数</th><th>最近事件</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    el.innerHTML = '<table><thead><tr><th>犬（实例）</th><th>角色</th><th>provider</th><th>model</th><th>capability</th><th>事件数</th><th>最近事件</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      '<div class="hint">（实例投影视图：管理操作在合同名册视图进行）</div>';
   }
 
   /* ---------- 事件链（G009：无 epoch 链时回退显示派发生命周期记录） ---------- */
@@ -878,7 +998,7 @@ export function renderBoardPage(): string {
     }).join('');
   }
 
-  /* ---------- 预算真实视图（GET /api/budget） ---------- */
+  /* ---------- 预算真实视图（GET /api/budget；GOAL-017B #6：计数 + cap 行内编辑） ---------- */
   function renderBudget() {
     var el = document.getElementById('view-budget');
     if (!budget || !budget.actors || budget.actors.length === 0) {
@@ -888,18 +1008,53 @@ export function renderBoardPage(): string {
     el.innerHTML = budget.actors.map(function (actor) {
       var cap = actor.cap_usd || 0;
       var spent = actor.spent_usd || 0;
+      // GOAL-017B #6：admission 计数（v1.5 字段；缺省按 entries 长度回退）。
+      var admissionCount = actor.admission_count !== undefined ? actor.admission_count : (actor.entries || []).length;
       var pct = cap > 0 ? Math.min(100, (spent / cap) * 100) : 0;
       var entries = (actor.entries || []).slice(-5).reverse().map(function (entry) {
         return '<tr><td class="mono">' + escTime(entry.at_utc) + '</td><td>' + esc(entry.decision) + '</td>' +
           '<td>$' + Number(entry.amount_usd).toFixed(4) + '</td><td>$' + Number(entry.remaining_usd).toFixed(4) + '</td></tr>';
       }).join('');
-      return '<div class="card"><h3>' + esc(actor.actor_id) + '</h3>' +
-        '<div style="display:flex;align-items:center;gap:12px">' +
+      return '<div class="card"><h3>' + dogLogo(actor.actor_id, false) + ' ' + esc(actor.actor_id) +
+        ' <span class="badge">' + admissionCount + ' 次 admission</span></h3>' +
+        '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
         '<div class="bar' + (pct > 80 ? ' hot' : '') + '"><div style="width:' + pct + '%"></div></div>' +
-        '<span class="mono">$' + spent.toFixed(4) + ' / $' + cap.toFixed(2) + '（' + pct.toFixed(0) + '%）</span></div>' +
+        '<span class="mono">$' + spent.toFixed(4) + ' / $' + cap.toFixed(2) + '（' + pct.toFixed(0) + '%）</span>' +
+        '<span class="cap-editor">cap $<input type="number" class="cap-input" min="0.01" step="0.01" value="' + cap.toFixed(2) + '" data-cap-actor="' + esc(actor.actor_id) + '">' +
+        '<button class="act approve" data-cap-save="' + esc(actor.actor_id) + '" type="button" style="padding:2px 10px;font-size:11px">保存</button>' +
+        '<span class="cap-edit-msg" data-cap-msg="' + esc(actor.actor_id) + '"></span></span></div>' +
         (entries ? '<table style="margin-top:8px"><thead><tr><th>时间</th><th>决策</th><th>金额</th><th>余额</th></tr></thead><tbody>' + entries + '</tbody></table>' : '') +
         '</div>';
     }).join('');
+    // GOAL-017B #6：cap 行内编辑 → PUT /api/budget/caps/:actor（契约 v1.5 mock）
+    el.querySelectorAll('button[data-cap-save]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var actorId = btn.getAttribute('data-cap-save');
+        var input = el.querySelector('input[data-cap-actor="' + actorId + '"]');
+        var msg = el.querySelector('span[data-cap-msg="' + actorId + '"]');
+        var value = Number(input.value);
+        if (!isFinite(value) || value <= 0) { msg.textContent = 'cap 必须 > 0'; msg.style.color = 'var(--danger)'; return; }
+        fetch('/api/budget/caps/' + encodeURIComponent(actorId), {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ cap_usd: value })
+        }).then(function (res) { return res.json().then(function (data) { return { status: res.status, body: data }; }); })
+          .then(function (result) {
+            if ((result.status === 200 || result.status === 201) && result.body && result.body.ok) {
+              msg.textContent = '已保存';
+              msg.style.color = 'var(--ok)';
+              toast('cap 已更新：' + actorId + ' → $' + value.toFixed(2), true);
+              loadBudget();
+            } else {
+              msg.textContent = '失败：' + ((result.body && result.body.error) || result.status);
+              msg.style.color = 'var(--danger)';
+            }
+          }).catch(function (error) {
+            msg.textContent = '失败：' + error;
+            msg.style.color = 'var(--danger)';
+          });
+      });
+    });
   }
 
   /* ---------- 审批 ---------- */
@@ -1064,11 +1219,14 @@ export function renderBoardPage(): string {
     appendChatRow('user', message, new Date().toISOString());
     setChatPending(true);
     showThinking(); // D2：立即反馈，不等网络
-    // D1：头犬选择 + effort 档位随消息提交（v1.3.1 可选字段，缺省后端 head-dog/HIGH）。
+    // D1/D2（GOAL-012B/017B）：头犬 harness + 模型变体 + effort 档位随消息提交
+    // （v1.3.1 可选字段，缺省后端 head-dog/HIGH；变体 v1.5 model_id 透传）。
     var headSel = document.getElementById('chat-head-select');
     var effortSel = document.getElementById('chat-effort');
+    var variantSel = document.getElementById('chat-head-variant');
     var payload = { message: message, resume: chatSessionId };
     if (headSel && headSel.value) payload.adapter_id = headSel.value;
+    if (variantSel && variantSel.value) payload.model_id = variantSel.value;
     if (effortSel && effortSel.value) payload.effort = effortSel.value;
     postJson('/api/chat', payload).then(function (result) {
       var data = result.body || {};
@@ -1121,7 +1279,7 @@ export function renderBoardPage(): string {
   function renderAll() {
     if (!snapshot) return;
     document.getElementById('generated').textContent = '快照 ' + escTime(snapshot.generated_at_utc) + '（本地时间）';
-    renderHeadDogBadge();
+    renderHeadCascade(); // GOAL-017B #2/#3：级联选择 + 徽章链（内含 renderHeadDogBadge）
     renderAdapterOptions();
     renderDispatches();
     renderDogs();
@@ -1240,6 +1398,9 @@ export function renderBoardPage(): string {
     if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendChat(); }
   });
   document.getElementById('chat-new-session').addEventListener('click', chatNewSession);
+  // GOAL-017B #2/#3：级联选择联动（harness 切换 → 变体重算 + 徽章链刷新）。
+  document.getElementById('chat-head-select').addEventListener('change', renderHeadVariantOptions);
+  document.getElementById('chat-head-variant').addEventListener('change', renderHeadDogBadge);
   var notifyToggle = document.getElementById('notify-toggle');
   notifyToggle.checked = notifyPref.browser;
   notifyToggle.addEventListener('change', function () {
