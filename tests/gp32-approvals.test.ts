@@ -122,9 +122,18 @@ test('GP-32: HTTP respond APPROVED drives token + auto rerun; REJECTED folds rec
     body: JSON.stringify({ request_file: requestFile, decision: 'APPROVED' }),
   });
   assert.equal(approved.status, 201);
-  const approvedBody = (await approved.json()) as { ok: boolean; dispatch?: { new_dispatch_id: string; status: string } };
-  assert.ok(approvedBody.dispatch !== undefined, 'respond returns dispatch outcome');
-  assert.equal(approvedBody.dispatch?.status, 'PASS');
+  const approvedBody = (await approved.json()) as { ok: boolean; dispatch?: { rerun?: string } };
+  assert.equal(approvedBody.dispatch?.rerun, 'STARTED', 'respond returns fast; rerun is async (AD-39)');
+  // 异步重跑：轮询等新派发落地（fake 适配器瞬时完成）。
+  let rerunId: string | null = null;
+  for (let i = 0; i < 40 && rerunId === null; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    for (const record of pipeline.recent(20)) {
+      if (record.dispatch_id !== blocked.dispatch_id && record.adapter_id === 'fake-t1') rerunId = record.dispatch_id;
+    }
+  }
+  assert.ok(rerunId !== null, 'async rerun created a new dispatch');
+  assert.equal(pipeline.get(rerunId)?.status, 'PASS');
   assert.equal(pipeline.get(blocked.dispatch_id)?.status, 'SUPERSEDED');
   assert.ok(
     !existsSync(path.join(root, 'runtime', 'approval-tokens', `dispatch-${blocked.dispatch_id}.token.json`)),

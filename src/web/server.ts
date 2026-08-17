@@ -194,14 +194,25 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     // GP-32（D30）：派发类请求——批准 = 单次令牌 + approved_via 自动重跑（原单
     // 折 SUPERSEDED）；否决 = 原单折 REJECTED。应答文件先落盘（append-only），
     // 联动失败不吞应答，只降级为 warning。
+    // AD-39 修正：重跑**异步启动**（void）——真实犬只任务可跑数十分钟，
+    // 应答端点同步等待会拖死前端请求（owner 批准后弹"应答失败"误报）；
+    // 执行状态经既有 SSE 生命周期事件实时推送。
     let dispatchOutcome: Record<string, unknown> | null = null;
     try {
       const req = JSON.parse(readFileSync(requestPath, 'utf8')) as Record<string, unknown>;
       if (req.kind === 'dispatch' && typeof req.dispatch_id === 'string' && req.dispatch_id !== '') {
         if (body.decision === 'APPROVED') {
           dispatch.grantApprovalToken(req.dispatch_id);
-          const rerunRecord = await dispatch.rerun(req.dispatch_id, { real: true, approved_via: req.dispatch_id });
-          dispatchOutcome = { new_dispatch_id: rerunRecord.dispatch_id, status: rerunRecord.status };
+          void dispatch
+            .rerun(req.dispatch_id, { real: true, approved_via: req.dispatch_id })
+            .catch((error: unknown) => {
+              broadcast({
+                kind: 'dispatch',
+                dispatch_id: req.dispatch_id,
+                warning: `approved rerun failed: ${error instanceof Error ? error.message : String(error)}`,
+              });
+            });
+          dispatchOutcome = { rerun: 'STARTED', original: req.dispatch_id };
         } else {
           const rejected = dispatch.rejectDispatch(req.dispatch_id);
           dispatchOutcome = { dispatch_id: rejected.dispatch_id, status: rejected.status };
