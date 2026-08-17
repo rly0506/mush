@@ -1562,7 +1562,8 @@ export function renderBoardPage(): string {
     }).catch(function () { renderStreams(); });
   }
 
-  // HANDOFF 五节卡片式渲染（D29 修订 v2 #4）；暴毙代写（head_written）标注头犬署名。
+  // HANDOFF 五节卡片式渲染（D29 修订 v2 #4；契约 v1.6 实字段：open_issues，联调批对齐）。
+  // 暴毙代写（head_written）标注头犬署名——外部补写（POST handoff）亦视为代写。
   function renderHandoffBlock(handoff) {
     if (!handoff) return '';
     var sections = [
@@ -1570,7 +1571,7 @@ export function renderBoardPage(): string {
       ['定了什么', handoff.decided],
       ['文件在哪', handoff.files],
       ['下一步', handoff.next],
-      ['未解问题', handoff.open]
+      ['未解问题', handoff.open_issues || handoff.open]
     ];
     var rows = sections.map(function (pair) {
       if (!pair[1]) return '';
@@ -1602,17 +1603,26 @@ export function renderBoardPage(): string {
       return;
     }
     el.innerHTML = streamsData.map(function (s) {
+      // v1.6 实形：events[] + handoffs[]（统计现场计算；s.stats mock 回退保留）。
+      var events = s.events || [];
+      var handoffs = s.handoffs || [];
       var stats = s.stats || {};
-      var ctxPct = typeof stats.context_pct === 'number' ? Math.min(100, stats.context_pct) : null;
+      var dispatchCount = stats.dispatch_count !== undefined ? stats.dispatch_count : events.length;
+      var sessionCount = stats.session_count !== undefined ? stats.session_count
+        : events.map(function (e) { return e.session_id; }).filter(function (id, i, arr) { return id && arr.indexOf(id) === i; }).length;
+      var handoffCount = stats.handoff_count !== undefined ? stats.handoff_count : handoffs.length;
+      var ctxPct = typeof stats.context_pct === 'number' ? Math.min(100, stats.context_pct)
+        : (events.length > 0 && typeof events[events.length - 1].context_estimate === 'number'
+          ? Math.min(100, Math.round(events[events.length - 1].context_estimate * 100)) : null);
       var open = openStreams[s.stream_id] === true;
       return '<div class="card stream-card" data-stream="' + esc(s.stream_id) + '">' +
         '<h3>' + esc(s.title || s.stream_id) +
         (s.goal_id ? ' <span class="badge">' + esc(s.goal_id) + '</span>' : '') +
         ' <span class="badge ' + (s.status === 'active' ? 'RUNNING' : 'ok') + '">' + esc(s.status || 'active') + '</span></h3>' +
         '<div class="mono" style="font-size:12px;color:var(--ink-dim)">' +
-        '派发 ' + (stats.dispatch_count || 0) + ' · 会话链 ' + (stats.session_count || 0) +
+        '派发 ' + dispatchCount + ' · 会话链 ' + sessionCount +
         (ctxPct !== null ? ' · 上下文估算 <span class="' + (ctxPct > 75 ? 'hash' : '') + '">' + ctxPct + '%</span>' : '') +
-        ' · 交接 ' + (stats.handoff_count || 0) + '</div>' +
+        ' · 交接 ' + handoffCount + '</div>' +
         '<div class="stream-timeline" style="display:' + (open ? 'block' : 'none') + '">' +
         (streamTimelineCache[s.stream_id] || '加载中…') + '</div></div>';
     }).join('');
@@ -1622,11 +1632,13 @@ export function renderBoardPage(): string {
   }
 
   function streamLinkMarker(entry) {
-    // 会话链标记：真续跑🟢 / 缝合🟡（v1.6 link 字段；缺省按 resume 有无推断）。
+    // 会话链标记（显式 link 字段优先；v1.6 实形走 toggleStreamTimeline 内
+    // session_id 比较推断——真续跑🟢同 session / 缝合·换窗🟡同流不同 session）。
     if (entry.link === 'resumed' || entry.resumed === true) return '<span title="真续跑">🟢</span>';
     if (entry.link === 'stitched' || entry.stitched === true) return '<span title="缝合">🟡</span>';
     return '';
   }
+  void streamLinkMarker;
 
   function toggleStreamTimeline(card) {
     var streamId = card.getAttribute('data-stream');
@@ -1642,13 +1654,26 @@ export function renderBoardPage(): string {
       if (!data || !data.ok || !data.stream) {
         streamTimelineCache[streamId] = '<span class="hash">无时间线数据</span>';
       } else {
-        var timeline = data.stream.timeline || [];
-        streamTimelineCache[streamId] = timeline.map(function (entry) {
+        // v1.6 实形：events[] 与 handoffs[] 分列——合并为单时间线（按 at_utc 排序）。
+        var s = data.stream;
+        var entries = (s.events || []).map(function (e) { return { kind: 'dispatch', at_utc: e.at_utc, event: e }; })
+          .concat((s.handoffs || []).map(function (h) { return { kind: 'handoff', at_utc: h.at_utc, handoff: h }; }));
+        entries.sort(function (a, b) { return String(a.at_utc || '') < String(b.at_utc || '') ? -1 : 1; });
+        var lastSessionId = null;
+        streamTimelineCache[streamId] = entries.map(function (entry) {
           if (entry.kind === 'handoff') return renderHandoffBlock(entry.handoff);
-          return '<div class="stream-entry">' + streamLinkMarker(entry) + ' ' +
-            '<span class="badge ' + esc(entry.status || '') + '">' + esc(entry.status || '') + '</span> ' +
-            '<span class="mono">' + esc(String(entry.dispatch_id || '').slice(0, 12)) + '…</span> ' +
-            esc(entry.adapter_id || '') + ' <span class="mono">' + escTime(entry.at_utc || '') + '</span></div>';
+          var ev = entry.event;
+          // 会话链标记：同 session_id 复用 = 真续跑🟢；同流不同 session（有前窗）= 缝合/换窗🟡。
+          var marker = '';
+          if (ev.session_id) {
+            if (lastSessionId !== null && ev.session_id === lastSessionId) marker = '<span title="真续跑">🟢</span>';
+            else if (lastSessionId !== null) marker = '<span title="缝合/换窗">🟡</span>';
+            lastSessionId = ev.session_id;
+          }
+          return '<div class="stream-entry">' + marker + ' ' +
+            '<span class="mono">' + esc(String(ev.dispatch_id || '').slice(0, 12)) + '…</span> ' +
+            esc(ev.adapter_id || '') + ' <span class="mono">' + escTime(ev.at_utc || '') + '</span>' +
+            (ev.context_estimate ? ' <span class="hint">ctx≈' + Math.round(ev.context_estimate * 100) + '%</span>' : '') + '</div>';
         }).join('') || '<span class="hash">（空时间线）</span>';
       }
       renderStreams();

@@ -1,0 +1,30 @@
+{
+  "batch": "BATCH-43",
+  "goal_id": "MUSH-GOAL-018B（联调批）",
+  "packet": "rm004-p18b 联调（p18a 已合并 master：0d997e2 + DEF-12 修复 08e9ead）",
+  "branch": "g018b",
+  "worktree": "runtime/worktrees/kimi-e",
+  "at_utc": "2026-08-17T12:05:00Z",
+  "executor": "kimi-k3 (thinking high)",
+  "integration": {
+    "merge": "g018b ← master（含 g018a v1.6 后端）；唯一冲突 BATCH-42-completion.json（add/add 回执撞名），取 kimi 侧（p18b 批次语义）解决；合并后 324/324 全绿",
+    "field_alignment": [
+      "HANDOFF：mock handoff.open → 实字段 open_issues（保留回退）",
+      "流列表统计：mock s.stats.* → v1.6 实形 events[]/handoffs[] 现场计算（派发数=events.length、会话链=去重 session_id、交接=handoffs.length、上下文估算=末事件 context_estimate）",
+      "时间线：mock data.stream.timeline[] → v1.6 实形 events[]+handoffs[] 合并按 at_utc 排序",
+      "会话链标记：v1.6 无 link 字段 → session_id 逐事件比较推断（同 session=真续跑🟢 / 同流不同 session=缝合·换窗🟡）",
+      "dispatch new_window：契约 v1.6 未定义该字段（p18b 包新增控制面）——前端继续发送但后端忽略，回执诚实标注为前端提案字段，待契约补录"
+    ]
+  },
+  "tests": {
+    "full_run": "324/324 PASS → goals/receipts/BATCH-43-test-output.txt",
+    "parse_regression": "web-page-parse vm.Script 每批必过"
+  },
+  "smoke": {
+    "regression": "g018b-workstreams-smoke.cjs 12/12 PASS（会话恢复真链路，exit=0）",
+    "integration": "scripts/g018-integration-smoke.cjs 12/12 PASS（exit=0）→ goals/receipts/BATCH-43-smoke-output.txt",
+    "integration_coverage": "两次同 goal 派发自动归流（窗口键 犬×Goal 实证）→ GET /api/streams 真数据（非 404 mock 空态）→ 时间线 events[] 实形 → POST handoff 外部补写 201（open_issues 实字段）→ 时间线 handoffs[] 含交接块 → 页面四处消费结构断言"
+  },
+  "red_lines": "零后端改动（前端对齐仅 page.ts）；零外链；模板正则双写；master 工作树零触碰（合并经 worktree）",
+  "acceptance": "D15：机检全绿 + 双冒烟真实执行，待头犬审核 + owner 显式接受"
+}

@@ -15,7 +15,7 @@
     "冒烟": "DONE — scripts/g018b-workstreams-smoke.cjs 真实执行 12/12 PASS（发消息→刷新恢复→切换会话全链路 + 结构断言）",
     "零后端改动": "HELD — 授权范围严格零后端；v1.6 消费点 mock 级诚实标注（流 API 404 空态优雅降级）"
   },
-  "mock_honesty": "p18a 未落盘：/api/streams 与 stream_id/new_stream/new_window/HANDOFF 归档为 mock 级交付（空态明示）；会话恢复为 v1.3 真端点链路，冒烟已实证非 mock；联调批待 g018a 合并后补真流数据冒烟",
+  "mock_honesty": "p18a 已于联调批落盘并完成对账：此前 mock 标注的消费点已全部对齐 v1.6 实契约（见 BATCH-43 field_alignment）；唯一遗留 = new_window 前端提案字段待契约补录",
   "commits": [
     "（本批）feat(G18B): streams view + dispatch stream controls + chat session restore (304/304)",
     "（本批）docs(G18B): BATCH-42 + GOAL-018B receipts"
@@ -25,5 +25,10 @@
     "零后端改动；零框架/零构建/零外链；凭据永不渲染；127.0.0.1 不变",
     "模板正则双写（本批无新增模板内正则）"
   ],
-  "acceptance_semantics": "D15：机检全绿 + 冒烟真实执行 → AUTO_ACCEPTED；DONE 与否决权归 owner。待头犬（zcode）审核 + owner 显式接受。"
+  "acceptance_semantics": "D15：机检全绿 + 冒烟真实执行 → AUTO_ACCEPTED；DONE 与否决权归 owner。待头犬（zcode）审核 + owner 显式接受。",
+  "integration_batch": {
+    "batch": "BATCH-43",
+    "note": "p18a 已合并（master 0d997e2）：前端 mock 消费点全部对齐 v1.6 实契约——HANDOFF open_issues 实字段、流统计 events[]/handoffs[] 现场计算、时间线合并排序、会话链 session_id 推断；new_window 为前端提案字段（契约未定义，后端忽略，已标注）；联调冒烟 12/12（真流 API 全链路）+ 回归冒烟 12/12 + 324/324 全绿",
+    "receipt": "goals/receipts/BATCH-43-completion.json"
+  }
 }
