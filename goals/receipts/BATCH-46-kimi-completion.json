@@ -1,0 +1,37 @@
+{
+  "batch": "BATCH-46-kimi",
+  "goal_id": "MUSH-GOAL-022",
+  "packet": "rm004-p21b-kimi-taskpool-ux（D36 人话原则首批）",
+  "branch": "g022",
+  "worktree": "runtime/worktrees/kimi-f",
+  "base": "master deb0b99",
+  "at_utc": "2026-08-18T01:10:00Z",
+  "executor": "kimi-k3 (thinking high)",
+  "five_items": {
+    "1_全面中文化": "TASK_STATUS_CN 七态映射（构想/就绪/已排队/执行中/完成/受阻/已取消）；TASK_VERB_CN 迁移动词化（转就绪/排队/开始执行/标记完成/标记受阻/取消）；迁移按钮不再渲染裸枚举（「→ READY」形态清除）；泳道标题/建卡表单本已中文",
+    "2_ID折叠": "taskSeq() 按创建顺序显示 #序号（#1..#34）；原始 task_id 折叠进卡片悬浮 title；dispatch_id 等机器语言不上主视图原则沿用",
+    "3_泳道排序": "sortTasksForLane：优先级（高>中>低，PRIORITY_RANK）> 创建时间；同 goal_id 稳定聚簇 + 浅青角标（badge.goal-cluster）",
+    "4_泳道内滚动": ".lane-body max-height:60vh + overflow-y:auto；目检实测：570px 截断、29 张待办卡首屏 4 张、body scrollHeight 1000（页面不拉长）；修复项：底部内阴影渐隐 + 细滚动条（滚动 affordance）",
+    "5_多选批量派发": "待办泳道复选框（accent 着色加可见）+ 「派发所选（N）」批量条 + dispatchQueue 逐单预填推进（派发提交成功钩子 advanceDispatchQueue）；每单仍各停审批卡（D30 语义提示内联）；提交后清除 data-task-id 防串单"
+  },
+  "tests": {
+    "new": "tests/g022-taskpool-ux.test.ts（5 用例：中文映射/动词化/#序号折叠/排序聚簇/滚动容器/多选控件）",
+    "full_run": "347/347 PASS → goals/receipts/BATCH-46-kimi-test-output.txt",
+    "parse_regression": "web-page-parse vm.Script 每批必过（本批再抓获一处 \\n 模板转义缺陷并双写修复）"
+  },
+  "smoke": {
+    "script": "scripts/g022-taskpool-ux-smoke.cjs（真实执行，exit=0）",
+    "result": "11/11 PASS → goals/receipts/BATCH-46-kimi-smoke-output.txt",
+    "coverage": "GET /api/tasks 真端点 200 + 34 张真卡载入（主仓 runtime/tasks.jsonl 读侧折叠）+ 待办泳道优先级排序独立复核（防自欺，独立实现对比）+ 中文化/折叠/排序/滚动/多选/task_id 预填七项结构断言",
+    "note": "tasksPath 显式绝对路径（worktree 相对解析陷阱：path.resolve(ROOT,'../..') 落在 runtime/ 下嵌套——调试实录见会话）"
+  },
+  "screenshot_review": {
+    "artifact": "goals/receipts/g022-taskpool-screenshot.png（34 真卡数据态）",
+    "method": "无头 Chromium + RapidOCR + PIL 像素级（子代理）",
+    "verified": ["亮色雪原底（238,241,245）", "三泳道布局+泳道内滚动截断证据", "中文状态徽章（构想/已排队/完成/已取消），全图零英文枚举", "迁移按钮中文动词（转就绪×3/开始执行/取消）", "#序号清晰可见", "优先级徽章高红/中琥珀", "派发所选批量条+D30 旁注", "页面未拉长（1000px）"],
+    "fixed_after_review": ["批量条旁注对比度 2:1 → --ink-dim", "复选框过淡 → 14px+accent 着色", "滚动无视觉提示 → 底部内阴影+细滚动条"],
+    "residual_notes": ["低优先级灰徽标在 34 真卡中无样本未验证（结构断言已覆盖类名）", "待办泳道 Goal 角标文字 OCR 未读出但青色像素在位（真卡多无 goal_id 所致，进行中泳道 MUSH-GOAL-019 角标已实证）"]
+  },
+  "red_lines": "零后端改动（仅 page.ts+测试+冒烟脚本）；零外链；127.0.0.1 不变；凭据永不渲染；模板正则双写；master 零触碰",
+  "acceptance": "D15：机检全绿 + 真卡冒烟 + 截图目检修复闭环，待头犬审核 + owner 显式接受"
+}

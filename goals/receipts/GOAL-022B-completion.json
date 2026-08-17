@@ -1,0 +1,29 @@
+{
+  "goal_id": "MUSH-GOAL-022",
+  "title": "任务池人因 UX 批（D36 人话原则首批落地）",
+  "status": "AUTO_ACCEPTED_PENDING_OWNER",
+  "branch": "g022",
+  "worktree": "runtime/worktrees/kimi-f",
+  "executor": "kimi-k3 (thinking high)",
+  "completed_at_utc": "2026-08-18T01:15:00Z",
+  "dod_checklist": {
+    "全面中文化": "DONE — 七态中文徽标 + 迁移动词化 + 裸枚举清除（OCR 全图零英文枚举实证）",
+    "机器语言折叠": "DONE — #序号（创建顺序）+ task_id 入悬浮 title",
+    "泳道排序": "DONE — 优先级>创建时间 + 同 Goal 聚簇角标（34 真卡独立复核通过）",
+    "泳道内滚动": "DONE — max-height 60vh + overflow-y；页面不拉长（1000px 实测）+ 滚动视觉提示（渐隐阴影+细滚动条）",
+    "多选批量派发": "DONE — 复选框+派发所选+逐单预填队列；每单仍各停审批卡（D30 不破）",
+    "测试": "DONE — 347/347 全绿（新增 5 用例）；web-page-parse 每批必过",
+    "冒烟": "DONE — 34 张真卡实测（真端点 200 + 排序独立复核）11/11 PASS",
+    "目检截图": "DONE — 亮色对比度沿 D33 标准；3 项发现修复闭环（旁注对比度/复选框可见性/滚动提示）"
+  },
+  "batches": ["BATCH-46-kimi（五任务一体 + 冒烟 + 目检）"],
+  "commits": [
+    "（本批）feat(G22B): taskpool human-UX — CN status/verbs, #seq folding, lane sort+cluster, in-lane scroll, multi-select batch dispatch (347/347, 11/11 smoke)"
+  ],
+  "boundaries_held": [
+    "F-45：全部工作在 runtime/worktrees/kimi-f（g022，基于 master deb0b99），master 零触碰",
+    "零后端改动；零外链；凭据永不渲染；模板正则双写（DEF-07 防线又抓获一处）",
+    "D30 语义不破：批量派发逐单各停审批卡"
+  ],
+  "acceptance_semantics": "D15：机检全绿 + 真卡冒烟 + 目检闭环 → AUTO_ACCEPTED；DONE 与否决权归 owner。待头犬（zcode）审核 + owner 显式接受。"
+}
