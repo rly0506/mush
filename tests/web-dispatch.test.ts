@@ -93,16 +93,22 @@ test('workspaces list/select persists selection and is fail-closed on missing pa
   assert.throws(() => pipeline.selectWorkspace(path.join(root, 'no-such')), InputError);
 });
 
-test('budget projection reports per-actor spent/cap/entries from the ledger', async () => {
+test('budget projection reports per-actor spent/cap/admission_count/entries from the ledger', async () => {
   const root = fixtureRoot();
-  const pipeline = makePipeline(root);
-  await pipeline.dispatch({ adapter_id: 'fake-t1', prompt: 'x', cap_usd: 5, amount_usd: 1.5 });
+  const approvalRoot = path.join(root, 'approvals');
+  mkdirSync(approvalRoot, { recursive: true });
+  writeFileSync(path.join(approvalRoot, 'fake-t1.approved.json'), JSON.stringify({ schema_version: 1, adapter_id: 'fake-t1', approved_by: 'owner' }) + '\n', 'utf8');
+  const pipeline = makePipeline(root, { dispatchApprovalRoot: approvalRoot });
+  // real + amount>0 计入 spent；dry-run + amount>0 只进 count 不计 spent。
+  await pipeline.dispatch({ adapter_id: 'fake-t1', prompt: 'x', cap_usd: 5, amount_usd: 1.5, real: true });
   await pipeline.dispatch({ adapter_id: 'codex', prompt: 'y', cap_usd: 5, amount_usd: 2 });
   const projection = pipeline.budgetProjection();
   const fake = projection.actors.find((actor) => actor.actor_id === 'fake-t1');
   const codex = projection.actors.find((actor) => actor.actor_id === 'codex');
   assert.equal(fake?.spent_usd, 1.5);
-  assert.equal(codex?.spent_usd, 2);
+  assert.equal(fake?.admission_count, 1);
+  assert.equal(codex?.spent_usd, 0);
+  assert.equal(codex?.admission_count, 1);
   assert.equal(fake?.entries.length, 1);
   assert.equal(codex?.entries.length, 1);
 });
@@ -362,6 +368,7 @@ test('roster includes kimi-code and exposes effort metadata', () => {
   const kimi = pipeline.roster().find((entry) => entry.adapter_id === 'kimi-code');
   assert.ok(kimi, 'kimi-code must appear in roster');
   assert.equal(kimi?.role, 'executor');
+  assert.equal(kimi?.verified, true);
   assert.deepEqual(kimi?.effort_levels, ['LOW', 'MEDIUM', 'HIGH']);
   assert.deepEqual(kimi?.effort_injection, { kind: 'none' });
   const claude = pipeline.roster().find((entry) => entry.adapter_id === 'claude-code');

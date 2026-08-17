@@ -1,0 +1,19 @@
+{
+  "goal_id": "MUSH-GOAL-017A",
+  "status": "MACHINE_GREEN",
+  "packet": "rm004-p17a-deepseek-dispatch-freedom",
+  "branch": "g017a",
+  "worktree": "runtime/worktrees/deepseek-c",
+  "completed_at_utc": "2026-08-17T07:05:00Z",
+  "doD": {
+    "tests": "304/304 PASS (baseline 294 + 10 new)",
+    "contract": "src/web/api-contract.md v1.5 synced (adapters CRUD / verified head / budget caps / counting)",
+    "commit": "G17A-* on g017a, path-limited",
+    "batch_receipt": "goals/receipts/BATCH-41-completion.json"
+  },
+  "open_notes": [
+    "runtime/capability-registry.json is git-ignored; zcode verified:true is written to the local runtime file, while code whitelist guarantees zcode verified even in fresh checkouts.",
+    "kimi nonce remains as previously recorded; this batch did not spend new real-dispatch budget."
+  ],
+  "acceptance": "D15 machine acceptance only; owner explicit acceptance still required for DONE per constitution."
+}

@@ -447,3 +447,35 @@ RM-001、RM-002 全部构件正式收官。另：派发包编号改带 RM 前缀
 - **验收**：GOAL-013L **AUTO_ACCEPTED**（executor kimi-k3，g013-logo @ d84513a）。
 - **RM-003 全部构件齐**：M1+M2+M3+三补丁包（12B/13/13L/14）合并完毕。
   收官余项（owner 侧）：① 复验聊天+图标+动效；② 一次真实弹审批应答。
+
+## AD-32 · GOAL-017A/017B（调度自由 M4）验收 + 合并（2026-08-17，头犬 zcode 会话）
+
+- **隔离验证**：worktree g017a **304/304**、g017b **299/299**（头犬独立复跑）。
+- **安全审查（D23，新 API 面）**：
+  - `POST /api/adapters` 仅六基础模板 + 白名单参数（profile/model_id），
+    **不可注册任意可执行文件**（任意命令注入向量不存在）；adapter_id 正则
+    `[A-Za-z0-9._-]+`；注册表文件损坏 fail-closed 不加载；DELETE 为软删。
+  - verified 三源判定：用户注册按模板家族（codex/opencode 模板恒 false）/
+    registry 证据 / 代码白名单；**codex F-50 接口层拒绝实测命中**
+    （"codex is UNVERIFIED (F-50) and cannot be head-dog"）。
+  - caps：finite/>0 校验齐全；CAP_CHANGE 台账行入哈希链（实测尾部
+    previous_sha256 链式衔接）；新路由全部处于 DEF-04 Host 闸门内侧。
+  - 低危观察（不阻断）：① dry-run 自报 amount_usd>0 会入准入闸门不入
+    spent 投影（口径边缘，现网无此形态）；② registry verified:true 可
+    证据驱动解锁头犬资格——含未来 codex 换通道重探 PASS 的预期解锁路径。
+- **合并**：g017a 快进（犬基于 D29 后 master 建枝）；g017b 撞名回执按
+  BATCH-40L 先例改道 **BATCH-41L-completion.json**（双方保全）；合并后
+  master **309/309 全绿**；契约 v1.5。
+- **真实冒烟**（重启前查在途 EXECUTE=0；合并后 master 起板 4790）：
+  - adapters CRUD：POST zcode-x（origin=user/glm-4.7/verified=true）→
+    roster 可见 → DELETE → 隐藏；
+  - caps：PUT kimi-code=8 ✅ / =0 拒绝 ✅ / 台账留痕 ✅；
+  - kimi 冒烟脚本重跑打真实后端 **9/9**；
+  - **zcode 任头犬真实对话**：链路（resolve→admit→审批闸）全程正确，
+    按治理进入 owner 审批卡（派发 `7217a1ba`，BLOCKED_WAITING_OWNER）；
+    zcode 裸 `--prompt` 合同执行另有 zcode-real-002 nonce PASS 背书。
+- **验收**：GOAL-017A **AUTO_ACCEPTED**（deepseek-dsh，g017a @ 2f7f113）；
+  GOAL-017B **AUTO_ACCEPTED**（kimi-k3，g017b @ 829c0c8，mock 级项经
+  联调实测转真）。worktree/分支已清理。
+- **RM-004 M4 机检面完成**；owner 侧余项：① 看板复验五项（加犬/级联/
+  徽章/辉光/cap）；② 审批卡 `7217a1ba` 批准或忽略（zcode 真实回复可见）。

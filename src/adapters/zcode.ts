@@ -1,11 +1,13 @@
 /**
- * mush 适配器层（M3 收尾/GOAL-004 首任务）— zcode 适配器（T1 + --json）。
+ * mush 适配器层（M3 收尾/GOAL-004 首任务；GOAL-017A U2 修正）— zcode 适配器（T1）。
  *
  * 预探测依据：docs/capability-probes/zcode-2026-08-16.md
  *   zcode --prompt <text> 单发、--print 非交互、--cwd 原生 workspace-root、
- *   --max-turns 有界、--json 机器可读、app-server stdio 协议。
- * 真实 nonce 探测需单独 owner 授权（zcode 为 Z.AI OAuth 登录、预算计量 UNKNOWN）；
- * 注册前 expected_model_id 保持 UNKNOWN（D13 不预信自述）。
+ *   app-server stdio 协议。
+ * GOAL-017A 修正（zcode-real-002 实证）：0.16.3 下 --json 无效、--max-turns 与
+ *   位置参数冲突；合同改为裸传 --prompt + argument prompt。
+ * zcode headless 已 VERIFIED（non-sandbox nonce PASS），expected_model_id 仍按
+ *   D13 不预信自述保持 UNKNOWN，身份以运行时 nonce 证据为准。
  */
 
 import { validateAdapterContract, type AdapterContract } from './contract.ts';
@@ -14,7 +16,7 @@ export function buildZcodeContract(): AdapterContract {
   return validateAdapterContract({
     adapter_id: 'zcode',
     executable: 'zcode',
-    arguments: ['--prompt', '--json', '--max-turns', '1'],
+    arguments: ['--prompt'],
     protocol: 't1',
     prompt_transport: 'argument',
     expected_provider: 'z.ai',
@@ -24,6 +26,9 @@ export function buildZcodeContract(): AdapterContract {
     // 不做注入承诺。
     effort_levels: ['LOW', 'HIGH', 'XHIGH'],
     effort_injection: { kind: 'none' },
+    // GOAL-018 U2/U3：zcode 支持 --resume <sessionId>；自带自动压缩。
+    resume_flag: '--resume',
+    context_management: 'auto-compact',
   });
 }
 
@@ -40,7 +45,7 @@ export interface ZcodeJsonOutput {
   totalCost: number | null;
 }
 
-/** 解析 zcode --json 输出（整段 JSON 或首条 JSON 行；容忍非 JSON）。 */
+/** 解析 zcode 输出（整段 JSON 或首条 JSON 行；容忍纯文本）。 */
 export function parseZcodeJsonOutput(stdout: string): ZcodeJsonOutput {
   let record: Record<string, unknown> | null = null;
   try {

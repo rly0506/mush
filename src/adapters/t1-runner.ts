@@ -80,9 +80,12 @@ function sha256Hex(text: string): string {
 /** G009（DEF-03）：Windows npm-global 的 .cmd 垫片不能被 node 直接 spawn
  *（ENOENT/EINVAL）。解析垫片内容找到其真实 JS 入口，改用
  * `node <entry>` 调用——与对调实验的绕行方案同构，但自动化且通用。
- * 返回 null 表示无法解析（保持原样直 spawn，让错误按 DEF-02 路径受控上报）。 */
+ * 返回 null 表示无法解析（保持原样直 spawn，让错误按 DEF-02 路径受控上报）。
+ * DEF-12：入口匹配扩展 .mjs/.cjs（kimi 垫片入口为 dist/main.mjs，
+ * 旧正则只认 .js 导致看板真实派发 kimi 恒 ENOENT）。 */
+const SHIM_ENTRY_RE = /node_modules[^\r\n"']*\.(?:mjs|cjs|js)/i;
 const shimEntryCache = new Map<string, { node: string; entry: string } | null>();
-function resolveWindowsShim(executable: string): { node: string; entry: string } | null {
+export function resolveWindowsShim(executable: string): { node: string; entry: string } | null {
   if (process.platform !== 'win32' || path.isAbsolute(executable) || executable.includes('/') || executable.includes('\\')) {
     return null;
   }
@@ -94,7 +97,7 @@ function resolveWindowsShim(executable: string): { node: string; entry: string }
       const shim = path.join(dir, `${executable}.cmd`);
       if (!existsSync(shim)) continue;
       const text = readFileSync(shim, 'utf8');
-      const match = text.match(/node_modules[^\r\n"']*\.js/i);
+      const match = text.match(SHIM_ENTRY_RE);
       if (match === null) continue;
       const entry = path.resolve(dir, match[0]);
       resolved = { node: process.execPath, entry };

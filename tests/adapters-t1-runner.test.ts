@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import {
   runT1,
+  resolveWindowsShim,
   type ChildProcessLike,
   type SpawnFn,
 } from '../src/adapters/t1-runner.ts';
@@ -229,4 +230,35 @@ test('DEF-02: real spawn ENOENT is contained as BLOCKED_ENV with spawn_error rec
   assert.equal(receipt.exit_code, 127);
   // 环境自适应（AD-02）：普通环境 ENOENT、沙箱 EPERM 均为合法 spawn 失败路径。
   assert.match(receipt.spawn_error ?? '', /ENOENT|EPERM|mush-def02-missing-exe-xyz/);
+});
+
+// DEF-12：垫片入口匹配必须覆盖 .mjs（kimi = dist/main.mjs）与 .js（dsh）。
+// win32 门内直测（本仓开发环境即 win32；非 win32 平台跳过）。
+test('resolveWindowsShim handles .mjs and .js entries (DEF-12 regression)', { skip: process.platform !== 'win32' }, () => {
+  // 不与真实 PATH 撞名的可执行名，垫片放临时目录并临时前置 PATH。
+  const dir = path.join(WORKSPACE, 'shim-def12-' + Date.now());
+  mkdirSync(dir, { recursive: true });
+  const kimiShim = [
+    '@ECHO off',
+    'endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  "%dp0%\\node_modules\\@moonshot-ai\\kimi-code\\dist\\main.mjs" %*',
+  ].join('\r\n');
+  writeFileSync(path.join(dir, 'mush-def12-mjs.cmd'), kimiShim, 'utf8');
+  const jsShim = 'node "%~dp0%\\node_modules\\@deepseek-ai\\dsh\\lib\\bin.js" %*\r\n';
+  writeFileSync(path.join(dir, 'mush-def12-js.cmd'), jsShim, 'utf8');
+  writeFileSync(path.join(dir, 'mush-def12-none.cmd'), '@ECHO off\r\nno entry here\r\n', 'utf8');
+
+  const previousPath = process.env.PATH;
+  process.env.PATH = dir + path.delimiter + previousPath;
+  try {
+    const mjs = resolveWindowsShim('mush-def12-mjs');
+    assert.ok(mjs, '.mjs entry must resolve');
+    assert.equal(path.basename(mjs.entry), 'main.mjs');
+    assert.ok(mjs.entry.toLowerCase().includes('node_modules'));
+    const js = resolveWindowsShim('mush-def12-js');
+    assert.ok(js, '.js entry must still resolve');
+    assert.equal(path.basename(js.entry), 'bin.js');
+    assert.equal(resolveWindowsShim('mush-def12-none'), null, 'no-entry shim resolves null');
+  } finally {
+    process.env.PATH = previousPath;
+  }
 });

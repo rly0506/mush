@@ -29,12 +29,24 @@ export function buildHeadDogContract(): AdapterContract {
     // 旧通用档位作为兼容接受（不注入），避免 M1 聊天回归。通道接入后收敛。
     effort_levels: ['DEFAULT', 'LOW', 'HIGH', 'XHIGH'],
     effort_injection: { kind: 'none' },
+    // GOAL-018 U3：dsh 通道无自动压缩。
+    context_management: 'none',
   });
 }
 
 /** 从犬输出中解析 session id（dsh --resume / claude --continue 回传形态）。 */
 export function extractSessionId(stdout: string): string | null {
-  const matches = [...stdout.matchAll(/session[_ ]?id["'\s]*[:=]["'\s]*([A-Za-z0-9_-]+)/gi)];
-  const last = matches[matches.length - 1];
-  return last === undefined ? null : last[1];
+  // 优先结构化/常见形态：session_id、session id、kimi -r session_xxx、claude -r session_xxx。
+  const patterns = [
+    /session[_ ]?id["'\s]*[:=]["'\s]*([A-Za-z0-9_-]+)/gi,
+    /\b(?:kimi|claude|zcode)\s+(?:-r|--resume)\s+(session_[A-Za-z0-9_-]+)/gi,
+    /\b(session_[A-Za-z0-9_-]+)\b/gi,
+  ];
+  for (const pattern of patterns) {
+    const matches = [...stdout.matchAll(pattern)];
+    if (matches.length > 0) {
+      return matches[matches.length - 1][1];
+    }
+  }
+  return null;
 }

@@ -1,0 +1,31 @@
+{
+  "batch": "BATCH-41",
+  "goal_id": "MUSH-GOAL-017B",
+  "packet": "rm004-p17b-kimi-dispatch-freedom",
+  "branch": "g017b",
+  "worktree": "runtime/worktrees/kimi-d",
+  "base": "master 59ab365（含 G013L 品牌图标+三态动效）",
+  "at_utc": "2026-08-17T08:05:00Z",
+  "executor": "kimi-k3 (thinking high)",
+  "owner_review_items": {
+    "1_犬只管理_UI": "roster 视图管理条（基础模板 dsh/claude/codex/kimi/opencode/zcode + 命名）→ POST /api/adapters；每行移除按钮 → window.confirm（软删语义明示：roster 隐藏、历史派发/台账保留 append-only）→ DELETE /api/adapters/:id；操作后 refresh 即时刷新",
+    "2_头犬级联选择": "harness 下拉（HEAD_WHITELIST + role=head 候选）→ 模型变体下拉（roster variants，无变体隐藏）；UNVERIFIED 项 disabled 灰显 + 原因徽标（verify_reason 缺省『通道未实证』）；选择随消息提交（adapter_id + model_id）",
+    "3_徽章链": "页头当前头犬徽章 = 所选 harness 官方图标（dogLogo 兜底链）+ adapter_id + 模型名；harness/variant 切换均联动重渲",
+    "4_品牌色_运行辉光": "CSS 变量官方主色表（--brand-deepseek #4D6BFE / --brand-claude #D97757 / --brand-kimi #7C5CFF / --brand-glm #4E7AC7 / --brand-opencode #F6BF67 / --brand-codex 手绘灰）；FAMILY_COLORS 同步官方色；运行态 = logo-glow 边缘辉光（--dog-brand 品牌色注入）+ logo-hop 跳动；idle 品牌色不发光",
+    "6_预算面板活化": "每犬行 spent/cap/进度条 + admission 计数徽标（admission_count 缺省回退 entries 长度）；cap 行内编辑 → PUT /api/budget/caps/:actor（>0 校验；成功 toast+loadBudget 刷新；失败行内显示原因）；SSE dispatch 帧 → loadBudget 既有链路保持"
+  },
+  "mock_honesty": "p17a（契约 v1.5 后端）未落盘：adapters CRUD / caps PUT / verified 字段均按其包内描述 mock 消费——冒烟实测 POST /api/adapters 当前 404（已探明并标注）；verified 缺省视为 true（向后兼容 v1.3 roster）；联调批待 g017a 合并后补真链路冒烟",
+  "tests": {
+    "new": "tests/g017b-dispatch-freedom.test.ts（5 用例：管理 UI / 级联 / 徽章链 / 品牌色+辉光 / 预算行）",
+    "adjusted": "tests/web-chat-panel.test.ts 两断言对齐 G013L 演进（logo-anim→logo-glow 命名；crescent 注释被 G013L 重写移除）——行为未变，纯断言跟进",
+    "full_run": "299/299 PASS → goals/receipts/BATCH-41-test-output.txt",
+    "parse_regression": "web-page-parse vm.Script 每批必过（本批再抓获 \\\\n 模板转义缺陷一处，已双写修复）"
+  },
+  "smoke": {
+    "script": "scripts/g017b-dispatch-freedom-smoke.cjs（真实执行，exit=0）",
+    "result": "9/9 PASS → goals/receipts/BATCH-41-smoke-output.txt",
+    "coverage": "页面 200 / snapshot roster 数据源 / head-dog 缺省徽章 / adapters 端点状态探明标注 / 级联/徽章链/品牌色/预算/管理条六结构断言"
+  },
+  "red_lines": "零后端改动（授权范围）；零框架/零构建/零外链；凭据永不渲染；模板正则双写；master 零触碰",
+  "acceptance": "D15：机检全绿 + 冒烟真实执行，待头犬审核 + owner 显式接受"
+}

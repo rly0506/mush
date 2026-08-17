@@ -10,6 +10,7 @@
 export type AdapterProtocol = 't1' | 'pi-rpc' | 'stream-json';
 export type PromptTransport = 'stdin' | 'argument';
 export type EffortInjectionKind = 'flag' | 'env' | 'none';
+export type ContextManagement = 'auto-compact' | 'none' | 'unknown';
 
 export interface EffortInjection {
   readonly kind: EffortInjectionKind;
@@ -40,11 +41,14 @@ export interface AdapterContract {
   /** GP-22：effort 的 CLI/env 注入方式；kind=none 表示通道无注入入口。
    * 本批只做合同与校验层，不实现各通道注入逻辑（M3+ 按通道逐个接）。 */
   readonly effort_injection?: EffortInjection;
+  /** GOAL-018 U3：上下文管理档位（auto-compact/none/unknown）。 */
+  readonly context_management?: ContextManagement;
 }
 
 const PROTOCOLS: readonly string[] = ['t1', 'pi-rpc', 'stream-json'];
 const PROMPT_TRANSPORTS: readonly string[] = ['stdin', 'argument'];
 const EFFORT_INJECTION_KINDS: readonly string[] = ['flag', 'env', 'none'];
+const CONTEXT_MANAGEMENTS: readonly string[] = ['auto-compact', 'none', 'unknown'];
 
 function isBlank(value: unknown): boolean {
   return value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
@@ -104,6 +108,11 @@ export function validateAdapterContract(input: unknown): AdapterContract {
       throw new Error("adapter contract 'effort_injection.name' must be a non-blank string when present");
     }
   }
+  if (record.context_management !== undefined) {
+    if (typeof record.context_management !== 'string' || !CONTEXT_MANAGEMENTS.includes(record.context_management)) {
+      throw new Error(`adapter contract 'context_management' must be one of ${CONTEXT_MANAGEMENTS.join('|')}`);
+    }
+  }
   return {
     adapter_id: record.adapter_id as string,
     executable: record.executable as string,
@@ -126,6 +135,9 @@ export function validateAdapterContract(input: unknown): AdapterContract {
               : {}),
           },
         }
+      : {}),
+    ...(record.context_management !== undefined
+      ? { context_management: record.context_management as ContextManagement }
       : {}),
   };
 }

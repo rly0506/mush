@@ -32,6 +32,9 @@ export function buildClaudeContract(expectedModelId: string): AdapterContract {
     //   --effort <level>  Effort level for the current session (low, medium, high, xhigh, max)
     effort_levels: ['LOW', 'MEDIUM', 'HIGH', 'XHIGH', 'MAX'],
     effort_injection: { kind: 'flag', name: '--effort' },
+    // GOAL-018 U2/U3：claude 支持 -r/--resume 指定会话；自带自动压缩。
+    resume_flag: '--resume',
+    context_management: 'auto-compact',
   });
 }
 
