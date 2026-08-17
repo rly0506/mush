@@ -1,0 +1,18 @@
+PASS  对话发送 200+reply  — 头犬：收到 session_id
+PASS  审批批准 201  — status=201
+PASS  审批否决 201
+PASS  B1 亮色主题令牌
+PASS  B2 指挥台骨架（deck+rail+drawer）
+PASS  B3 审批收编（rail 卡+琥珀 tint+goal 行）
+PASS  B3 模态废除（无 showModal 审批）
+PASS  B3 报备信息（强度/超时/工作区/预算/prompt 预览）
+PASS  B4 排版阶梯（15px 对话+600 头犬+28px 徽章）
+PASS  B5 任务池三泳道 DOM
+PASS  B5 状态机白名单 + 派发预填 task_id
+PASS  B5 v1.7 mock 诚实标注
+PASS  working 态动效保留（辉光+跳动）
+PASS  任务池建卡表单
+PASS  详情抽屉入口保留（6 视图）
+PASS  任务 API 状态探明（404=v1.7 未落盘，mock 级已标注）  — status=404
+
+=== g020 smoke: 16/16 PASS ===
