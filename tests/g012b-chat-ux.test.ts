@@ -26,7 +26,7 @@ const fakeOk: RunAdapterFn = async () => ({
   childKilled: false,
 });
 
-function makeChat(root: string, captured?: { adapter_id?: string; effort?: string }): ChatService {
+function makeChat(root: string, captured?: { adapter_id?: string; effort?: string }, onEvent?: (event: import('../src/web/chat.ts').ChatStreamEvent) => void): ChatService {
   const spyRunner: RunAdapterFn = async (args, opts) => {
     void args;
     void opts;
@@ -51,7 +51,7 @@ function makeChat(root: string, captured?: { adapter_id?: string; effort?: strin
       return original(input as Parameters<DispatchPipeline['dispatch']>[0]);
     };
   }
-  return new ChatService({ pipeline, runtimeRoot: path.join(root, 'runtime') });
+  return new ChatService({ pipeline, runtimeRoot: path.join(root, 'runtime'), onEvent });
 }
 
 test('D1-A: chat.post 缺省 adapter=head-dog / effort=HIGH（向后兼容）', async () => {
@@ -82,25 +82,27 @@ test('D1-A/GOAL-017A: verified executor harness can be head; UNVERIFIED codex an
   await assert.rejects(() => chat.post({ message: 'x', effort: 'MEDIUM' as 'HIGH' }), /effort/);
 });
 
-test('D3-B: chat.post 结果含 reply（头犬回复文本）与 status', async () => {
-  const chat = makeChat(fixtureRoot());
-  const result = await chat.post({ message: '给我回复' });
-  assert.equal(typeof result.reply, 'string');
-  assert.match(result.reply, /头犬回报/);
-  assert.equal(typeof result.status, 'string');
+test('D3-B: chat.post 返回 202 ack；后台执行后会话 JSONL 完整含头犬回复', async () => {
+  const frames: Array<{ phase: string; payload: Record<string, unknown> }> = [];
+  const chat = makeChat(fixtureRoot(), undefined, (event) => frames.push({ phase: event.phase, payload: event.payload }));
+  const ack = await chat.post({ message: '给我回复' });
+  // GOAL-021 异步化：ack 不含回复（202 语义），携带 dispatch_id/session_id。
+  assert.equal(ack.status, 'PENDING');
+  assert.equal(ack.role, 'head');
+  assert.ok(ack.dispatch_id.length > 0);
+  assert.ok(ack.session_id.length > 0);
+  assert.ok(!('reply' in ack), 'ack 不携带同步 reply（回复走 SSE chat 帧）');
+  await chat.whenSettled(ack.dispatch_id);
+  const report = frames.find((f) => f.phase === 'REPORT');
+  assert.ok(report, 'must emit a chat REPORT frame');
+  assert.equal(typeof report.payload.status, 'string');
+  assert.match(String(report.payload.reply), /头犬回报/);
 });
 
-test('D3-B: POST /api/chat 响应体含 reply/status（200 同步语义，契约 v1.3.1）', async () => {
+test('GOAL-021 U1: POST /api/chat 202 即返 {dispatch_id, session_id}，回复经 SSE chat 帧 REPORT 推送', async () => {
   const root = fixtureRoot();
   const approvalRoot = path.join(root, 'approvals');
   mkdirSync(approvalRoot, { recursive: true });
-  // D6：real 聊天需 head-dog 批准记录在案（测试夹具补一条）。
-  mkdirSync(path.join(root, 'goals', 'receipts', 'dispatch-approvals'), { recursive: true });
-  writeFileSync(
-    path.join(root, 'goals', 'receipts', 'dispatch-approvals', 'head-dog.approved.json'),
-    JSON.stringify({ approved: true }) + '\\n',
-    'utf8',
-  );
   const pipeline = new DispatchPipeline({
     workspaceRoot: root,
     approvalRoot,
@@ -109,26 +111,62 @@ test('D3-B: POST /api/chat 响应体含 reply/status（200 同步语义，契约
   });
   const server = await startBoardServer({
     approvalRoot,
-    runId: 'g012b-smoke',
+    runId: 'g012b-async',
     assignmentEpoch: 1,
     port: 0,
     dispatch: pipeline,
     runtimeRoot: path.join(root, 'runtime'),
   });
   try {
-    const res = await fetch(`http://127.0.0.1:${server.port}/api/chat`, {
+    // 先挂 SSE，再发 chat：断言 chat 阶段帧依序到达（ADMITTED→…→REPORT 含回复全文）。
+    const base = `http://127.0.0.1:${server.port}`;
+    const streamRes = await fetch(base + '/api/stream');
+    const reader = streamRes.body?.getReader();
+    assert.ok(reader);
+    const decoder = new TextDecoder();
+    const frames: Array<{ phase?: string; payload?: Record<string, unknown> }> = [];
+    const framePromise = (async () => {
+      const deadline = Date.now() + 8000;
+      while (Date.now() < deadline && !frames.some((f) => f.phase === 'REPORT')) {
+        const chunk = await Promise.race([
+          reader?.read(),
+          new Promise<ReadableStreamReadResult<Uint8Array>>((resolve) => setTimeout(() => resolve({ done: false, value: undefined }), 250)),
+        ]);
+        if (chunk === undefined || chunk.done) break;
+        const text = decoder.decode(chunk.value, { stream: true });
+        for (const line of text.split('\n')) {
+          const m = /^data: (\{.*\})\s*$/.exec(line);
+          if (m === null) continue;
+          let parsed: unknown;
+          try {
+            parsed = JSON.parse(m[1]);
+          } catch {
+            continue;
+          }
+          if ((parsed as { kind?: string }).kind === 'chat') {
+            frames.push(parsed as { phase?: string; payload?: Record<string, unknown> });
+          }
+        }
+      }
+    })();
+
+    const res = await fetch(base + '/api/chat', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ message: '冒烟一句' }),
     });
-    assert.equal(res.status, 200, '同步返回 200（非 202 异步受理）');
+    assert.equal(res.status, 202, '异步受理 202（非同步 200）');
     const body = (await res.json()) as Record<string, unknown>;
     assert.equal(body.ok, true);
-    assert.equal(typeof body.reply, 'string');
-    assert.match(String(body.reply), /头犬回报/);
-    assert.equal(typeof body.status, 'string');
     assert.equal(typeof body.session_id, 'string');
-    // 持久化对账路径不变：jsonl 含 user+head 两轮
+    assert.equal(typeof body.dispatch_id, 'string');
+    assert.ok(!('reply' in body), '202 响应体不含同步 reply');
+
+    await framePromise;
+    const report = frames.find((f) => f.phase === 'REPORT');
+    assert.ok(report, 'SSE 必须收到 chat REPORT 帧');
+    assert.match(String(report.payload?.reply), /头犬回报/);
+    // 会话 JSONL 语义不变：user+head 两轮完整落盘。
     const chatFile = path.join(root, 'runtime', 'chat', `${body.session_id}.jsonl`);
     assert.ok(existsSync(chatFile));
     assert.equal(readFileSync(chatFile, 'utf8').trim().split('\n').length, 2);
