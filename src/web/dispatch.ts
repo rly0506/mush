@@ -17,11 +17,13 @@ import { validateAdapterContract, type AdapterContract, type EffortInjection } f
 import { buildDeepSeekContract } from '../adapters/deepseek.ts';
 import { buildClaudeContract } from '../adapters/claude.ts';
 import { buildZcodeContract } from '../adapters/zcode.ts';
+import { buildPiContract } from '../adapters/pi.ts';
 import { buildCodexContract } from '../adapters/codex.ts';
 import { buildOpencodeContract } from '../adapters/opencode.ts';
 import { buildKimiContract } from '../adapters/kimi.ts';
 import { buildHeadDogContract, extractSessionId } from '../adapters/head-dog.ts';
 import { runT1, type SpawnFn } from '../adapters/t1-runner.ts';
+import { runPiRpc } from '../adapters/pi-rpc-runner.ts';
 import type { BoardPersistence } from './persistence.ts';
 import {
   loadAdapterStore,
@@ -142,6 +144,50 @@ export function tailOf(text: string, maxChars: number): { text: string; truncate
   return { text: text.slice(text.length - maxChars), truncated: true };
 }
 
+/** GOAL-021 U3：增量 stdout 节流合帧器——≥ minBytes(512B) 或距上次≥ minIntervalMs(200ms)
+ *  任一台到达即把累积文本合为一帧交给 emit；结束时 flush() 强制吐剩余。
+ *  时间/字节阈值均可注入（测试确定性），首次有内容立即出帧（流式首字即时可见）。 */
+export interface ThrottledStream {
+  push(chunk: string): void;
+  flush(): void;
+}
+
+export interface ThrottledStreamOptions {
+  emit: (text: string) => void;
+  minIntervalMs?: number;
+  minBytes?: number;
+  now?: () => number;
+}
+
+export function createThrottledStream(options: ThrottledStreamOptions): ThrottledStream {
+  const minIntervalMs = options.minIntervalMs ?? 200;
+  const minBytes = options.minBytes ?? 512;
+  const now = options.now ?? (() => Date.now());
+  let buffer = '';
+  let nextEmitAt = 0;
+  const emitFrame = (text: string): void => {
+    if (text !== '') options.emit(text);
+  };
+  const maybeEmit = (force: boolean): void => {
+    if (buffer === '') return;
+    const t = now();
+    if (force || t >= nextEmitAt || Buffer.byteLength(buffer, 'utf8') >= minBytes) {
+      emitFrame(buffer);
+      buffer = '';
+      nextEmitAt = t + minIntervalMs;
+    }
+  };
+  return {
+    push(chunk: string): void {
+      buffer += chunk;
+      maybeEmit(false);
+    },
+    flush(): void {
+      maybeEmit(true);
+    },
+  };
+}
+
 export interface RunAdapterResult {
   exitCode: number;
   stdout: string;
@@ -153,7 +199,13 @@ export interface RunAdapterResult {
 export type RunAdapterFn = (
   contract: AdapterContract,
   prompt: string,
-  opts: { workspaceRoot: string; receiptPath: string; timeoutMs: number },
+  opts: {
+    workspaceRoot: string;
+    receiptPath: string;
+    timeoutMs: number;
+    /** GOAL-021 U3：增量 stdout 透传（可选）。宿主收到原始 chunk，负责节流合帧。 */
+    onStdout?: (chunk: string) => void;
+  },
 ) => Promise<RunAdapterResult>;
 
 export interface DispatchPipelineOptions {
@@ -214,6 +266,7 @@ function baseContracts(): Record<string, AdapterContract> {
     codex: buildCodexContract(),
     opencode: buildOpencodeContract(),
     'kimi-code': buildKimiContract(),
+    pi: buildPiContract(),
     'head-dog': buildHeadDogContract(),
   };
 }
@@ -431,6 +484,21 @@ export class DispatchPipeline {
       options.runAdapter ??
       (async (contract, prompt, opts) => {
         try {
+          if (contract.protocol === 'pi-rpc') {
+            // GP-29：pi 通用 harness 走 RPC runner（黄金参照线协议）。
+            const piResult = await runPiRpc(contract, prompt, {
+              workspaceRoot: opts.workspaceRoot,
+              receiptPath: opts.receiptPath,
+              timeoutMs: opts.timeoutMs,
+            });
+            return {
+              exitCode: piResult.exitCode,
+              stdout: piResult.stdout,
+              stderr: piResult.stderr,
+              timedOut: piResult.timedOut,
+              childKilled: piResult.childKilled,
+            };
+          }
           const result = await runT1({
             contract,
             prompt,
@@ -438,6 +506,7 @@ export class DispatchPipeline {
             receiptPath: opts.receiptPath,
             timeoutMs: opts.timeoutMs,
             spawn: options.spawn,
+            onStdout: opts.onStdout,
           });
           return {
             exitCode: result.exitCode,
@@ -564,7 +633,17 @@ export class DispatchPipeline {
   }
 
   /** schema fail-closed：任何字段违规抛 InputError（HTTP 400）。 */
-  async dispatch(input: unknown, internal?: { approvedVia?: string; originOwner?: boolean }): Promise<DispatchRecord> {
+  async dispatch(
+    input: unknown,
+    internal?: {
+      approvedVia?: string;
+      originOwner?: boolean;
+      /** GOAL-021 U1：外部预生成 dispatch_id（聊天 202 即返需在受理前拿到 id）。 */
+      dispatchId?: string;
+      /** GOAL-021 U3：增量 stdout 透传 + 触发 EXECUTE 增量派发帧。 */
+      onStdout?: (chunk: string) => void;
+    },
+  ): Promise<DispatchRecord> {
     if (input === null || typeof input !== 'object' || Array.isArray(input)) {
       throw new InputError('body must be a JSON object');
     }
@@ -652,7 +731,10 @@ export class DispatchPipeline {
       throw new InputError(`workspace not registered: ${workspace}（先经 POST /api/workspaces/select 登记）`);
     }
 
-    const dispatchId = randomUUID().replace(/-/g, '');
+    const dispatchId =
+      internal?.dispatchId !== undefined && /^[0-9a-f]{32}$/.test(internal.dispatchId)
+        ? internal.dispatchId
+        : randomUUID().replace(/-/g, '');
     const request: DispatchRequestSnapshot = {
       adapter_id: adapterId,
       prompt,
@@ -736,11 +818,30 @@ export class DispatchPipeline {
     mkdirSync(receiptDir, { recursive: true });
     const receiptPath = path.join(receiptDir, `dispatch-${dispatchId}.json`);
     this.emit(record, 'EXECUTE', real ? 'ADMITTED' : 'DRY_RUN', { workspace });
+    // GOAL-021 U3：仅当宿主请求流式（internal.onStdout）时，才把原始 stdout
+    // 节流合帧（≥200ms 或 512B）为 EXECUTE 增量事件，并转发合并文本给宿主。
+    // 无宿主回调 = 维持既有行为（一次性 REPORT，不外加 EXECUTE 增量帧）。
+    const streamThrottle =
+      internal?.onStdout !== undefined
+        ? createThrottledStream({
+            emit: (text) => {
+              this.emit(record, 'EXECUTE', real ? 'ADMITTED' : 'DRY_RUN', {
+                workspace,
+                progress: 'stream',
+                stream_text: text,
+              });
+              internal.onStdout?.(text);
+            },
+            now: () => this.now().getTime(),
+          })
+        : null;
     const run = await this.runAdapter(effectiveContract, prompt, {
       workspaceRoot: workspace,
       receiptPath,
       timeoutMs: timeoutSec * 1000,
+      ...(streamThrottle !== null ? { onStdout: (chunk: string) => streamThrottle.push(chunk) } : {}),
     });
+    streamThrottle?.flush();
     record.receipt_path = receiptPath;
     record.stdout_tail = tailOf(run.stdout, 2048);
     record.stderr_tail = tailOf(run.stderr, 256);

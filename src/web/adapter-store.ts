@@ -17,8 +17,9 @@ import { buildCodexContract } from '../adapters/codex.ts';
 import { buildKimiContract } from '../adapters/kimi.ts';
 import { buildOpencodeContract } from '../adapters/opencode.ts';
 import { buildZcodeContract } from '../adapters/zcode.ts';
+import { buildPiContract } from '../adapters/pi.ts';
 
-export type AdapterTemplateId = 'dsh' | 'claude' | 'codex' | 'kimi' | 'opencode' | 'zcode';
+export type AdapterTemplateId = 'dsh' | 'claude' | 'codex' | 'kimi' | 'opencode' | 'zcode' | 'pi';
 
 export const ADAPTER_TEMPLATES: readonly AdapterTemplateId[] = [
   'dsh',

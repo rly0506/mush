@@ -8,7 +8,7 @@
  */
 
 export type AdapterProtocol = 't1' | 'pi-rpc' | 'stream-json';
-export type PromptTransport = 'stdin' | 'argument';
+export type PromptTransport = 'stdin' | 'argument' | 'rpc';
 export type EffortInjectionKind = 'flag' | 'env' | 'none';
 export type ContextManagement = 'auto-compact' | 'none' | 'unknown';
 
@@ -46,7 +46,7 @@ export interface AdapterContract {
 }
 
 const PROTOCOLS: readonly string[] = ['t1', 'pi-rpc', 'stream-json'];
-const PROMPT_TRANSPORTS: readonly string[] = ['stdin', 'argument'];
+const PROMPT_TRANSPORTS: readonly string[] = ['stdin', 'argument', 'rpc'];
 const EFFORT_INJECTION_KINDS: readonly string[] = ['flag', 'env', 'none'];
 const CONTEXT_MANAGEMENTS: readonly string[] = ['auto-compact', 'none', 'unknown'];
 

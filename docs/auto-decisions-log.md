@@ -694,3 +694,29 @@ RM-001、RM-002 全部构件正式收官。另：派发包编号改带 RM 前缀
   （决定 TUI 是否也已沦陷——rc.7 升级后未复验 TUI）。
 - **路线裁决建议**：上游 issue（附四轮二分矩阵）+ GP-29 pi 复活为
   战略修复（已高优先）；GP-30 增记 rc.7 无修。
+
+## AD-44 · GP-29 执行完毕：pi 通用 harness 接入（2026-08-18，头犬 zcode 亲自执行，owner 紧急令）
+
+- **背景**：codex 通道工具瘫痪（F-50 未解）+ dsh headless 上游缺陷
+  （DEF-13，rc.7 仍无修）——双主力通道受阻，owner 急令接入通用 harness。
+- **实现**（头犬直执，紧急基建先例同 GP-32）：
+  - `src/adapters/pi.ts` 合同（protocol pi-rpc / transport rpc /
+    resume --session-id / 身体 UNKNOWN 待实测——D13）；
+  - `src/adapters/pi-rpc-runner.ts` 生产 runner：黄金参照线协议语义
+    （双命令一次写入 stdin 保持开启 / id·type·command·success 四元
+    关联 / get_state 运行时身份核验（错配 fail-closed，UNKNOWN 如实
+    记录）/ assistant message_end 终态（生命周期事件非候选）/ 三段
+    超时轮询（**自测抓出静默子进程挂死缺陷，加 ticker 修**；kill/finish
+    竞态修序）/ DEF-02·03 受控与垫片复用 / 回执带 confirmed identity）；
+  - dispatch 按协议分流；adapter-store 增 pi 模板；roster 入册
+    （verified=false 待探测升级）；会话锚点 `session_id: <uuid>` 兼容
+    既有 extractSessionId。
+- **测试**：+7 用例（握手/错配/UNKNOWN/state-error/settle-timeout/
+  spawn 受控/身份防御读取）——**349/349 全绿**。
+- **真实冒烟（零计划内花费）**：pi 0.84.1 默认 provider 已是
+  **tbtk-ds / deepseek-v4-flash-0731**（owner 先前配置的第三方 DeepSeek）
+  ——完整往返 PASS：握手→身份实测→回复 ok→session_id 落锚。
+  **通用 harness 通道即刻可用（带工具/带会话/绕开 DEF-13）**。
+- **待办衔接**：codex 密钥模型经 pi 复用=owner 经 pi auth 加 provider
+  （GP-35 探测原则落地后逐模型实测升 verified）；pi 首次真实派发走
+  D30 审批卡。
