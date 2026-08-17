@@ -616,3 +616,19 @@ RM-001、RM-002 全部构件正式收官。另：派发包编号改带 RM 前缀
   前端超时先放弃 → owner 批准后弹"应答失败"（实际成功）。改为**令牌
   授予后异步启动重跑**（void），应答即刻 201 `{rerun:'STARTED'}`，执行
   状态经 SSE 生命周期事件推送。332/332 全绿（HTTP 用例改轮询断言）。
+
+## AD-40 · GOAL-019A（任务池后端 M3）验收 + 合并（2026-08-17，头犬 zcode 会话）
+
+- **独立复跑**：worktree g019a **336/336**（分支基点 56ca013，早于 AD-39；
+  犬只提交面干净 9 文件，无越界）。
+- **安全审查（D23）**：PASS——状态/优先级白名单校验；transition 路由正则
+  `[A-Za-z0-9_-]+` 无穿越；task 回链 fail-closed（未知 task_id 拒绝）；
+  approval 段未触碰（包内约束遵守）。观察项（不阻断）：title/detail 无
+  长度上限（与外部 handoff 同类低危，GP-32 遗留观察项合并跟踪）。
+- **合并**：零冲突（AD-39 与任务路由不同区段）；master **336/336**。
+- **真实冒烟（零花销 dry-run）**：建卡 201 → IDEA→READY→QUEUED 合法迁移
+  200 → QUEUED→DONE 非法迁移 400 带原因 → 带 task_id 派发 → 任务记录
+  含 dispatch_id（回链闭环）。gp-import dry-run 解析 32 项 GP。
+- **验收**：GOAL-019A **AUTO_ACCEPTED**（deepseek-dsh，g019a @ 866b750，
+  owner 手开窗口投喂线）。worktree/分支已清理（kimi-f/g020 在途保留）。
+- **前端消费面**：GOAL-020 B5（kimi 已开工 g020 worktree）。
