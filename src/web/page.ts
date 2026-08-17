@@ -20,21 +20,22 @@ export function renderBoardPage(): string {
 <title>mush 看板 · 雪橇队指挥台</title>
 <style>
   :root {
-    color-scheme: dark;
-    /* 设计令牌：极夜雪橇队母题（GOAL-012，frontend-design 准则） */
-    --bg: #0a0f16;
-    --panel: #101823;
-    --panel-hi: #16202e;
-    --line: #22303f;
-    --ink: #dbe6f0;
-    --ink-dim: #8a9cb0;
-    --ink-faint: #5a6b7d;
-    --accent: #62d8c9;        /* 极光青：雪原夜空中的极光辉 */
-    --accent-deep: #1c3f3a;
-    --ember: #e8a94c;         /* 营地火琥珀：营地灯与篝火 */
-    --danger: #f0665a;
-    --ok: #5fd08a;
-    --info: #7fb8e8;
+    color-scheme: light;
+    /* 设计令牌：雪原营地母题（GOAL-020，frontend-design 准则；极夜→雪原白昼，D33） */
+    --bg: #eef1f5;
+    --panel: #ffffff;
+    --panel-hi: #f6f8fa;
+    --line: #e3e8ee;
+    --ink: #1d2733;
+    --ink-dim: #5a6675;
+    --ink-faint: #9aa5b1;
+    --accent: #0e9f8f;        /* 极光青（压暗保亮色底对比度）：雪原白昼主题 */
+    --accent-deep: #bfe3de;
+    --ember: #c07a1f;         /* 营地火琥珀：营地灯与篝火 */
+    --ember-tint: #fdf3e3;    /* 审批 tinted 浅琥珀底（dashi 收编式） */
+    --danger: #d24a3e;
+    --ok: #2e9e5b;
+    --info: #4a7fb8;
     --whale: #4d9fe8;         /* DeepSeek 鲸蓝 */
     --sun: #e8975a;           /* Claude 日冕橙 */
     --knot: #6fd3a5;          /* OpenAI 花结绿 */
@@ -55,7 +56,7 @@ export function renderBoardPage(): string {
   header {
     padding: 14px 22px; border-bottom: 1px solid var(--line);
     display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-    background: linear-gradient(180deg, #0d1420 0%, var(--bg) 100%);
+    background: linear-gradient(180deg, #ffffff 0%, var(--bg) 100%);
   }
   header .brand { display: flex; align-items: center; gap: 10px; }
   header .brand svg { display: block; }
@@ -68,7 +69,7 @@ export function renderBoardPage(): string {
   #head-dog-badge {
     display: inline-flex; align-items: center; gap: 7px;
     font-size: 12px; color: var(--accent);
-    border: 1px solid var(--accent-deep); background: #0e1f1c;
+    border: 1px solid var(--accent-deep); background: #eafaf7;
     border-radius: 10px; padding: 3px 11px 3px 5px;
   }
   #head-dog-badge .logo-slot { display: inline-flex; width: 20px; height: 20px; }
@@ -76,9 +77,9 @@ export function renderBoardPage(): string {
   /* GOAL-018B：工作流视图 + 交接块样式 */
   .stream-card { cursor: pointer; }
   .stream-card:hover { border-color: var(--accent-deep); }
-  .stream-timeline { margin-top: 8px; border-top: 1px solid #1a2531; padding-top: 8px; }
+  .stream-timeline { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 8px; }
   .stream-entry { font-size: 12px; padding: 3px 0; }
-  .handoff-block { background: #0e1620; border: 1px solid var(--accent-deep); border-radius: 8px; padding: 8px 12px; margin: 6px 0; }
+  .handoff-block { background: var(--panel-hi); border: 1px solid var(--accent-deep); border-radius: 8px; padding: 8px 12px; margin: 6px 0; }
   .handoff-title { font-size: 12px; color: var(--accent); margin-bottom: 4px; }
   .handoff-section { font-size: 12px; margin: 4px 0; }
   .handoff-label { color: var(--ink-dim); font-size: 11px; }
@@ -99,12 +100,12 @@ export function renderBoardPage(): string {
     border-bottom: none; padding: 8px 18px; cursor: pointer; font-size: 13px;
     border-radius: 6px 6px 0 0; font-family: inherit;
   }
-  nav button.active { background: var(--bg); color: #ffffff; border-color: var(--accent-deep); box-shadow: inset 0 2px 0 var(--accent); }
+  nav button.active { background: var(--panel); color: var(--ink); border-color: var(--accent-deep); box-shadow: inset 0 2px 0 var(--accent); }
   main { padding: 18px 22px; border-top: 1px solid var(--line); max-width: 1280px; }
   section.view { display: none; }
   section.view.active { display: block; }
   table { border-collapse: collapse; width: 100%; font-size: 13px; }
-  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #1a2531; vertical-align: top; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--ink-dim); font-weight: 600; }
   code, .mono { font-family: var(--font-mono); font-size: 12px; }
   .hash { color: var(--info); word-break: break-all; }
@@ -137,21 +138,21 @@ export function renderBoardPage(): string {
   form#dispatch-form label { font-size: 12px; color: var(--ink-dim); display: block; margin-bottom: 4px; }
   form#dispatch-form .full { grid-column: 1 / -1; }
   select, input[type=number], input[type=text], textarea {
-    width: 100%; background: #0b1119; color: var(--ink); border: 1px solid var(--line);
+    width: 100%; background: #ffffff; color: var(--ink); border: 1px solid var(--line);
     border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: inherit;
   }
   textarea { min-height: 90px; resize: vertical; }
   .hint { font-size: 11px; color: var(--ink-faint); margin-top: 4px; }
   #real-hint { color: var(--ember); display: none; }
   button.primary {
-    background: var(--accent-deep); color: var(--accent); border: 1px solid var(--accent);
+    background: #eafaf7; color: var(--accent); border: 1px solid var(--accent);
     border-radius: 6px; padding: 9px 22px; font-size: 13px; cursor: pointer; font-family: inherit;
   }
   button.primary:disabled { opacity: 0.45; cursor: default; }
   .dispatch-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; font-size: 13px; }
   .dispatch-card .head-row { cursor: pointer; }
   .dispatch-card:hover { border-color: var(--accent-deep); }
-  .dispatch-card .detail { display: none; margin-top: 8px; border-top: 1px solid #1a2531; padding-top: 8px; user-select: text; cursor: auto; }
+  .dispatch-card .detail { display: none; margin-top: 8px; border-top: 1px solid var(--line); padding-top: 8px; user-select: text; cursor: auto; }
   .dispatch-card.open .detail { display: block; }
   dialog { background: var(--panel-hi); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 20px; max-width: 560px; width: 90%; }
   dialog::backdrop { background: rgba(0,0,0,.65); }
@@ -167,10 +168,10 @@ export function renderBoardPage(): string {
   /* 通知栈（GP-18）：多条 toast 叠放，终态成功/失败分色 */
   #toast-stack { position: fixed; bottom: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 99; }
   .toast { padding: 10px 16px; border-radius: 6px; font-size: 13px; max-width: 420px; animation: toast-in .18s ease-out; }
-  .toast.ok { background: #14261c; color: var(--ok); border: 1px solid var(--ok); }
-  .toast.err { background: #2a1616; color: var(--danger); border: 1px solid var(--danger); }
+  .toast.ok { background: #e8f6ee; color: var(--ok); border: 1px solid var(--ok); }
+  .toast.err { background: #fbeae8; color: var(--danger); border: 1px solid var(--danger); }
   @keyframes toast-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
-  .bar { height: 8px; background: #1a2531; border-radius: 4px; overflow: hidden; min-width: 120px; }
+  .bar { height: 8px; background: #e3e8ee; border-radius: 4px; overflow: hidden; min-width: 120px; }
   .bar > div { height: 100%; background: var(--ok); }
   .bar.hot > div { background: var(--danger); }
   /* ---------- GOAL-012：聊天面板（对话视图 = 北极星界面） ---------- */
@@ -191,11 +192,11 @@ export function renderBoardPage(): string {
   }
   .chat-row .who { font-size: 11px; color: var(--ink-faint); margin-bottom: 3px; }
   .chat-row.user { align-self: flex-end; flex-direction: row-reverse; }
-  .chat-row.user .bubble { background: #1a2c26; border-color: var(--accent-deep); }
+  .chat-row.user .bubble { background: #eafaf7; border-color: var(--accent-deep); }
   .chat-row.user .who { text-align: right; color: var(--accent); }
   .chat-row.head .who { color: var(--ember); }
   .chat-action-card {
-    align-self: stretch; margin-left: 40px; background: #0e1620; border: 1px dashed var(--accent-deep);
+    align-self: stretch; margin-left: 40px; background: var(--panel-hi); border: 1px dashed var(--accent-deep);
     border-radius: 8px; padding: 8px 12px; font-size: 12px; color: var(--ink-dim);
   }
   .chat-action-card .mono { color: var(--info); }
