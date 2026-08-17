@@ -71,6 +71,9 @@ export interface T1RunOptions {
   timeoutMs: number;
   spawn?: SpawnFn;
   identityVerifier?: (evidence: T1IdentityEvidence) => void;
+  /** GOAL-021 U3：增量 stdout 透传钩子（聊天流式/EXECUTE 增量事件源）。
+   *  每个原始 chunk 到达即调用，宿主（dispatch/chat）负责节流合帧。缺失 = 只累积不流转。 */
+  onStdout?: (chunk: string) => void;
 }
 
 function sha256Hex(text: string): string {
@@ -181,7 +184,10 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
   let spawnError: Error | null = null;
 
   child.onStdout((chunk) => {
-    stdout += chunk.toString();
+    const text = chunk.toString();
+    stdout += text;
+    // GOAL-021 U3：增量透传（每次 chunk 原样流出，节流在上一层的 dispatch/chat）。
+    options.onStdout?.(text);
   });
   child.onStderr((chunk) => {
     stderr += chunk.toString();
