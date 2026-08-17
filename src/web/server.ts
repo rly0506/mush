@@ -413,6 +413,48 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       sendJson(response, 200, { ok: true, ...dispatch.budgetProjection() });
       return;
     }
+    if (route === 'GET /api/streams') {
+      sendJson(response, 200, { ok: true, streams: dispatch.listStreams() });
+      return;
+    }
+    const streamGet = /^\/api\/streams\/([A-Za-z0-9_-]+)$/.exec(url.pathname);
+    if (request.method === 'GET' && streamGet !== null) {
+      const stream = dispatch.getStream(streamGet[1]);
+      if (stream === null) sendJson(response, 404, { ok: false, error: `stream not found: ${streamGet[1]}` });
+      else sendJson(response, 200, { ok: true, stream });
+      return;
+    }
+    const streamHandoffPost = /^\/api\/streams\/([A-Za-z0-9_-]+)\/handoff$/.exec(url.pathname);
+    if (request.method === 'POST' && streamHandoffPost !== null) {
+      void (async () => {
+        let body: Record<string, unknown>;
+        try {
+          body = JSON.parse(await readBody(request)) as Record<string, unknown>;
+        } catch {
+          sendJson(response, 400, { ok: false, error: 'body must be JSON' });
+          return;
+        }
+        try {
+          const handoff = dispatch.addExternalHandoff(streamHandoffPost[1], {
+            done: typeof body.done === 'string' ? body.done : undefined,
+            decided: typeof body.decided === 'string' ? body.decided : undefined,
+            files: typeof body.files === 'string' ? body.files : undefined,
+            next: typeof body.next === 'string' ? body.next : undefined,
+            open_issues: typeof body.open_issues === 'string' ? body.open_issues : undefined,
+          });
+          sendJson(response, 201, { ok: true, handoff });
+        } catch (error) {
+          if (error instanceof InputError) {
+            const status = /not found/.test(error.message) ? 404 : 400;
+            sendJson(response, status, { ok: false, error: error.message });
+          } else {
+            sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+          }
+        }
+      })();
+      return;
+    }
+
     if (route === 'GET /api/adapters') {
       sendJson(response, 200, { ok: true, adapters: dispatch.listAdapters() });
       return;

@@ -1,6 +1,6 @@
 # mush Board API 契约 v1
 
-- 状态：`v1.5`（2026-08-17 定稿 v1；v1.1 GOAL-007B；v1.2 GP-02；v1.3 GOAL-011 聊天节；v1.3.1 GOAL-012B chat 参数化+reply；v1.4 GOAL-013 profile/effort 合同/rerun **及** GOAL-013L 静态品牌资产路由；v1.5 GOAL-017A 适配器 CRUD/头犬解耦/budget caps/计数——本文件为权威源）
+- 状态：`v1.6`（2026-08-17 定稿 v1；v1.1 GOAL-007B；v1.2 GP-02；v1.3 GOAL-011 聊天节；v1.3.1 GOAL-012B chat 参数化+reply；v1.4 GOAL-013 profile/effort 合同/rerun **及** GOAL-013L 静态品牌资产路由；v1.5 GOAL-017A 适配器 CRUD/头犬解耦/budget caps/计数；v1.6 GOAL-018 work-stream/真续跑/换窗/HANDOFF/流 API——本文件为权威源）
 - 宿主：`src/web/`（node:http，零依赖）；默认只绑 `127.0.0.1`（对外暴露 = 触发门 4，不实现）
 - 序列化：JSON（UTF-8，LF 结尾）；SSE 用 `text/event-stream`，帧格式 `data: <json>\n\n`
 - 错误约定：失败响应一律 `{ "ok": false, "error": "<human-readable>" }`
@@ -23,6 +23,24 @@
   `kind=CAP_CHANGE` 留痕。
 - `GET /api/budget` 的每个 actor 新增 `admission_count`（含 dry-run）；
   `spent_usd` 语义明确：仅 real 且 `amount_usd > 0` 计入；dry-run 只进 count。
+
+### v1.6 向后兼容扩展（GOAL-018，2026-08-17）
+
+- 新增 work-stream 模型：`runtime/streams.jsonl`（append-only）；
+  `POST /api/dispatch` 新增可选 `stream_id` / `goal_id` / `new_stream`；
+  默认自动归流（窗口键 = 犬×Goal）；`new_stream:true` 强制新开。
+- 同流真续跑：kimi `-r`、claude `--resume`、zcode `--resume` 自动携带上次
+  session_id；codex 因 F-50 跳过。
+- 适配器合同新增 `context_management`（`auto-compact` / `none` / `unknown`）；
+  dsh 无压缩档按 >75% 估算阈值自动换窗；dsh 窗口内 prompt 使用固定章程头 +
+  流历史 + 新指令尾。
+- HANDOFF：换窗/关流时提示模板；终态输出含 `HANDOFF-BEGIN…HANDOFF-END`
+  自动解析归档；同流新窗/换犬新窗自动注入最近交接块；外部可经
+  `POST /api/streams/:id/handoff` 补写。
+- 新增流 API：`GET /api/streams`（列表+统计）、`GET /api/streams/:id`
+  （时间线含交接块）、`POST /api/streams/:id/handoff`（外部交接兜底）。
+- 派发 prompt 自动附加工作区 `AGENTS.md`（项目层简报，超长截断）。
+
 
 ### v1.4 向后兼容扩展（GOAL-013，2026-08-17）
 
@@ -79,6 +97,9 @@
 | `GET /api/adapters` | **新**：适配器合并视图 | v1.5 |
 | `POST /api/adapters` | **新**：创建/覆盖用户适配器 | v1.5 |
 | `DELETE /api/adapters/:id` | **新**：软删适配器 | v1.5 |
+| `GET /api/streams` | **新**：work-stream 列表+统计 | v1.6 |
+| `GET /api/streams/:id` | **新**：单流时间线（含交接块） | v1.6 |
+| `POST /api/streams/:id/handoff` | **新**：外部补写 HANDOFF 交接 | v1.6 |
 | `GET /assets/brands/:name.svg` | **新**：品牌图标静态资产 | v1.4 |
 
 ## POST /api/dispatch
@@ -93,6 +114,9 @@
   "effort": "string?（缺省 LOW；必须属于所选合同 effort_levels；未声明合同回退 LOW|HIGH|XHIGH）",
   "profile": "string?（v1.4：dsh preset 目录名；仅 ~/.dsh/profiles 下存在者）",
   "model_id": "string?（G009：必须属于所选合同 variants）",
+  "stream_id": "string?（v1.6：指定 work-stream；缺省按犬×Goal 自动归流）",
+  "goal_id": "string?（v1.6：Goal 关联；窗口键组成部分）",
+  "new_stream": "boolean?（v1.6：true 强制新开流）",
   "cap_usd": "number?（缺省=该 actor 的 budget-caps 值或 5；>0）",
   "amount_usd": "number?（缺省 0=估算后记账）",
   "real": "boolean?（缺省 false=dry-run）"
@@ -124,6 +148,23 @@
   `amount_usd` 不克隆（按当前默认 0 记账）；
 - 响应与 `POST /api/dispatch` 相同（202/400/402/500）；原派发不存在 → `404`；
   旧记录无 `request` 快照 → `400`。
+
+## GET /api/streams（v1.6）
+
+`{ "ok": true, "streams": [ { "stream_id", "key", "title", "goal_id"?, "adapter_id", "status", "created_at_utc", "updated_at_utc", "events": [...], "handoffs": [...] } ] }`
+- 每流含派发事件、会话链、上下文估算、交接块；排序按创建时间。
+
+## GET /api/streams/:id（v1.6）
+
+`{ "ok": true, "stream": WorkStream }`
+- 时间线含 `events[]` 与 `handoffs[]`；不存在 → `404`。
+
+## POST /api/streams/:id/handoff（v1.6）
+
+请求 `{ "done"?, "decided"?, "files"?, "next"?, "open_issues"? }`
+- 语义：头犬/owner 在犬暴毙无终态时外部补写 HANDOFF；append-only 归档并哈希锚点；
+- 响应 `201`：`{ "ok": true, "handoff": HandoffBlock }`；流不存在 → `404`。
+
 
 ## GET /api/dispatch/:id
 

@@ -7,6 +7,8 @@
  *   T1 起步；--output-format stream-json / acp 为后续升级项。
  * 凭据边界：mush 只调 executable；凭据由 kimi provider 配置自理，不注入、不读取、不存储。
  * D13：运行时模型身份待 nonce 实测，注册前 expected_model_id 保持 UNKNOWN。
+ * GOAL-018 U2：kimi 输出形态 "To resume this session: kimi -r session_xxx"；
+ *   合同声明 resume_flag=-r 供同流续跑。
  */
 
 import { validateAdapterContract, type AdapterContract } from './contract.ts';
@@ -27,5 +29,8 @@ export function buildKimiContract(): AdapterContract {
     // 该档位经配置层生效，CLI 无独立注入入口 → kind=none 占位（M3+ 通道接入时实现）。
     effort_levels: ['LOW', 'MEDIUM', 'HIGH'],
     effort_injection: { kind: 'none' },
+    // GOAL-018 U2/U3：kimi 支持 -r 续跑；自动压缩能力待实测 → unknown。
+    resume_flag: '-r',
+    context_management: 'unknown',
   });
 }
