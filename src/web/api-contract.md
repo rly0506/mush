@@ -6,6 +6,25 @@
 - 错误约定：失败响应一律 `{ "ok": false, "error": "<human-readable>" }`
 - 版本演进：v1 字段**只能向后兼容新增**；删除/改义/改型 = 破坏性变更，需头犬批准并同步 GOAL-007
 
+### v1.8 逐单审批（GP-32 / D30，2026-08-17；v1.7 号段留给在途任务池包 p19a）
+
+- **废除常设放行**：`<adapter>.approved.json` 不再参与 real 派发放行（D30）；
+- real 派发无令牌 → `BLOCKED_WAITING_OWNER` + **自动生成审批请求文件**
+  `goals/receipts/approval-requests/dispatch-<id>.json`（kind=dispatch，含
+  犬只/effort/timeout/workspace/cap/已花/完整 prompt 报备）；回放时对缺
+  失请求文件的旧被拦卡自动补建；
+- `POST /api/approvals/respond` 对派发类请求联动：
+  - `APPROVED` → 写单次令牌（`runtime/approval-tokens/`，**读即焚**）+
+    自动 `rerun(approved_via)`；原单折算 `SUPERSEDED`，新派发为执行单；
+  - `REJECTED` → 原单折算 `REJECTED`；
+- 新增终态 `REJECTED` / `SUPERSEDED`（TERMINAL 集合与前端状态图同步）；
+- 快照 `approvals[]` 条目对派发类请求新增 `dispatch` 报备块
+  （prompt 服务端截 1200 字）；前端：审批弹窗渲染报备面板，被拦派发卡
+  带「去审批」按钮；
+- **owner 亲启通道**：ChatService 内部调用携带 `originOwner`（owner 敲字
+  即批准，不设卡）；公开 `POST /api/dispatch` 不接受该语义，代理发起的
+  real 派发一律停卡。
+
 ### v1.5 向后兼容扩展（GOAL-017A，2026-08-17）
 
 - 新增适配器注册表 CRUD：

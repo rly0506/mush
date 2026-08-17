@@ -57,6 +57,18 @@ export interface BoardApproval {
   requested_at_utc: string;
   status: 'WAITING' | 'APPROVED' | 'REJECTED';
   response: BoardApprovalResponse | null;
+  /** GP-32（D30）：派发类请求携带的审批者报备信息（非派发类请求缺省）。 */
+  dispatch?: {
+    dispatch_id: string;
+    title: string;
+    adapter_id: string;
+    effort: string;
+    timeout_s: number | null;
+    workspace: string | null;
+    cap_usd: number | null;
+    actor_spent_usd: number | null;
+    prompt_preview: string;
+  };
 }
 
 export interface BoardSnapshot {
@@ -133,6 +145,22 @@ function collectApprovals(approvalRoot: string): BoardApproval[] {
       requested_at_utc: textOrNull(request.requested_at_utc) ?? '',
       status,
       response,
+      // GP-32（D30）：派发类请求投影报备信息（prompt 服务端截 1200 字）。
+      ...(request.kind === 'dispatch'
+        ? {
+            dispatch: {
+              dispatch_id: textOrNull(request.dispatch_id) ?? '',
+              title: textOrNull(request.title) ?? '',
+              adapter_id: textOrNull(request.adapter_id) ?? textOrNull(request.actor_id) ?? '',
+              effort: textOrNull(request.effort) ?? '',
+              timeout_s: typeof request.timeout_s === 'number' ? request.timeout_s : null,
+              workspace: textOrNull(request.workspace),
+              cap_usd: typeof request.cap_usd === 'number' ? request.cap_usd : null,
+              actor_spent_usd: typeof request.actor_spent_usd === 'number' ? request.actor_spent_usd : null,
+              prompt_preview: (textOrNull(request.prompt) ?? '').slice(0, 1200),
+            },
+          }
+        : {}),
     });
   }
   return approvals;

@@ -120,6 +120,8 @@ export function renderBoardPage(): string {
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
   .elapsed { font-size: 11px; color: var(--ink-dim); margin-left: 6px; }
   .badge.BLOCKED_WAITING_OWNER, .badge.BLOCKED_ENV { color: var(--ember); border-color: var(--ember); }
+  .badge.REJECTED { color: #e05252; border-color: #e05252; }
+  .badge.SUPERSEDED { color: #8a94a6; border-color: #8a94a6; }
   .badge.FAIL { color: var(--danger); border-color: var(--danger); }
   .badge.ok { color: var(--ok); border-color: var(--ok); }
   .badge.broken { color: var(--danger); border-color: var(--danger); }
@@ -711,7 +713,7 @@ export function renderBoardPage(): string {
   }
 
   /* ---------- 派发跟踪卡片（G7B-D2：upsert 更新 + 已耗时计时 + 完成 toast） ---------- */
-  var TERMINAL_STATUSES = { DRY_RUN: 1, PASS: 1, FAIL: 1, BLOCKED_WAITING_OWNER: 1, BLOCKED_ENV: 1, TIMEOUT: 1, INTERRUPTED: 1 };
+  var TERMINAL_STATUSES = { DRY_RUN: 1, PASS: 1, FAIL: 1, BLOCKED_WAITING_OWNER: 1, BLOCKED_ENV: 1, TIMEOUT: 1, INTERRUPTED: 1, REJECTED: 1, SUPERSEDED: 1 };
   // GOAL-013L：终态落定闪登记 —— adapter_id → 最近一次新到终态 status
   // （渲染消费一次后清除，下一次同犬新终态再闪）。
   var flashRegistry = {};
@@ -824,12 +826,24 @@ export function renderBoardPage(): string {
         '<span class="mono">' + esc(String(d.dispatch_id).slice(0, 12)) + '…</span> ' +
         esc(d.adapter_id || '') + ' <span class="meta">' + escTime(d.at_utc || '') + '</span>' +
         (elapsed ? '<span class="elapsed">' + elapsed + '</span>' : '') +
+        // GP-32（D30）：被拦卡直达审批视图（弹窗与批准/否决按钮在那里）。
+        (d.status === 'BLOCKED_WAITING_OWNER'
+          ? ' <button class="act approve" data-goto-approvals type="button" style="padding:1px 10px;font-size:11px">去审批</button>'
+          : '') +
         '</div>' +
         '<div class="detail">' + (detailCache[d.dispatch_id] || '加载中…') + '</div></div>';
     }).join('');
     // D4（GOAL-012B）：折叠热区收缩到头部行；detail 内点击不冒泡、文字可选中。
     el.querySelectorAll('.dispatch-card .head-row').forEach(function (headRow) {
       headRow.addEventListener('click', function () { toggleDispatchDetail(headRow.parentNode); });
+    });
+    // GP-32：去审批按钮切到审批视图（不冒泡，避免触发卡片折叠）。
+    el.querySelectorAll('button[data-goto-approvals]').forEach(function (btn) {
+      btn.addEventListener('click', function (event) {
+        event.stopPropagation();
+        var nav = document.querySelector('button[data-view="approvals"]');
+        if (nav) nav.click();
+      });
     });
     el.querySelectorAll('.dispatch-card .detail').forEach(function (detail) {
       detail.addEventListener('click', function (event) { event.stopPropagation(); });
@@ -1106,11 +1120,22 @@ export function renderBoardPage(): string {
   function openDialog(approval) {
     currentApproval = approval;
     var dl = document.getElementById('approval-detail');
-    dl.innerHTML = '<dt>请求文件</dt><dd class="mono">' + esc(approval.request_file) + '</dd>' +
+    var html = '<dt>请求文件</dt><dd class="mono">' + esc(approval.request_file) + '</dd>' +
       '<dt>门</dt><dd>' + esc(approval.gate) + '</dd>' +
       '<dt>actor</dt><dd class="mono">' + esc(approval.actor_id) + '</dd>' +
       '<dt>事由</dt><dd>' + esc(approval.reason || '') + '</dd>' +
       '<dt>请求时间</dt><dd class="mono">' + escTime(approval.requested_at_utc) + '</dd>';
+    // GP-32（D30）：派发类请求的审批者报备面板——犬只/强度/超时/工作区/预算/完整 prompt 预览。
+    if (approval.dispatch) {
+      var d = approval.dispatch;
+      html += '<dt>派发号</dt><dd class="mono">' + esc(d.dispatch_id.slice(0, 8)) + '</dd>' +
+        '<dt>犬只 × 强度</dt><dd class="mono">' + esc(d.adapter_id + ' × ' + d.effort) + '</dd>' +
+        '<dt>超时 / 工作区</dt><dd class="mono">' + esc((d.timeout_s || 0) + 's / ' + (d.workspace || '')) + '</dd>' +
+        '<dt>预算</dt><dd class="mono">已花 $' + (d.actor_spent_usd == null ? '?' : d.actor_spent_usd.toFixed(4)) +
+        ' / cap $' + (d.cap_usd == null ? '?' : d.cap_usd) + '</dd>' +
+        '<dt>Prompt 预览</dt><dd class="mono" style="white-space:pre-wrap;word-break:break-all;max-height:220px;overflow:auto;border:1px solid var(--line);padding:6px;border-radius:4px">' + esc(d.prompt_preview || '(空)') + '</dd>';
+    }
+    dl.innerHTML = html;
     document.getElementById('approval-dialog').showModal();
   }
 

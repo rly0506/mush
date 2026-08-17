@@ -64,19 +64,16 @@ test('over-cap admission is DENIED with 402-surface status and still event-ized'
   assert.equal(record.events[0].phase, 'ADMISSION');
 });
 
-test('real dispatch requires owner approval record; with it, PASS is recorded', async () => {
+test('GP-32: real dispatch gates on per-dispatch token; granted token + approved_via rerun records PASS', async () => {
   const root = fixtureRoot();
   const pipeline = makePipeline(root);
   const blocked = await pipeline.dispatch({ adapter_id: 'fake-t1', prompt: 'x', real: true });
   assert.equal(blocked.status, 'BLOCKED_WAITING_OWNER');
-  const approvalRoot = path.join(root, 'approvals');
-  mkdirSync(approvalRoot, { recursive: true });
-  writeFileSync(path.join(approvalRoot, 'fake-t1.approved.json'), JSON.stringify({ schema_version: 1, adapter_id: 'fake-t1', approved_by: 'owner', scope: 'one bounded dispatch' }) + '\n', 'utf8');
-  // G009：犬只批准目录与看板审批目录分离（dispatchApprovalRoot 默认
-  // <root>/goals/receipts/dispatch-approvals）——测试显式指向 fixture approvals。
-  const passed = await makePipeline(root, { dispatchApprovalRoot: approvalRoot }).dispatch({ adapter_id: 'fake-t1', prompt: 'x', real: true });
+  pipeline.grantApprovalToken(blocked.dispatch_id);
+  const passed = await pipeline.rerun(blocked.dispatch_id, { real: true, approved_via: blocked.dispatch_id });
   assert.equal(passed.status, 'PASS');
   assert.equal(passed.events.at(-1)?.status, 'PASS');
+  assert.equal(pipeline.get(blocked.dispatch_id)?.status, 'SUPERSEDED');
 });
 
 test('workspaces list/select persists selection and is fail-closed on missing paths', () => {

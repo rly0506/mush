@@ -191,7 +191,31 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     };
     writeFileSync(responsePath, JSON.stringify(ownerResponse, null, 2) + '\n', 'utf8');
     broadcast({ kind: 'approval', request_file: body.request_file, decision: body.decision });
-    sendJson(response, 201, { ok: true, response_path: responsePath });
+    // GP-32（D30）：派发类请求——批准 = 单次令牌 + approved_via 自动重跑（原单
+    // 折 SUPERSEDED）；否决 = 原单折 REJECTED。应答文件先落盘（append-only），
+    // 联动失败不吞应答，只降级为 warning。
+    let dispatchOutcome: Record<string, unknown> | null = null;
+    try {
+      const req = JSON.parse(readFileSync(requestPath, 'utf8')) as Record<string, unknown>;
+      if (req.kind === 'dispatch' && typeof req.dispatch_id === 'string' && req.dispatch_id !== '') {
+        if (body.decision === 'APPROVED') {
+          dispatch.grantApprovalToken(req.dispatch_id);
+          const rerunRecord = await dispatch.rerun(req.dispatch_id, { real: true, approved_via: req.dispatch_id });
+          dispatchOutcome = { new_dispatch_id: rerunRecord.dispatch_id, status: rerunRecord.status };
+        } else {
+          const rejected = dispatch.rejectDispatch(req.dispatch_id);
+          dispatchOutcome = { dispatch_id: rejected.dispatch_id, status: rejected.status };
+        }
+      }
+    } catch (error) {
+      sendJson(response, 201, {
+        ok: true,
+        response_path: responsePath,
+        warning: `approval recorded but dispatch follow-up failed: ${error instanceof Error ? error.message : String(error)}`,
+      });
+      return;
+    }
+    sendJson(response, 201, { ok: true, response_path: responsePath, ...(dispatchOutcome !== null ? { dispatch: dispatchOutcome } : {}) });
   }
 
   const server = createServer((request, response) => {

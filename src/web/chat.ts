@@ -86,9 +86,10 @@ export class ChatService {
       adapter_id: adapterId,
       prompt: HEAD_DOG_CHARTER + transcript + '\n\nOwner: ' + message,
       effort,
-      real: true, // 聊天即真实执行（head-dog approval 在案）；dry-run 无意义
+      real: true, // 聊天即真实执行；GP-32/D30：owner 亲自敲字即批准（originOwner
+      // 内部通道，公开 /api/dispatch 不接受该语义——代理发起仍停审批卡）
       timeout_s: 300,
-    });
+    }, { originOwner: true });
     const headText = record.stdout_tail?.text ?? `[dry-run ${record.status}]`;
     this.append(sessionId, {
       role: 'head',

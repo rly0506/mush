@@ -4,11 +4,12 @@
  * 契约：src/web/api-contract.md POST /api/dispatch 等。
  * 流程：schema 校验 → 合同解析 → USD admission 门（事件化，JSONL append-only）
  *      → dry-run/real 执行 → 回执落盘 → 派发生命周期事件。
- * real=true 必须先有 owner approval 记录（否则 BLOCKED_WAITING_OWNER）。
+ * real=true 必须有逐单 owner 审批（D30/GP-32：无令牌自动生成审批请求停卡，
+ * 批准→单次令牌→approved_via 重跑消费；否决→REJECTED；常设文件已废除）。
  */
 
 import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { UsdBudgetLedger, type UsdAdmissionEntry } from '../core/budget.ts';
@@ -58,6 +59,8 @@ export type DispatchStatus =
   | 'BLOCKED_ENV'
   | 'TIMEOUT'
   | 'INTERRUPTED'
+  | 'REJECTED'
+  | 'SUPERSEDED'
   | 'FAIL'
   | 'PASS';
 
@@ -147,6 +150,11 @@ export interface DispatchPipelineOptions {
   approvalRoot: string;
   /** G009：real-dispatch 犬只批准目录；缺省 <workspaceRoot>/goals/receipts/dispatch-approvals。 */
   dispatchApprovalRoot?: string;
+  /** GP-32（D30）：派发类审批请求落盘目录（看板审批视图数据源）；
+   * 缺省 <workspaceRoot>/goals/receipts/approval-requests。 */
+  approvalRequestRoot?: string;
+  /** GP-32（D30）：单次审批令牌目录（读即焚）；缺省 <workspaceRoot>/runtime/approval-tokens。 */
+  approvalTokensPath?: string;
   ledgerPath: string;
   contracts?: Record<string, AdapterContract>;
   runAdapter?: RunAdapterFn;
@@ -291,6 +299,8 @@ export class DispatchPipeline {
   readonly workspaceRoot: string;
   readonly approvalRoot: string;
   private readonly dispatchApprovalRoot: string;
+  private readonly approvalRequestRoot: string;
+  private readonly approvalTokensPath: string;
   readonly ledgerPath: string;
   private contracts: Record<string, AdapterContract>;
   private readonly runAdapter: RunAdapterFn;
@@ -319,6 +329,14 @@ export class DispatchPipeline {
     // 是两类记录，默认分开——犬只批准在 dispatch-approvals（D6 惯例）。
     this.dispatchApprovalRoot = path.resolve(
       options.dispatchApprovalRoot ?? path.join(this.workspaceRoot, 'goals', 'receipts', 'dispatch-approvals'),
+    );
+    // GP-32（D30）：逐单审批——被拦的真实派发自动生成审批请求文件（进看板
+    // 审批视图），批准后写单次令牌（读即焚），常设文件不再参与放行。
+    this.approvalRequestRoot = path.resolve(
+      options.approvalRequestRoot ?? path.join(this.workspaceRoot, 'goals', 'receipts', 'approval-requests'),
+    );
+    this.approvalTokensPath = path.resolve(
+      options.approvalTokensPath ?? path.join(this.workspaceRoot, 'runtime', 'approval-tokens'),
     );
     this.ledgerPath = path.resolve(options.ledgerPath);
     this.registryPath = path.resolve(
@@ -364,7 +382,7 @@ export class DispatchPipeline {
     // DEF-09：僵尸派发回收——上个实例若在 EXECUTE 中途被杀（重启/崩溃），
     // 记录会永远停在 ADMITTED（ee34f331 事故：头犬重启误杀 owner 在途派发）。
     // 回放时对"非终态且止步 EXECUTE"的记录追加 INTERRUPTED 报告，如实可见。
-    const TERMINAL = new Set<DispatchStatus>(['PASS', 'FAIL', 'DRY_RUN', 'TIMEOUT', 'BLOCKED_WAITING_OWNER', 'BLOCKED_ENV', 'INTERRUPTED']);
+    const TERMINAL = new Set<DispatchStatus>(['PASS', 'FAIL', 'DRY_RUN', 'TIMEOUT', 'BLOCKED_WAITING_OWNER', 'BLOCKED_ENV', 'INTERRUPTED', 'REJECTED', 'SUPERSEDED']);
     for (const record of this.records.values()) {
       const lastPhase = record.events.length > 0 ? record.events[record.events.length - 1].phase : null;
       if (!TERMINAL.has(record.status) && lastPhase === 'EXECUTE') {
@@ -384,6 +402,12 @@ export class DispatchPipeline {
         } catch {
           // 回收事件落盘失败不阻断内存回收（重启幂等由终态判断保证）。
         }
+      }
+      // GP-32：被拦真实派发若无审批请求文件（GP-32 之前的旧卡，或拦截与
+      // 落盘之间崩溃），回放时补建——保证审批视图可见、owner 永远有卡可批。
+      if (record.status === 'BLOCKED_WAITING_OWNER' && record.request !== undefined) {
+        const requestFile = path.join(this.approvalRequestRoot, `dispatch-${record.dispatch_id}.json`);
+        if (!existsSync(requestFile)) this.createDispatchApprovalRequest(record, record.request.cap_usd);
       }
     }
     this.runAdapter =
@@ -523,7 +547,7 @@ export class DispatchPipeline {
   }
 
   /** schema fail-closed：任何字段违规抛 InputError（HTTP 400）。 */
-  async dispatch(input: unknown): Promise<DispatchRecord> {
+  async dispatch(input: unknown, internal?: { approvedVia?: string; originOwner?: boolean }): Promise<DispatchRecord> {
     if (input === null || typeof input !== 'object' || Array.isArray(input)) {
       throw new InputError('body must be a JSON object');
     }
@@ -662,15 +686,26 @@ export class DispatchPipeline {
       return record;
     }
 
-    if (real) {
-      const approvalPath = path.join(this.dispatchApprovalRoot, adapterId + '.approved.json');
-      if (!existsSync(approvalPath)) {
+    if (real && internal?.originOwner !== true) {
+      // GP-32（D30 逐单审批）：只认本单（或审批重跑所继承的原单）令牌，
+      // 读即焚；无令牌则自动生成审批请求文件停卡。常设 .approved.json 自此
+      // 不再参与放行（D30 废除，standing-archived-D30 归档为证）。
+      // 例外：originOwner（仅 ChatService 内部调用可携带，公开 API 不接受）
+      // = owner 亲自发起的对话轮次，敲字即批准，不设卡。
+      const tokenFor = internal?.approvedVia ?? dispatchId;
+      const tokenPath = path.join(this.approvalTokensPath, `dispatch-${tokenFor}.token.json`);
+      if (!existsSync(tokenPath)) {
+        if (internal?.approvedVia !== undefined) {
+          throw new InputError(`approval token not found for dispatch ${tokenFor}`);
+        }
+        this.createDispatchApprovalRequest(record, capUsd);
         record.status = 'BLOCKED_WAITING_OWNER';
-        record.error = 'real dispatch requires owner approval record (D6)';
-        this.emit(record, 'EXECUTE', 'BLOCKED_WAITING_OWNER', { approval_path: approvalPath });
+        record.error = 'real dispatch requires owner approval (D30 per-dispatch card)';
+        this.emit(record, 'EXECUTE', 'BLOCKED_WAITING_OWNER', { approval_request: `dispatch-${dispatchId}.json` });
         this.emit(record, 'REVIEW', 'BLOCKED_WAITING_OWNER', { reason: record.error });
         return record;
       }
+      rmSync(tokenPath); // 单次消费：读即焚
     }
 
     const receiptDir = path.join(workspace, '.mush-receipts');
@@ -723,24 +758,92 @@ export class DispatchPipeline {
     const request = original.request;
     const real = overrides.real === undefined ? request.real : overrides.real === true;
     const capUsd = overrides.cap_usd === undefined ? request.cap_usd : Number(overrides.cap_usd);
-    return this.dispatch({
-      adapter_id: request.adapter_id,
-      prompt: request.prompt,
-      effort: request.effort,
-      workspace: request.workspace,
-      timeout_s: request.timeout_s,
-      model_id: request.model_id,
-      profile: request.profile,
-      stream_id: request.stream_id,
-      goal_id: request.goal_id,
-      resume_session: request.resume_session,
-      cap_usd: capUsd,
-      real,
-    });
+    // GP-32（D30）：审批通过的重跑携带 approved_via——新派发消费原单令牌，
+    // 原被拦记录折算 SUPERSEDED（终态），审计链：审批应答→令牌→新派发回执。
+    const approvedVia =
+      typeof overrides.approved_via === 'string' && overrides.approved_via.trim() !== ''
+        ? overrides.approved_via.trim()
+        : undefined;
+    if (approvedVia === dispatchId && original.status === 'BLOCKED_WAITING_OWNER') {
+      original.status = 'SUPERSEDED';
+      original.error = 'superseded by owner-approved rerun (D30)';
+      this.emit(original, 'REVIEW', 'SUPERSEDED', { reason: 'approved rerun executed' });
+    }
+    return this.dispatch(
+      {
+        adapter_id: request.adapter_id,
+        prompt: request.prompt,
+        effort: request.effort,
+        workspace: request.workspace,
+        timeout_s: request.timeout_s,
+        model_id: request.model_id,
+        profile: request.profile,
+        stream_id: request.stream_id,
+        goal_id: request.goal_id,
+        resume_session: request.resume_session,
+        cap_usd: capUsd,
+        real,
+      },
+      approvedVia !== undefined ? { approvedVia } : undefined,
+    );
   }
 
   get(dispatchId: string): DispatchRecord | null {
     return this.records.get(dispatchId) ?? null;
+  }
+
+  /** GP-32（D30）：被拦的真实派发自动生成审批请求文件（看板审批视图数据源），
+   * 报备信息齐全：犬只/强度/超时/工作区/预算已花与 cap/完整 prompt/流关联。 */
+  private createDispatchApprovalRequest(record: DispatchRecord, capUsd: number): void {
+    const request = record.request;
+    if (request === undefined) return;
+    mkdirSync(this.approvalRequestRoot, { recursive: true });
+    const spentUsd = this.ledger.spentUsd(record.adapter_id);
+    const file = {
+      schema_version: 1,
+      kind: 'dispatch',
+      gate: 'D30-real-dispatch',
+      dispatch_id: record.dispatch_id,
+      title: `真实派发：${record.adapter_id}`,
+      actor_id: record.adapter_id,
+      reason: `real 派发逐单审批（effort=${request.effort} timeout=${request.timeout_s}s cap=$${capUsd}）`,
+      requested_at_utc: this.now().toISOString(),
+      adapter_id: record.adapter_id,
+      effort: request.effort,
+      timeout_s: request.timeout_s,
+      workspace: request.workspace,
+      cap_usd: capUsd,
+      actor_spent_usd: spentUsd,
+      stream_id: record.stream_id ?? null,
+      prompt: request.prompt,
+    };
+    writeFileSync(
+      path.join(this.approvalRequestRoot, `dispatch-${record.dispatch_id}.json`),
+      JSON.stringify(file, null, 2) + '\n',
+      'utf8',
+    );
+  }
+
+  /** GP-32（D30）：owner 批准 → 为该派发写单次令牌（消费即焚）。 */
+  grantApprovalToken(dispatchId: string): void {
+    const record = this.get(dispatchId);
+    if (record === null) throw new InputError(`dispatch not found: ${dispatchId}`);
+    mkdirSync(this.approvalTokensPath, { recursive: true });
+    writeFileSync(
+      path.join(this.approvalTokensPath, `dispatch-${dispatchId}.token.json`),
+      JSON.stringify({ dispatch_id: dispatchId, granted_at_utc: this.now().toISOString() }) + '\n',
+      'utf8',
+    );
+  }
+
+  /** GP-32（D30）：owner 否决 → 派发折算 REJECTED（终态，append-only 事件留痕）。 */
+  rejectDispatch(dispatchId: string): DispatchRecord {
+    const record = this.get(dispatchId);
+    if (record === null) throw new InputError(`dispatch not found: ${dispatchId}`);
+    record.status = 'REJECTED';
+    record.error = 'owner rejected the approval request (D30)';
+    this.emit(record, 'REVIEW', 'REJECTED', { reason: 'owner rejected' });
+    return record;
   }
 
   /** GOAL-017A U1：合并视图（base + user override + origin）。 */
