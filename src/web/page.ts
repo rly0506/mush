@@ -74,6 +74,34 @@ export function renderBoardPage(): string {
   }
   #head-dog-badge .logo-slot { display: inline-flex; width: 20px; height: 20px; }
   #head-dog-badge .logo-slot svg, #head-dog-badge .logo-slot img { width: 20px; height: 20px; }
+  /* GOAL-020 B3：审批收编卡（dashi 收编式，琥珀 tint，常态零红色储备） */
+  .rail-appr-card { background: var(--ember-tint); border: 1px solid var(--ember); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 12px; }
+  .rail-appr-head { display: flex; align-items: center; gap: 8px; }
+  .ember-badge { color: var(--ember); border-color: var(--ember); background: transparent; }
+  .rail-appr-goal-inline { font-weight: 600; color: var(--ink); font-size: 12px; }
+  .rail-appr-body { margin-top: 6px; border-top: 1px dashed var(--ember); padding-top: 6px; }
+  .rail-appr-row { padding: 2px 0; color: var(--ink-dim); }
+  .rail-appr-label { display: inline-block; min-width: 76px; color: var(--ink-faint); font-size: 11px; }
+  .rail-appr-goal { font-weight: 600; color: var(--ink); font-size: 13px; }
+  .rail-appr-prompt { white-space: pre-wrap; word-break: break-all; max-height: 180px; overflow: auto; border: 1px solid var(--line); padding: 6px; border-radius: 4px; margin: 4px 0 0; background: var(--panel); }
+  .rail-appr-actions { display: flex; gap: 6px; margin-top: 8px; }
+  .rail-appr-actions .act { padding: 3px 12px; font-size: 12px; }
+  /* GOAL-020 B5：任务池三泳道（dashi 范式入位新骨架） */
+  .task-board { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .task-lane { background: var(--panel-hi); border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-height: 200px; }
+  .task-lane h3 { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--ink-dim); letter-spacing: 1px; }
+  .lane-todo h3 { color: #7a5cc0; }
+  .lane-doing h3 { color: var(--info); }
+  .lane-done h3 { color: var(--ok); }
+  .task-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 13px; }
+  .task-card .task-title { font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+  .task-card .task-meta { font-size: 12px; color: var(--ink-faint); display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+  .task-card .task-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .task-card .task-actions .act { padding: 2px 10px; font-size: 11px; }
+  .badge.prio-高 { color: var(--danger); border-color: var(--danger); }
+  .badge.prio-中 { color: var(--ember); border-color: var(--ember); }
+  .badge.prio-低 { color: var(--ink-faint); border-color: var(--ink-faint); }
+  .badge.BLOCKED { color: var(--ember); border-color: var(--ember); }
   /* GOAL-018B：工作流视图 + 交接块样式 */
   .stream-card { cursor: pointer; }
   .stream-card:hover { border-color: var(--accent-deep); }
@@ -107,7 +135,7 @@ export function renderBoardPage(): string {
   table { border-collapse: collapse; width: 100%; font-size: 13px; }
   th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--ink-dim); font-weight: 600; }
-  code, .mono { font-family: var(--font-mono); font-size: 12px; }
+  code, .mono { font-family: var(--font-mono); font-size: 12px; color: #3d7a72; }
   .hash { color: var(--info); word-break: break-all; }
   .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; border: 1px solid; }
   .badge.WAITING { color: var(--ember); border-color: var(--ember); }
@@ -129,7 +157,7 @@ export function renderBoardPage(): string {
   .badge.role-head { color: var(--accent); border-color: var(--accent); }
   .badge.role-executor { color: var(--ink-dim); border-color: var(--ink-faint); }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; }
-  .card h3 { margin: 0 0 8px; font-size: 13px; color: var(--ink-dim); }
+  .card h3 { margin: 0 0 8px; font-size: 13px; color: var(--ink-dim); font-weight: 600; }
   .empty { color: var(--ink-faint); font-size: 13px; padding: 24px 0; text-align: center; }
   #sse-status { font-size: 11px; }
   #sse-status.live { color: var(--ok); }
@@ -176,7 +204,19 @@ export function renderBoardPage(): string {
   .bar.hot > div { background: var(--danger); }
   /* ---------- GOAL-012：聊天面板（对话视图 = 北极星界面） ---------- */
   #view-chat { display: none; }
-  #view-chat.active { display: flex; flex-direction: column; height: calc(100vh - 130px); min-height: 420px; }
+  /* GOAL-020 B2：单屏指挥台 —— 对话主区 + 右侧犬队栏（星型结构视觉化） */
+  #view-chat.active.deck { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; height: calc(100vh - 130px); min-height: 420px; }
+  #view-chat .deck-main { display: flex; flex-direction: column; min-width: 0; }
+  #view-chat .deck-main #chat-stream { flex: 1; }
+  .deck-rail { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+  .rail-block { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .rail-title { margin: 0 0 8px; font-size: 12px; color: var(--ink-dim); font-weight: 600; letter-spacing: 1px; }
+  .rail-dog-card { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .rail-dog-card:last-child { border-bottom: none; }
+  .rail-dog-card .rail-dog-name { font-weight: 600; color: var(--ink); }
+  .rail-dog-card .rail-dog-note { color: var(--ink-faint); font-size: 11px; margin-left: auto; text-align: right; }
+  nav button.drawer-tab { font-size: 12px; padding: 6px 12px; color: var(--ink-faint); }
+  nav button.drawer-tab.active { color: var(--ink); }
   .chat-toolbar { display: flex; align-items: center; gap: 14px; padding-bottom: 10px; font-size: 12px; color: var(--ink-dim); flex-wrap: wrap; }
   .chat-toolbar label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
   #chat-stream {
@@ -184,13 +224,18 @@ export function renderBoardPage(): string {
     border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 12px;
   }
   .chat-row { display: flex; gap: 10px; max-width: 88%; }
+  /* GOAL-020 B4 签名元素：头犬品牌色描边大徽章（28px），owner 侧素色爪印 */
   .chat-row .avatar { flex: none; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
-  .chat-row .avatar svg { width: 30px; height: 30px; }
+  .chat-row .avatar svg, .chat-row .avatar img { width: 30px; height: 30px; }
+  .chat-row.head .avatar .dog-logo svg, .chat-row.head .avatar .dog-logo img { width: 28px; height: 28px; }
+  .chat-row.head .avatar .dog-logo { border: 2px solid currentColor; border-radius: 50%; padding: 2px; }
+  /* B4 排版阶梯：对话正文 15px/1.7（读起来是「对话」不是「日志」） */
   .chat-row .bubble {
     background: var(--panel-hi); border: 1px solid var(--line); border-radius: 10px;
-    padding: 9px 13px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word;
+    padding: 10px 14px; font-size: 15px; line-height: 1.7; white-space: pre-wrap; word-break: break-word;
   }
-  .chat-row .who { font-size: 11px; color: var(--ink-faint); margin-bottom: 3px; }
+  .chat-row.head .bubble { font-weight: 600; color: var(--ink); background: var(--panel); }
+  .chat-row .who { font-size: 12px; color: var(--ink-faint); margin-bottom: 3px; }
   .chat-row.user { align-self: flex-end; flex-direction: row-reverse; }
   .chat-row.user .bubble { background: #eafaf7; border-color: var(--accent-deep); }
   .chat-row.user .who { text-align: right; color: var(--accent); }
@@ -265,15 +310,17 @@ export function renderBoardPage(): string {
 </header>
 <nav>
   <button data-view="chat" class="active">对话</button>
-  <button data-view="dispatch">调度</button>
-  <button data-view="streams">工作流</button>
-  <button data-view="dogs">犬队状态</button>
-  <button data-view="epochs">事件链</button>
-  <button data-view="budget">预算消耗</button>
-  <button data-view="approvals">审批 <span id="waiting-count"></span></button>
+  <button data-view="tasks">任务池</button>
+  <button data-view="dispatch" class="drawer-tab">调度</button>
+  <button data-view="streams" class="drawer-tab">工作流</button>
+  <button data-view="dogs" class="drawer-tab">犬队状态</button>
+  <button data-view="epochs" class="drawer-tab">事件链</button>
+  <button data-view="budget" class="drawer-tab">预算消耗</button>
+  <button data-view="approvals" class="drawer-tab">审批 <span id="waiting-count"></span></button>
 </nav>
 <main>
-  <section id="view-chat" class="view active">
+  <section id="view-chat" class="view active deck">
+    <div class="deck-main">
     <div class="chat-toolbar">
       <span>你只和头犬说话 —— 它自主派活、审核回报，触发门会弹回这里。</span>
       <label>头犬 <select id="chat-head-select" style="width:auto;padding:3px 8px;font-size:12px"></select></label>
@@ -292,6 +339,40 @@ export function renderBoardPage(): string {
     <div id="chat-composer">
       <textarea id="chat-input" maxlength="64000" placeholder="写给头犬的指令…（Enter 发送，Shift+Enter 换行）"></textarea>
       <button class="primary" id="chat-send">发送</button>
+    </div>
+    </div>
+    <aside class="deck-rail" id="deck-rail">
+      <div id="rail-approvals"></div>
+      <div class="rail-block">
+        <h3 class="rail-title">犬队</h3>
+        <div id="rail-dogs"></div>
+      </div>
+      <div class="rail-block">
+        <h3 class="rail-title">预算</h3>
+        <div id="rail-budget"></div>
+      </div>
+    </aside>
+  </section>
+  <section id="view-tasks" class="view">
+    <div class="hint" style="margin-bottom:8px">任务池（dashi 式三泳道；v1.7 契约未落盘处 mock 消费，联调批补真）。</div>
+    <div class="task-board">
+      <div class="task-lane lane-todo"><h3>待办</h3><div class="lane-body" id="lane-todo"></div></div>
+      <div class="task-lane lane-doing"><h3>进行中</h3><div class="lane-body" id="lane-doing"></div></div>
+      <div class="task-lane lane-done"><h3>完成</h3><div class="lane-body" id="lane-done"></div></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h3>新建任务卡</h3>
+      <form id="task-create-form" style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;align-items:end">
+        <div><label for="task-title" style="font-size:12px;color:var(--ink-dim);display:block;margin-bottom:4px">标题</label>
+          <input type="text" id="task-title" placeholder="任务标题"></div>
+        <div><label for="task-priority" style="font-size:12px;color:var(--ink-dim);display:block;margin-bottom:4px">优先级</label>
+          <select id="task-priority"><option>高</option><option selected>中</option><option>低</option></select></div>
+        <div><label for="task-source" style="font-size:12px;color:var(--ink-dim);display:block;margin-bottom:4px">来源</label>
+          <input type="text" id="task-source" placeholder="GP-XX 或 manual" value="manual"></div>
+        <button type="submit" class="primary" id="btn-task-create">建卡</button>
+      </form>
+      <div style="margin-top:8px"><label for="task-detail" style="font-size:12px;color:var(--ink-dim);display:block;margin-bottom:4px">详情（可选）</label>
+        <textarea id="task-detail" maxlength="8000" placeholder="任务详情…" style="min-height:56px"></textarea></div>
     </div>
   </section>
   <section id="view-dispatch" class="view">
@@ -356,15 +437,12 @@ export function renderBoardPage(): string {
   <section id="view-budget" class="view"></section>
   <section id="view-approvals" class="view"></section>
 </main>
-<dialog id="approval-dialog">
-  <h2>审批请求</h2>
+<div id="approval-dialog" style="display:none">
   <dl id="approval-detail"></dl>
-  <div class="actions">
-    <button class="act cancel" id="btn-cancel">取消</button>
-    <button class="act reject" id="btn-reject">否决</button>
-    <button class="act approve" id="btn-approve">批准</button>
-  </div>
-</dialog>
+  <button class="act cancel" id="btn-cancel" type="button">取消</button>
+  <button class="act reject" id="btn-reject" type="button">否决</button>
+  <button class="act approve" id="btn-approve" type="button">批准</button>
+</div>
 <dialog id="workspace-create-dialog">
   <h2>新建 workspace</h2>
   <p style="font-size:13px">目录不存在，是否新建并登记？</p>
@@ -694,6 +772,9 @@ export function renderBoardPage(): string {
     if (streamSel && streamSel.value) body.stream_id = streamSel.value;
     if (document.getElementById('dispatch-new-stream').checked) body.new_stream = true;
     if (document.getElementById('dispatch-new-window').checked) body.new_window = true;
+    // GOAL-020 B5：任务卡派发预填携带 task_id（v1.7 回链）。
+    var taskIdAttr = document.getElementById('dispatch-form').getAttribute('data-task-id');
+    if (taskIdAttr) body.task_id = taskIdAttr;
     var modelSel = document.getElementById('dispatch-model');
     if (modelSel && modelSel.value) body.model_id = modelSel.value;
     postJson('/api/dispatch', body).then(function (result) {
@@ -1098,6 +1179,71 @@ export function renderBoardPage(): string {
   }
 
   /* ---------- 审批 ---------- */
+  /* ---------- GOAL-020 B3：审批收编（dashi 式：栏顶常驻卡，琥珀 tint，模态废除） ---------- */
+  // D33 附加条件：报备信息（犬只×强度/超时/工作区/预算已花与 cap/完整 prompt 预览）
+  // 内联可展开保留；目标行（goal_id）显著显示。弹窗废除但信息不得缩水。
+  var openRailApprovals = {};
+
+  function approvalReportHtml(a) {
+    var d = a.dispatch || {};
+    var rows =
+      '<div class="rail-appr-row"><span class="rail-appr-label">goal 行</span><span class="rail-appr-goal">' + esc(d.goal_id || a.goal_id || '（未关联 Goal）') + '</span></div>' +
+      '<div class="rail-appr-row"><span class="rail-appr-label">门</span>' + esc(a.gate) + '</div>' +
+      '<div class="rail-appr-row"><span class="rail-appr-label">犬只 × 强度</span><span class="mono">' + esc((d.adapter_id || a.actor_id || '') + (d.effort ? ' × ' + d.effort : '')) + '</span></div>' +
+      (d.timeout_s !== undefined || d.workspace !== undefined
+        ? '<div class="rail-appr-row"><span class="rail-appr-label">超时 / 工作区</span><span class="mono">' + esc((d.timeout_s || 0) + 's / ' + (d.workspace || '')) + '</span></div>' : '') +
+      (d.actor_spent_usd !== undefined || d.cap_usd !== undefined
+        ? '<div class="rail-appr-row"><span class="rail-appr-label">预算</span><span class="mono">已花 $' + (d.actor_spent_usd == null ? '?' : d.actor_spent_usd.toFixed(4)) + ' / cap $' + (d.cap_usd == null ? '?' : d.cap_usd) + '</span></div>' : '') +
+      '<div class="rail-appr-row"><span class="rail-appr-label">事由</span>' + esc(a.reason || '') + '</div>' +
+      (d.prompt_preview !== undefined
+        ? '<div class="rail-appr-row"><span class="rail-appr-label">Prompt 预览</span><pre class="mono rail-appr-prompt">' + esc(d.prompt_preview || '(空)') + '</pre></div>' : '') +
+      '<div class="rail-appr-row"><span class="rail-appr-label">请求时间</span><span class="mono">' + escTime(a.requested_at_utc) + '</span></div>';
+    return rows;
+  }
+
+  function renderRailApprovals() {
+    var el = document.getElementById('rail-approvals');
+    if (!el || !snapshot) return;
+    var waiting = snapshot.approvals.filter(function (a) { return a.status === 'WAITING'; });
+    if (waiting.length === 0) { el.innerHTML = ''; return; }
+    el.innerHTML = waiting.map(function (a, i) {
+      var key = a.request_file;
+      var open = openRailApprovals[key] === true;
+      return '<div class="rail-appr-card" data-appr="' + esc(key) + '">' +
+        '<div class="rail-appr-head">' +
+        '<span class="badge ember-badge">⛔ 审批 ' + (i + 1) + '/' + waiting.length + '</span>' +
+        '<span class="rail-appr-goal-inline">' + esc((a.dispatch && a.dispatch.goal_id) || a.goal_id || a.gate) + '</span></div>' +
+        '<div class="rail-appr-body" style="display:' + (open ? 'block' : 'none') + '">' + approvalReportHtml(a) + '</div>' +
+        '<div class="rail-appr-actions">' +
+        '<button class="act approve" data-respond="APPROVED" data-file="' + esc(key) + '" type="button">批准</button>' +
+        '<button class="act reject" data-respond="REJECTED" data-file="' + esc(key) + '" type="button">否决</button>' +
+        '<button class="act cancel" data-toggle-appr="' + esc(key) + '" type="button">' + (open ? '收起' : '详情') + '</button>' +
+        '</div></div>';
+    }).join('');
+    el.querySelectorAll('button[data-respond]').forEach(function (btn) {
+      btn.addEventListener('click', function () { respondTo(btn.getAttribute('data-file'), btn.getAttribute('data-respond')); });
+    });
+    el.querySelectorAll('button[data-toggle-appr]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var key = btn.getAttribute('data-toggle-appr');
+        if (openRailApprovals[key]) delete openRailApprovals[key]; else openRailApprovals[key] = true;
+        renderRailApprovals();
+      });
+    });
+  }
+
+  function respondTo(requestFile, decision) {
+    postJson('/api/approvals/respond', { request_file: requestFile, decision: decision })
+      .then(function (result) {
+        if (result.status === 201) {
+          toast('已' + (decision === 'APPROVED' ? '批准' : '否决') + '：' + requestFile, true);
+          refresh();
+        } else {
+          toast('应答失败：' + (result.body.error || result.status), false);
+        }
+      }).catch(function (error) { toast('应答失败：' + error, false); });
+  }
+
   function renderApprovals() {
     var el = document.getElementById('view-approvals');
     var waiting = snapshot.approvals.filter(function (a) { return a.status === 'WAITING'; });
@@ -1119,7 +1265,12 @@ export function renderBoardPage(): string {
   }
 
   function openDialog(approval) {
+    // GOAL-020 B3：模态废除——「处理」改为栏顶卡展开 + 滚动到指挥台。
     currentApproval = approval;
+    openRailApprovals[approval.request_file] = true;
+    renderRailApprovals();
+    var chatBtn = document.querySelector('button[data-view="chat"]');
+    if (chatBtn) chatBtn.click();
     var dl = document.getElementById('approval-detail');
     var html = '<dt>请求文件</dt><dd class="mono">' + esc(approval.request_file) + '</dd>' +
       '<dt>门</dt><dd>' + esc(approval.gate) + '</dd>' +
@@ -1137,22 +1288,12 @@ export function renderBoardPage(): string {
         ' / cap $' + (d.cap_usd == null ? '?' : d.cap_usd) + '</dd>' +
         '<dt>Prompt 预览</dt><dd class="mono" style="white-space:pre-wrap;word-break:break-all;max-height:220px;overflow:auto;border:1px solid var(--line);padding:6px;border-radius:4px">' + esc(d.prompt_preview || '(空)') + '</dd>';
     }
-    dl.innerHTML = html;
-    document.getElementById('approval-dialog').showModal();
+    dl.innerHTML = html; // 兼容：drawer 详情视图仍写该 dl（DOM 保留作历史查看）
   }
 
   function respond(decision) {
     if (!currentApproval) return;
-    postJson('/api/approvals/respond', { request_file: currentApproval.request_file, decision: decision })
-      .then(function (result) {
-        document.getElementById('approval-dialog').close();
-        if (result.status === 201) {
-          toast('已' + (decision === 'APPROVED' ? '批准' : '否决') + '：' + currentApproval.request_file, true);
-          refresh();
-        } else {
-          toast('应答失败：' + (result.body.error || result.status), false);
-        }
-      }).catch(function (error) { toast('应答失败：' + error, false); });
+    respondTo(currentApproval.request_file, decision);
   }
 
   /* ---------- GOAL-012 + GOAL-018B #3：聊天面板（v1.3 契约）与会话恢复 ---------- */
@@ -1233,8 +1374,7 @@ export function renderBoardPage(): string {
         esc(a.actor_id || '') + '）——已弹出审批窗，也可在「审批」页处理。';
       chatStreamEl().appendChild(note);
       chatScrollBottom();
-      var dlg = document.getElementById('approval-dialog');
-      if (!dlg.open) openDialog(a);
+      renderRailApprovals(); // GOAL-020 B3：栏顶常驻卡即第一现场，不再弹模态
     });
   }
 
@@ -1397,6 +1537,147 @@ export function renderBoardPage(): string {
   }
 
   /* ---------- 汇总刷新 ---------- */
+  /* ---------- GOAL-020 B5：任务池三泳道（v1.7 契约 mock：p19a 未落盘按描述消费） ---------- */
+  var tasksData = null;
+
+  var TASK_LANES = {
+    todo: ['IDEA', 'READY'],
+    doing: ['QUEUED', 'IN_FLIGHT'],
+    done: ['DONE', 'CANCELLED']
+  };
+  // 状态机白名单（与 GOAL-019 后端约定一致；非法迁移按钮不渲染）
+  var TASK_TRANSITIONS = {
+    IDEA: ['READY', 'CANCELLED'],
+    READY: ['QUEUED', 'CANCELLED'],
+    QUEUED: ['IN_FLIGHT', 'CANCELLED'],
+    IN_FLIGHT: ['DONE', 'BLOCKED', 'CANCELLED'],
+    BLOCKED: ['IN_FLIGHT', 'CANCELLED'],
+    DONE: [],
+    CANCELLED: []
+  };
+
+  function laneOf(status) {
+    if (TASK_LANES.todo.indexOf(status) >= 0) return 'todo';
+    if (TASK_LANES.doing.indexOf(status) >= 0) return 'doing';
+    return 'done';
+  }
+
+  function loadTasks() {
+    return getJson('/api/tasks').then(function (data) {
+      if (data && data.ok && Array.isArray(data.tasks)) tasksData = data.tasks;
+      renderTasks();
+    }).catch(function () { renderTasks(); });
+  }
+
+  function renderTasks() {
+    var lanes = { todo: [], doing: [], done: [] };
+    (tasksData || []).forEach(function (t) { lanes[laneOf(t.status)].push(t); });
+    ['todo', 'doing', 'done'].forEach(function (lane) {
+      var el = document.getElementById('lane-' + lane);
+      if (!el) return;
+      var list = lanes[lane];
+      var blockedCount = (tasksData || []).filter(function (t) { return t.status === 'BLOCKED'; }).length;
+      var blockedBadge = lane === 'doing' && blockedCount > 0
+        ? '<div class="hint" style="margin-bottom:6px"><span class="badge BLOCKED">BLOCKED ' + blockedCount + '</span></div>' : '';
+      if (list.length === 0) {
+        el.innerHTML = blockedBadge + '<div class="empty" style="padding:12px 0;font-size:12px">（空）</div>';
+        return;
+      }
+      el.innerHTML = blockedBadge + list.map(function (t) {
+        var transitions = (TASK_TRANSITIONS[t.status] || []);
+        var btns = transitions.map(function (next) {
+          return '<button class="act cancel" data-task-move="' + esc(t.task_id) + '" data-to="' + esc(next) + '" type="button">→ ' + esc(next) + '</button>';
+        }).join('');
+        var dispatchBtn = t.status === 'READY' || t.status === 'QUEUED'
+          ? '<button class="act approve" data-task-dispatch="' + esc(t.task_id) + '" type="button">派发</button>' : '';
+        return '<div class="task-card">' +
+          '<div class="task-title">' + esc(t.title) + '</div>' +
+          '<div class="task-meta"><span class="badge prio-' + esc(t.priority || '中') + '">' + esc(t.priority || '中') + '</span>' +
+          '<span>' + esc(t.source || 'manual') + '</span>' +
+          '<span>派发链 ' + ((t.dispatch_ids || []).length) + '</span></div>' +
+          '<div class="task-actions">' + btns + dispatchBtn + '</div></div>';
+      }).join('');
+      el.querySelectorAll('button[data-task-move]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          postJson('/api/tasks/' + encodeURIComponent(btn.getAttribute('data-task-move')) + '/transition',
+            { to: btn.getAttribute('data-to') }).then(function (result) {
+            if (result.body && result.body.ok) { loadTasks(); }
+            else { toast('迁移失败：' + ((result.body && result.body.error) || result.status), false); }
+          }).catch(function (error) { toast('迁移失败：' + error, false); });
+        });
+      });
+      el.querySelectorAll('button[data-task-dispatch]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var taskId = btn.getAttribute('data-task-dispatch');
+          var task = (tasksData || []).filter(function (t) { return t.task_id === taskId; })[0];
+          // 「派发」按钮预填派发表单携带 task_id（v1.7 字段随提交）。
+          var dispatchBtn = document.querySelector('button[data-view="dispatch"]');
+          if (dispatchBtn) dispatchBtn.click();
+          document.getElementById('dispatch-prompt').value = task ? (task.title + (task.detail ? '\\n\\n' + task.detail : '')) : '';
+          document.getElementById('dispatch-form').setAttribute('data-task-id', taskId);
+          toast('已预填派发表单（task_id=' + taskId + '）', true);
+        });
+      });
+    });
+  }
+
+  document.getElementById('task-create-form').addEventListener('submit', function (event) {
+    event.preventDefault();
+    var title = document.getElementById('task-title').value.trim();
+    if (!title) { toast('标题不能为空', false); return; }
+    postJson('/api/tasks', {
+      title: title,
+      detail: document.getElementById('task-detail').value.trim() || undefined,
+      priority: document.getElementById('task-priority').value,
+      source: document.getElementById('task-source').value.trim() || 'manual'
+    }).then(function (result) {
+      if (result.status === 201 && result.body && result.body.ok) {
+        toast('任务卡已建：' + title, true);
+        document.getElementById('task-title').value = '';
+        document.getElementById('task-detail').value = '';
+        loadTasks();
+      } else {
+        toast('建卡失败：' + ((result.body && result.body.error) || result.status), false);
+      }
+    }).catch(function (error) { toast('建卡失败：' + error, false); });
+  });
+
+  /* ---------- GOAL-020 B2：右侧犬队栏（每犬一卡：徽标+状态+最近回报摘要） ---------- */
+  function renderRailDogs() {
+    var el = document.getElementById('rail-dogs');
+    if (!el || !snapshot) return;
+    var roster = snapshot.roster || [];
+    var latest = latestDispatchPerAdapter();
+    if (roster.length === 0) { el.innerHTML = '<div class="empty" style="padding:8px 0">暂无在册犬只</div>'; return; }
+    el.innerHTML = roster.map(function (r) {
+      var last = latest[r.adapter_id] || null;
+      var running = last ? isRunningStatus(last.status) : false;
+      var logoState = running ? 'working' : 'idle';
+      var note = last ? esc(last.status) + ' · ' + escTime(last.at_utc || '') : '未活动';
+      return '<div class="rail-dog-card">' + dogLogo(r.adapter_id + ' ' + (r.expected_model_id || ''), logoState) +
+        '<span class="rail-dog-name">' + esc(r.adapter_id) + '</span>' +
+        '<span class="rail-dog-note">' + note + '</span></div>';
+    }).join('');
+  }
+
+  /* ---------- GOAL-020 B2：预算迷你条（栏内摘要，详情仍走预算抽屉） ---------- */
+  function renderRailBudget() {
+    var el = document.getElementById('rail-budget');
+    if (!el) return;
+    if (!budget || !budget.actors || budget.actors.length === 0) {
+      el.innerHTML = '<div class="empty" style="padding:8px 0">暂无台账</div>';
+      return;
+    }
+    el.innerHTML = budget.actors.slice(0, 6).map(function (actor) {
+      var cap = actor.cap_usd || 0;
+      var spent = actor.spent_usd || 0;
+      var pct = cap > 0 ? Math.min(100, (spent / cap) * 100) : 0;
+      return '<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-dim)">' +
+        '<span>' + esc(actor.actor_id) + '</span><span class="mono">$' + spent.toFixed(2) + '/$' + cap.toFixed(0) + '</span></div>' +
+        '<div class="bar' + (pct > 80 ? ' hot' : '') + '" style="min-width:0"><div style="width:' + pct + '%"></div></div></div>';
+    }).join('');
+  }
+
   function renderAll() {
     if (!snapshot) return;
     document.getElementById('generated').textContent = '快照 ' + escTime(snapshot.generated_at_utc) + '（本地时间）';
@@ -1407,6 +1688,9 @@ export function renderBoardPage(): string {
     renderEpochs();
     renderBudget();
     renderApprovals();
+    renderRailApprovals();
+    renderRailDogs();
+    renderRailBudget();
     chatPromptApprovals();
   }
 
@@ -1510,7 +1794,7 @@ export function renderBoardPage(): string {
   document.getElementById('btn-approve').addEventListener('click', function () { respond('APPROVED'); });
   document.getElementById('btn-reject').addEventListener('click', function () { respond('REJECTED'); });
   document.getElementById('btn-cancel').addEventListener('click', function () {
-    document.getElementById('approval-dialog').close();
+    currentApproval = null; // GOAL-020 B3：无模态可关，仅清态
   });
 
   /* ---------- GOAL-012：聊天面板事件绑定 + 通知开关 ---------- */
@@ -1714,13 +1998,15 @@ export function renderBoardPage(): string {
     return getJson('/api/budget').then(function (data) {
       if (data.ok) budget = data;
       renderBudget();
-    }).catch(function () { renderBudget(); });
+      renderRailBudget(); // GOAL-020 B2：栏内迷你条同步刷新
+    }).catch(function () { renderBudget(); renderRailBudget(); });
   }
 
   refresh().then(function () {
     loadWorkspaces();
     loadBudget();
     loadStreams();
+    loadTasks(); // GOAL-020 B5：任务池（v1.7 mock）
     // GOAL-018B #3：页面加载即恢复上次会话（localStorage session_id → GET history 全量重渲染）。
     if (chatSessionId) switchChatSession(chatSessionId); else renderSessionSelector();
     var status = document.getElementById('sse-status');
