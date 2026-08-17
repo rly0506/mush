@@ -479,3 +479,23 @@ RM-001、RM-002 全部构件正式收官。另：派发包编号改带 RM 前缀
   联调实测转真）。worktree/分支已清理。
 - **RM-004 M4 机检面完成**；owner 侧余项：① 看板复验五项（加犬/级联/
   徽章/辉光/cap）；② 审批卡 `7217a1ba` 批准或忽略（zcode 真实回复可见）。
+
+## AD-33 · p18 队列派发 + DEF-12 热修（2026-08-17，头犬 zcode 会话）
+
+- **队列自续（D17）**：p18a → deepseek-dsh（`bd324e95`）、p18b → kimi-code
+  （`8aa198d7`）并行执行中（双 ADMITTED=执行态；F-45 各建 worktree，
+  文件面后端/前端不相交）。D29 修订版派发单生效首发。
+- **DEF-12（热修 `08e9ead`，310/310 绿）**：首例 board→kimi 真实 spawn
+  暴露垫片解析缺陷——DEF-03 正则只认 `.js` 入口，kimi 垫片入口为
+  `dist/main.mjs` 不匹配 → 恒 ENOENT。**此前 kimi 任务全部依赖 owner
+  手开窗口投喂，看板从未真正拉起过 kimi**（owner「每次新开窗口」痛点
+  的组成部分）。证据：`cbf6a97b` 回执 stderr_tail=
+  "spawn failed (BLOCKED_ENV): spawn kimi ENOENT"；真身 runT1 复现一致。
+  修正 `/\.(?:mjs|cjs|js)/i` + 回归测试（真实垫片形态三例：
+  main.mjs/bin.js/无入口）。
+- **附带观察**：p18a 首发被 effort 合同拒绝（deepseek-dsh
+  effort_levels=['DEFAULT']，p14 犬力批后的合同语义）——头犬派发前
+  应先查 roster effort_levels，已记入操作惯例。
+- **头犬自省（铁律重申）**：本轮两次违反自己的转义铁律——heredoc 套层
+  把 `\r\n` 拆成真换行损坏测试文件；`.cjs` 顶层 await。均当场修复。
+  教训固化：写/改文件一律用文件工具，不经 shell 叠转义。
