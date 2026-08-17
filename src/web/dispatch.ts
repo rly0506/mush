@@ -804,9 +804,11 @@ export class DispatchPipeline {
       kind: 'dispatch',
       gate: 'D30-real-dispatch',
       dispatch_id: record.dispatch_id,
-      title: `真实派发：${record.adapter_id}`,
+      // owner 2026-08-17 反馈：审批名必须带 Goal 编号利于人识别 + 任务池关联。
+      title: `真实派发：${record.adapter_id}${request.goal_id !== undefined ? ' · ' + request.goal_id : ''}`,
       actor_id: record.adapter_id,
-      reason: `real 派发逐单审批（effort=${request.effort} timeout=${request.timeout_s}s cap=$${capUsd}）`,
+      goal_id: request.goal_id ?? null,
+      reason: `${request.goal_id !== undefined ? request.goal_id + ' · ' : ''}real 派发逐单审批（effort=${request.effort} timeout=${request.timeout_s}s cap=$${capUsd}）`,
       requested_at_utc: this.now().toISOString(),
       adapter_id: record.adapter_id,
       effort: request.effort,

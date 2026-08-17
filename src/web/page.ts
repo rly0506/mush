@@ -1129,6 +1129,7 @@ export function renderBoardPage(): string {
     if (approval.dispatch) {
       var d = approval.dispatch;
       html += '<dt>派发号</dt><dd class="mono">' + esc(d.dispatch_id.slice(0, 8)) + '</dd>' +
+        '<dt>目标</dt><dd class="mono">' + esc(d.goal_id || '（未关联 Goal）') + '</dd>' +
         '<dt>犬只 × 强度</dt><dd class="mono">' + esc(d.adapter_id + ' × ' + d.effort) + '</dd>' +
         '<dt>超时 / 工作区</dt><dd class="mono">' + esc((d.timeout_s || 0) + 's / ' + (d.workspace || '')) + '</dd>' +
         '<dt>预算</dt><dd class="mono">已花 $' + (d.actor_spent_usd == null ? '?' : d.actor_spent_usd.toFixed(4)) +

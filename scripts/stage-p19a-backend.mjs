@@ -11,6 +11,7 @@ async function main() {
       effort: 'DEFAULT',
       timeout_s: 3600,
       workspace: 'D:\\mush',
+      goal_id: 'MUSH-GOAL-019',
       prompt: [
         '读取并完整执行派发包 docs/dispatch/rm004-p19a-deepseek-taskpool.md（RM-004 M3，GOAL-019 后端，D34 修订：本 Goal 已收敛为纯后端，前端无关）。',
         'F-45：worktree runtime/worktrees/deepseek-e，分支 g019a，基于当前 master 5d1982e+。',

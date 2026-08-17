@@ -157,3 +157,20 @@ test('GP-32: replay backfills approval request files for legacy blocked records'
   assert.equal(revived.get(blocked.dispatch_id)?.status, 'BLOCKED_WAITING_OWNER');
   assert.ok(existsSync(requestPath), 'backfilled on replay');
 });
+
+test('GP-32: approval request carries goal_id for human recognition (owner 2026-08-17 feedback)', async () => {
+  const root = fixtureRoot();
+  const pipeline = makePipeline(root);
+  const blocked = await pipeline.dispatch({ adapter_id: 'fake-t1', prompt: 'goal labeled', effort: 'HIGH', real: true, goal_id: 'MUSH-GOAL-019' });
+  assert.equal(blocked.status, 'BLOCKED_WAITING_OWNER');
+  const file = JSON.parse(readFileSync(
+    path.join(root, 'goals', 'receipts', 'approval-requests', `dispatch-${blocked.dispatch_id}.json`),
+    'utf8',
+  )) as Record<string, unknown>;
+  assert.equal(file.goal_id, 'MUSH-GOAL-019');
+  assert.ok(String(file.title).includes('MUSH-GOAL-019'));
+  assert.ok(String(file.reason).startsWith('MUSH-GOAL-019'));
+  const snapshot = collectBoardSnapshot({ approvalRoot: path.join(root, 'goals', 'receipts', 'approval-requests') });
+  const entry = snapshot.approvals.find((a) => a.request_file === `dispatch-${blocked.dispatch_id}.json`);
+  assert.equal(entry?.dispatch?.goal_id, 'MUSH-GOAL-019');
+});

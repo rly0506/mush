@@ -61,6 +61,7 @@ export interface BoardApproval {
   dispatch?: {
     dispatch_id: string;
     title: string;
+    goal_id: string | null;
     adapter_id: string;
     effort: string;
     timeout_s: number | null;
@@ -151,6 +152,7 @@ function collectApprovals(approvalRoot: string): BoardApproval[] {
             dispatch: {
               dispatch_id: textOrNull(request.dispatch_id) ?? '',
               title: textOrNull(request.title) ?? '',
+              goal_id: textOrNull(request.goal_id),
               adapter_id: textOrNull(request.adapter_id) ?? textOrNull(request.actor_id) ?? '',
               effort: textOrNull(request.effort) ?? '',
               timeout_s: typeof request.timeout_s === 'number' ? request.timeout_s : null,
