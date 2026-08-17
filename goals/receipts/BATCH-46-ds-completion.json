@@ -1,0 +1,40 @@
+{
+  "batch": "BATCH-46-ds",
+  "goal_id": "MUSH-GOAL-021",
+  "phase": "A (backend)",
+  "packet": "rm004-p20a-deepseek-chat-streaming",
+  "branch": "g021a",
+  "worktree": "runtime/worktrees/deepseek-f",
+  "base_commit": "1e35c8a",
+  "at_utc": "2026-08-17T16:20:00Z",
+  "executor": "deepseek-dsh (backend)",
+  "units": {
+    "U1_chat_async": "POST /api/chat 202 即返 {dispatch_id, session_id, status:PENDING}（异步受理，不再同步等待）；后台执行经 pending 表跟踪（whenSettled 对账/测试入口）；失败路径报告 status:FAIL；会话 JSONL 语义不变（user turn 受理即落盘，head turn settle 后落盘）。",
+    "U2_sse_chat_frames": "GET /api/stream 新增 kind=chat 帧；阶段序 ADMITTED → EXECUTE(增量,payload.stream_text) → HEARTBEAT(耗时,payload.elapsed_ms) → REPORT(回复全文,payload.reply)；server.ts 以 onEvent 桥接 ChatService→SSE 广播。",
+    "U3_t1_stream_callback": "t1-runner T1RunOptions 增 onStdout，运行器把每次原始 stdout chunk 透传宿主；dispatch 仅在宿主注流（internal.onStdout）时把 stdout 节流合帧（≥512B 或 ≥200ms，注入 now/阈值可测）为 EXECUTE progress:stream 增量帧并转发合并文本；普通派发行为不变（背向兼容）。",
+    "U4_contract_v19": "api-contract.md 升 v1.9：chat 202 异步、SSE chat 帧（含失败路径 FAIL）、t1 流式回调、SSE 事件表增 chat kind。"
+  },
+  "tests": {
+    "new": "tests/g021a-chat-streaming.test.ts（5 用例：runT1 onStdout 增量透传 / createThrottledStream 节流合帧 / dispatch EXECUTE 增量帧+背向兼容 / chat 帧 ADMITTED→HEARTBEAT→EXECUTE→REPORT+JSONL 全文 / 202 ack 后台未完成即返回+双轮落盘时序）。",
+    "full_run": "347/347 PASS",
+    "baseline": "342/342 PASS before additions; after additions 347/347 PASS（新 5 用例全绿，exit 0）",
+    "output": "tests/g021a-test-output.txt"
+  },
+  "updated_existing_tests": [
+    "tests/g011-core.test.ts：ChatService 持久化断言适配异步（user/head 各两轮计数而非严格交替；await whenSettled 后对账）",
+    "tests/g012b-chat-ux.test.ts：同步 200+sync reply 断言改写——D3-B chat.post 改验 202 ack+REPORT 帧；HTTP 测改验 202 + SSE chat REPORT（head-dog.approved 冗余移除，聊天用 originOwner）"
+  ],
+  "red_lines": "零框架/零构建/零外链；未改 page.ts；未改 dispatch.ts/server.ts approval 段；未触碰 D:\\意向项目（只读参照）；未 push 任何远端；密钥未入库；127.0.0.1 不变；批次编号 46-ds 起。",
+  "evidence_paths_and_hashes": [
+    { "path": "src/adapters/t1-runner.ts", "sha256": "4DFE50435ECA062DF1AB8FE1256219AD9A8A284CB5CED7F4728F2A61E190A2A9" },
+    { "path": "src/web/chat.ts", "sha256": "20F486A34847E14B3F00917663447F478316511C683DDA9D1BD1279E5F75AF26" },
+    { "path": "src/web/dispatch.ts", "sha256": "9B31077215DB21EB4E634FC58E8B45F74F481CB9C914825052AE17CA77BC1A7E" },
+    { "path": "src/web/server.ts", "sha256": "437CE075E00F7FDCFA986528E89C516D62D5269F8978252ECB02991CD8DE3338" },
+    { "path": "src/web/api-contract.md", "sha256": "091B02CF4E533DB3CDCDB980EF9E0A0F9337DF49BA4F4B86C763D3C1EF2E8B1A" },
+    { "path": "tests/g011-core.test.ts", "sha256": "083FE00F204BB82892602A89BA011E06B94673CE36D091C896134209D4C1F539" },
+    { "path": "tests/g012b-chat-ux.test.ts", "sha256": "430D9CE1BF1739E8DFDF58C4DDA34566A7EC787E38E63BC774AB483419516D04" },
+    { "path": "tests/g021a-chat-streaming.test.ts", "sha256": "2B663EF2B5305F933EB376DECE97CD8F80D5A283EA8823DAC522DE4F3AA021E9" },
+    { "path": "tests/g021a-test-output.txt", "sha256": "2AF3587ADB6EFD7C99D2125FCB17AFD8C3EA78909D05A87A61B8AA2BF4E4ACC4" }
+  ],
+  "acceptance": "D15：机检全绿（347/347），请求头犬审核 + owner 显式接受；DONE 与否决权归 owner"
+}

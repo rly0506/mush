@@ -1,0 +1,40 @@
+{
+  "goal_id": "MUSH-GOAL-021",
+  "phase": "A (backend chat streaming)",
+  "rm": "RM-004 / M2 聊天流式（后端）",
+  "packet": "rm004-p20a-deepseek-chat-streaming",
+  "branch": "g021a",
+  "worktree": "runtime/worktrees/deepseek-f",
+  "base_commit": "1e35c8a",
+  "status": "MACHINE_ACCEPTED_PENDING_OWNER",
+  "semantics": "D15：机检验收规格全绿（347/347），请求 AUTO_ACCEPTED；DONE 与否决权仍归 owner",
+  "executor": "deepseek-dsh (backend)",
+  "completed_at_utc": "2026-08-17T16:20:00Z",
+  "units_dod": {
+    "U1": "POST /api/chat 202 即返 {dispatch_id, session_id}；回复落盘后经信帧广播；会话 JSONL 语义不变 —— 达成（202 异步、whenSettled 对账、FAIL 路径、JSONL 双轮）",
+    "U2": "SSE chat 帧 ADMITTED/EXECUTE(增量)/HEARTBEAT(耗时)/REPORT(含回复全文) 进 /api/stream —— 达成（server onEvent 桥接）",
+    "U3": "t1 增量 stdout 钩子（injectable）+ dispatch/chat 挂接 EXECUTE 增量事件（≥200ms 或 512B 合帧） —— 达成（t1-runner onStdout + createThrottledStream，注入时钟/阈值可测）",
+    "U4": "契约 v1.9 同步 api-contract.md —— 达成"
+  },
+  "verification": {
+    "npm_test": "347/347 全绿，fail 0，exit 0（真实执行，输出 tests/g021a-test-output.txt）",
+    "new_tests": "tests/g021a-chat-streaming.test.ts 5 用例 ≥ 要求 5：202 ack 语义（后台未完成即返回 + 落盘时序）/ 事件序列 chat 帧 / 流式回调 onStdout / 节流合帧 / JSONL 完整（回复全文）",
+    "backward_compat": "342 基线全部保留通过（仅 g011/g012b 因异步契约断言改写，其余 342 用例零改动）；page.ts 未动，web-chat-ux-012b frontend 断言未破",
+    "red_lines": "page.ts 未改；审批段未改；零框架/构建/外链；未 push；密钥未入库；D:\\意向项目 只读"
+  },
+  "evidence_paths_and_hashes": [
+    { "path": "src/adapters/t1-runner.ts", "sha256": "4DFE50435ECA062DF1AB8FE1256219AD9A8A284CB5CED7F4728F2A61E190A2A9" },
+    { "path": "src/web/chat.ts", "sha256": "20F486A34847E14B3F00917663447F478316511C683DDA9D1BD1279E5F75AF26" },
+    { "path": "src/web/dispatch.ts", "sha256": "9B31077215DB21EB4E634FC58E8B45F74F481CB9C914825052AE17CA77BC1A7E" },
+    { "path": "src/web/server.ts", "sha256": "437CE075E00F7FDCFA986528E89C516D62D5269F8978252ECB02991CD8DE3338" },
+    { "path": "src/web/api-contract.md", "sha256": "091B02CF4E533DB3CDCDB980EF9E0A0F9337DF49BA4F4B86C763D3C1EF2E8B1A" },
+    { "path": "tests/g021a-chat-streaming.test.ts", "sha256": "2B663EF2B5305F933EB376DECE97CD8F80D5A283EA8823DAC522DE4F3AA021E9" },
+    { "path": "tests/g021a-test-output.txt", "sha256": "2AF3587ADB6EFD7C99D2125FCB17AFD8C3EA78909D05A87A61B8AA2BF4E4ACC4" },
+    { "path": "goals/receipts/BATCH-46-ds-completion.json", "sha256": "901795858522926CD1F95903305F41035BA7BFDAFC6695FB0D4FA3656D8E7343" }
+  ],
+  "acceptance": {
+    "mode": "standing-default D15",
+    "machine_checks": "347/347 GREEN; exit 0; new=5",
+    "awaiting": "头犬审核 + owner 显式接受"
+  }
+}
