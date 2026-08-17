@@ -214,7 +214,7 @@ export function renderBoardPage(): string {
   .rail-dog-card { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--line); font-size: 12px; }
   .rail-dog-card:last-child { border-bottom: none; }
   .rail-dog-card .rail-dog-name { font-weight: 600; color: var(--ink); }
-  .rail-dog-card .rail-dog-note { color: var(--ink-faint); font-size: 11px; margin-left: auto; text-align: right; }
+  .rail-dog-card .rail-dog-note { color: var(--ink-dim); font-size: 11px; margin-left: auto; text-align: right; }
   nav button.drawer-tab { font-size: 12px; padding: 6px 12px; color: var(--ink-faint); }
   nav button.drawer-tab.active { color: var(--ink); }
   .chat-toolbar { display: flex; align-items: center; gap: 14px; padding-bottom: 10px; font-size: 12px; color: var(--ink-dim); flex-wrap: wrap; }
@@ -1654,9 +1654,10 @@ export function renderBoardPage(): string {
       var running = last ? isRunningStatus(last.status) : false;
       var logoState = running ? 'working' : 'idle';
       var note = last ? esc(last.status) + ' · ' + escTime(last.at_utc || '') : '未活动';
+      var noteStyle = running ? ' style="color:var(--ok);font-weight:600"' : '';
       return '<div class="rail-dog-card">' + dogLogo(r.adapter_id + ' ' + (r.expected_model_id || ''), logoState) +
         '<span class="rail-dog-name">' + esc(r.adapter_id) + '</span>' +
-        '<span class="rail-dog-note">' + note + '</span></div>';
+        '<span class="rail-dog-note"' + noteStyle + '>' + note + '</span></div>';
     }).join('');
   }
 
