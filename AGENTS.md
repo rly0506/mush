@@ -40,7 +40,12 @@ mush 是个人跨 harness 多 agent 编排工具（雪橇队）。你在本仓�
   均可被看板真实拉起）；
 - **每单审批卡（D30）**：头犬（或任何人）发起的每次真实派发一律停看板
   审批卡等 owner 点批；常设审批文件免检旁路已废除，头犬未经告知自主
-  真实派发属越权。
+  真实派发属越权；
+- **在途三件套扫描（AD-35）**：头犬派发前必跑 `powershell -NoProfile -File
+  scripts/scan-inflight.ps1`（犬窗口标题/worktree/看板派发三通道）；手开
+  犬窗口用 `scripts/dog-window.cmd <packet> <dog>` 启动（自动标题
+  `mush|<packet>|<dog>`），已有窗口可在窗口内执行 `title mush|<packet>|<dog>`
+  补标——窗口标题对 owner 与头犬均机器可读。
 
 ## 当前状态
 

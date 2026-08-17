@@ -515,3 +515,16 @@ RM-001、RM-002 全部构件正式收官。另：派发包编号改带 RM 前缀
 - **联调时序提醒**：kimi BATCH-43 联调前提「p18a 后端已落盘」当时并不
   成立（g018a 零提交）——deepseek 窗口完成 U1-U7 并落 g018a 提交后再做
   真链路联调；期间 kimi 按 p18b 包内 mock 约定继续前端面工作。
+
+## AD-35 · 在途可见性补丁：三件套扫描 + 窗口命名约定（2026-08-17，头犬 zcode 会话）
+
+- **owner 质询**：头犬为何察觉不到手开窗口的在途任务（AD-34 双通道成因
+  之一）。答复：手开会话对编排层不可见（无登记/心跳）= 系统盲区；头犬
+  派发前只查了 dispatch 记录、漏查 worktree = 检查清单漏洞，两者均有。
+- **补丁**：①窗口命名约定 `mush|<packet>|<dog>`（owner 提议）——标题对
+  owner 与头犬均机器可读（PowerShell MainWindowTitle）；②
+  `scripts/dog-window.cmd` 一键开窗自动带标题；③`scripts/scan-inflight.ps1`
+  三件套扫描（犬窗口/worktree/看板派发），实测当场识别出两只在途手开犬；
+  ④AGENTS.md 常设：头犬派发前必跑扫描。
+- **根治方向**：GOAL-018 流记录（session registry）落成后手开会话结构化
+  登记，三件套降级为兜底。
