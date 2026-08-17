@@ -1,0 +1,41 @@
+{
+  "batch": "BATCH-45-kimi",
+  "goal_id": "MUSH-GOAL-020",
+  "branch": "g020",
+  "worktree": "runtime/worktrees/kimi-f",
+  "at_utc": "2026-08-17T13:30:00Z",
+  "executor": "kimi-k3 (thinking high)",
+  "batches": {
+    "B1 令牌换血": "极夜→雪原白昼全量令牌替换（--bg #eef1f5/--panel #fff/三级灰/--accent #0e9f8f 压暗/--ember #c07a1f + --ember-tint #fdf3e3 新增）；332 基线零修改通过（色值断言除外原则验证：既有断言零色值依赖）",
+    "B2 骨架重组": "单屏指挥台 grid（minmax(0,1fr) 300px）：对话主区 + 右侧栏（rail-approvals/rail-dogs/rail-budget 三区块）；犬队栏每犬一卡（徽标+状态+最近时间）；预算迷你条（≤6 犬进度条）；详情抽屉 = 六标签页全保留（drawer-tab 降级样式）",
+    "B3 审批收编": "dashi 收编式：审批卡常驻栏顶（浅琥珀底+深琥珀文字 tinted）；D33 报备信息全量内联可展开——goal 行显著（rail-appr-goal 13px/600）/犬只×强度/超时/工作区/预算已花与 cap/完整 Prompt 预览（pre 滚动框）/事由/请求时间；批准/否决内联 respondTo；模态弹窗全档废除（dialog DOM 移除，showModal 调用清零，openDialog 改栏内展开+跳对话视图）；聊天流动作卡第二保险保留",
+    "B4 排版阶梯": "对话正文 15px/1.7（截图量测 15px/25.5px 实证）+ 头犬 600 字重；卡片标题 13px/600；元信息 12px；等宽数据层偏青 #3d7a72；签名大徽章 28px 品牌色描边（chat-row.head avatar）",
+    "B5 任务池三泳道": "待办（IDEA/READY）/进行中（QUEUED/IN_FLIGHT）/完成（DONE/CANCELLED；BLOCKED 折叠徽标挂进行中泳道头）；卡片=标题/优先级徽章（高红中琥珀低灰）/来源/派发链计数；迁移按钮按 TASK_TRANSITIONS 白名单渲染；建卡表单（标题+详情+优先级+来源）；派发按钮预填派发表单并携带 task_id（form data-task-id → body.task_id）；v1.7 未落盘 mock 诚实标注（冒烟实测 /api/tasks 404）"
+  },
+  "tests": {
+    "full_run": "337/337 PASS → goals/receipts/BATCH-45-kimi-test-output.txt",
+    "new_assertions": "tests/g020-snowfield.test.ts 5 用例（色板/骨架/审批收编含报备/阶梯/任务池）",
+    "parse_regression": "web-page-parse vm.Script 每批必过（B5 又抓获一处 \\n 模板转义缺陷并双写修复）"
+  },
+  "smoke": {
+    "script": "scripts/g020-snowfield-smoke.cjs（真实执行，exit=0）",
+    "result": "16/16 PASS → goals/receipts/BATCH-45-kimi-smoke-output.txt",
+    "coverage": "对话 200+reply / 审批批准 201 / 否决 201 / B1 令牌 / B2 骨架 / B3 收编+模态废除+报备全项 / B4 阶梯 / B5 泳道+白名单+task_id 预填+mock 标注 / working 动效保留 / 抽屉六视图俱在 / 任务 API 404 探明标注"
+  },
+  "screenshot_review": {
+    "method": "webapp-testing skill：无头 Chromium（.test-fixtures/pw-venv 隔离环境）+ PIL 像素级分析（子代理）",
+    "artifacts": [
+      "goals/receipts/g020-board-screenshot.png（空态）",
+      "goals/receipts/g020-board-screenshot-data.png（mock 数据态）",
+      "goals/receipts/g020-board-screenshot-chat.png（双气泡验证态）"
+    ],
+    "findings_fixed": [
+      "犬队栏状态文字 #9aa5b1 on 白对比度 2.8:1 不达标 → 改 --ink-dim（5.5:1）+ RUNNING 态绿色加粗",
+      "owner 泡/头犬泡区分 → 复测实证 #eafaf7 vs #ffffff + 600 字重，像素级确认 teal 8189px/文字 3600px"
+    ],
+    "verified_ok": ["亮色无暗残留（#eef1f5 实测）", "双栏骨架+右栏三区块全渲染", "审批卡 #fdf3e3/#c07a1f 实测", "品牌色犬徽五色区分", "预算条绿/红热色区分", "无溢出错位"]
+  },
+  "mock_honesty": "契约 v1.7（p19a）未落盘：/api/tasks 三端点 + task_id 回链 mock 消费（冒烟实测 404 已探明标注）；联调批待 p19a 合并后补真链路",
+  "red_lines": "零后端改动；零依赖（pw-venv 在 .test-fixtures 隔离，不入库）；零外链；127.0.0.1 不变；凭据永不渲染；模板正则双写；master 零触碰",
+  "acceptance": "D15：机检全绿 + 冒烟真实执行 + 截图目检修复闭环，待头犬审核 + owner 显式接受"
+}

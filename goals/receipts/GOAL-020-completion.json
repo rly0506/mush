@@ -1,0 +1,34 @@
+{
+  "goal_id": "MUSH-GOAL-020",
+  "title": "雪原营地 × 任务池前端融合批（D33 立项 / D34 融合）",
+  "status": "AUTO_ACCEPTED_PENDING_OWNER",
+  "branch": "g020",
+  "worktree": "runtime/worktrees/kimi-f",
+  "executor": "kimi-k3 (thinking high)",
+  "completed_at_utc": "2026-08-17T13:35:00Z",
+  "dod_checklist": {
+    "B1_令牌换血": "DONE — 极夜→雪原白昼；332 基线零修改通过（色值断言除外原则验证通过）",
+    "B2_骨架重组": "DONE — 对话主区+右侧犬队栏（审批/犬队/预算三区块）+ 六详情抽屉保留",
+    "B3_审批收编": "DONE — 栏顶常驻卡（琥珀 tint）+ D33 报备信息全量内联可展开（goal 行显著/犬只×强度/超时/工作区/预算/prompt 预览）+ 模态全档废除（showModal 清零）+ 聊天流第二保险",
+    "B4_排版阶梯": "DONE — 15/13/12 阶梯 + 头犬 600 字重 + 等宽数据偏青 + 28px 品牌描边签名徽章（截图量测实证）",
+    "B5_任务池三泳道": "DONE（mock 级）— 三泳道+状态机白名单迁移按钮+建卡表单+派发预填 task_id；v1.7 未落盘诚实标注（冒烟实测 404）",
+    "测试": "DONE — 337/337 全绿（新增 g020-snowfield 5 用例）；web-page-parse 每批必过（两抓获：\\n 双写×2）",
+    "冒烟": "DONE — scripts/g020-snowfield-smoke.cjs 真实执行 16/16 PASS（exit=0）",
+    "截图目检": "DONE — 无头 Chromium + PIL 像素级三态截图（空态/数据态/双气泡态）；发现 2 项缺陷（rail 对比度 2.8:1、RUNNING 态不醒目）已修复复测；亮色/骨架/审批卡/品牌徽标/预算热色全项像素实测通过"
+  },
+  "batches": ["BATCH-44-kimi（B1）", "BATCH-45-kimi（B2-B5 + 冒烟 + 截图目检）"],
+  "commits": [
+    "1f60514 feat(G020-B1): snowfield light theme tokens (332/332)",
+    "9d90da6 feat(G020-B2/B3/B4/B5): command-deck + rail approvals + typography + task pool (337/337)",
+    "92cf39b feat(G020): smoke + screenshot visual review (16/16, 337/337)"
+  ],
+  "design_authority": "docs/gp-33-snowfield-theme-plan.md（grilling 定稿四决策）+ GOAL-020 章程 B5 + D33 报备附加条件",
+  "mock_honesty": "契约 v1.7（GOAL-019/p19a）未落盘：/api/tasks 与 task_id 回链 mock 消费（404 探明标注）；联调批待 p19a 合并后补真链路（建卡→迁移→派发预填→回链计数）",
+  "boundaries_held": [
+    "F-45：全部工作在 runtime/worktrees/kimi-f（g020），master 零触碰",
+    "零后端改动；零依赖（Playwright venv 隔离在 .test-fixtures，不入库）；零外链",
+    "127.0.0.1 不变；凭据永不渲染；模板正则双写（DEF-07 防线两抓获）",
+    "红/橙储备纪律：常态零红色（琥珀审批 tint），红色仅现于真异常（FAIL/超 cap 热条/否决按钮）"
+  ],
+  "acceptance_semantics": "D15：机检全绿 + 冒烟真实执行 + 截图目检闭环 → AUTO_ACCEPTED；DONE 与否决权归 owner。待头犬（zcode）审核验收 + owner 显式接受。"
+}
