@@ -50,8 +50,9 @@ mush 是个人跨 harness 多 agent 编排工具（雪橇队）。你在本仓�
 ## 当前状态
 
 **RM-001/002/003 均已达成收官条件（RM-003 待 owner 一句话转正）。** RM-004「实战与流式」ACTIVE（D25）：
-M4 调度自由已合并（GOAL-017A/B，AD-32，309 tests 全绿，契约 v1.5）；M5 会话连续性 v2 派发单就绪（D29 修订版
-p18a/p18b）。基线 **309 tests** 全绿；看板 127.0.0.1:4790（桌面快捷方式）；六犬在册（deepseek/claude/kimi/zcode
-/codex/opencode + head-dog 角色；codex 因 F-50 禁任头犬）。
+M4 调度自由 ✅（AD-32）；M5 会话连续性 v2 ✅（AD-37，GOAL-018A/B，324 tests 全绿，契约 v1.6，
+流模型/HANDOFF/两档换窗/dsh 缝合已上线）。基线 **324 tests** 全绿；看板 127.0.0.1:4790（桌面快捷方式）；
+六犬在册（deepseek/claude/kimi/zcode/codex/opencode + head-dog 角色；codex 因 F-50 禁任头犬）。
+余项：M0 carve-out（GP-24）、M1 旗舰（待 owner 授权）、M2 聊天流式、M3 任务池、GP-32 单次审批制。
 findings 默认裁决：docs/auto-decisions-log.md（D16）。
 GitHub 私有远端同步为常规动作（D19）；无人值守调度器仍默认关（D8）。
