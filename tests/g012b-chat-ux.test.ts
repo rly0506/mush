@@ -9,6 +9,8 @@ import { startBoardServer } from '../src/web/server.ts';
 // GOAL-012B（派发包 rm003-p12）聊天体验四缺陷修复 —— 后端授权小改 A/B 的契约测试。
 // A：chat.post() 参数化 {adapter_id?, effort?}（head-only fail-closed，缺省 head-dog/HIGH）；
 // B：POST /api/chat 响应体加 reply/status（同步语义），前端 reply 直渲气泡（D3）。
+// GOAL-017A U2：head-only 语义升级为 verified-harness 语义（deepseek-dsh 可任头犬，
+// codex 因 F-50 仍拒绝）。
 
 function fixtureRoot(): string {
   const root = path.resolve(process.cwd(), '.test-fixtures', 'g012b', `${process.pid}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`);
@@ -70,10 +72,13 @@ test('D1-A: chat.post 接受显式 effort 档位（LOW/XHIGH 透传）', async (
   assert.equal(captured.effort, 'XHIGH');
 });
 
-test('D1-A: adapter_id 非 head 角色即 fail-closed（executor/未知一律拒绝）', async () => {
+test('D1-A/GOAL-017A: verified executor harness can be head; UNVERIFIED codex and unknown are rejected', async () => {
   const chat = makeChat(fixtureRoot());
-  await assert.rejects(() => chat.post({ message: 'x', adapter_id: 'deepseek-dsh' }), /head/);
-  await assert.rejects(() => chat.post({ message: 'x', adapter_id: 'no-such-dog' }), /head/);
+  // deepseek-dsh 是 verified 白名单 harness，即使 role=executor 也可任头犬。
+  const result = await chat.post({ message: 'x', adapter_id: 'deepseek-dsh' });
+  assert.equal(result.role, 'head');
+  await assert.rejects(() => chat.post({ message: 'x', adapter_id: 'codex' }), /UNVERIFIED/);
+  await assert.rejects(() => chat.post({ message: 'x', adapter_id: 'no-such-dog' }), /verified/);
   await assert.rejects(() => chat.post({ message: 'x', effort: 'MEDIUM' as 'HIGH' }), /effort/);
 });
 
@@ -132,7 +137,7 @@ test('D3-B: POST /api/chat 响应体含 reply/status（200 同步语义，契约
   }
 });
 
-test('D1-A: POST /api/chat 传 executor adapter_id → 400（head-only fail-closed）', async () => {
+test('D1-A/GOAL-017A: POST /api/chat 传 UNVERIFIED codex → 400（verified-only fail-closed）', async () => {
   const root = fixtureRoot();
   const approvalRoot = path.join(root, 'approvals');
   mkdirSync(approvalRoot, { recursive: true });
@@ -161,12 +166,12 @@ test('D1-A: POST /api/chat 传 executor adapter_id → 400（head-only fail-clos
     const res = await fetch(`http://127.0.0.1:${server.port}/api/chat`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ message: '伪装 executor', adapter_id: 'deepseek-dsh' }),
+      body: JSON.stringify({ message: '伪装 codex', adapter_id: 'codex' }),
     });
     assert.equal(res.status, 400);
     const body = (await res.json()) as Record<string, unknown>;
     assert.equal(body.ok, false);
-    assert.match(String(body.error), /head/);
+    assert.match(String(body.error), /UNVERIFIED/);
   } finally {
     await server.close();
   }

@@ -12,10 +12,8 @@ import {
 import type { ChildProcessLike, SpawnFn } from '../src/adapters/t1-runner.ts';
 
 // GOAL-004 首任务（owner 已选）：zcode 适配器接入。
-// 预探测：docs/capability-probes/zcode-2026-08-16.md
-//   zcode --prompt / --print / --cwd / --max-turns / --mode yolo / --json / app-server。
-// 真实 nonce 探测需单独 owner 授权（zcode 为 OAuth 登录、预算 UNKNOWN），本批只做
-// 合同 + fake/录制回放级协议解析。
+// GOAL-017A U2：合同修正——去掉 --json/--max-turns，裸传 --prompt + argument prompt
+// （zcode-real-002 实证：0.16.3 下 --json 无效、--max-turns 与位置参数冲突）。
 
 const WORKSPACE = path.resolve(process.cwd(), '.test-fixtures', 'adapters');
 const EVIDENCE = path.join(WORKSPACE, 'nonce-zcode-evidence.json');
@@ -31,11 +29,11 @@ function fakeChild(stdout: string): ChildProcessLike {
   } as unknown as ChildProcessLike;
 }
 
-test('zcode contract matches the pre-probe CLI surface (T1 single-shot)', () => {
+test('zcode contract matches the post-probe CLI surface (T1 single-shot, bare --prompt)', () => {
   const contract = buildZcodeContract();
   assert.equal(contract.adapter_id, 'zcode');
   assert.equal(contract.executable, 'zcode');
-  assert.deepEqual(contract.arguments, ['--prompt', '--json', '--max-turns', '1']);
+  assert.deepEqual(contract.arguments, ['--prompt']);
   assert.equal(contract.protocol, 't1');
   assert.equal(contract.prompt_transport, 'argument');
 });

@@ -1,6 +1,9 @@
 /**
- * mush 聊天服务（GOAL-011）— 头犬对话：POST /api/chat → head-dog dispatch，
+ * mush 聊天服务（GOAL-011）— 头犬对话：POST /api/chat → 任意 verified harness，
  * 会话续跑（resume_session）；对话持久化 runtime/chat/<session>.jsonl。
+ *
+ * GOAL-017A U2：头犬即角色——role 与 harness 解耦；任何 roster 在册且 verified
+ * 的 harness 都可任头犬；head-dog 继续可用（deepseek 别名）。
  */
 
 import { randomUUID } from 'node:crypto';
@@ -25,8 +28,6 @@ export interface ChatPostResult {
   reply: string;
 }
 
-const CHAT_EFFORTS = new Set(['LOW', 'HIGH', 'XHIGH']);
-
 export class ChatService {
   private readonly pipeline: DispatchPipeline;
   private readonly runtimeRoot: string;
@@ -45,23 +46,33 @@ export class ChatService {
     appendFileSync(path.join(this.chatDir(), `${sessionId}.jsonl`), JSON.stringify(turn) + '\n', 'utf8');
   }
 
-  /** GOAL-012B / D1：头犬选择 fail-closed —— 仅 roster 中 role=head 的犬可作对话对象。 */
-  private resolveHeadAdapter(adapterId: string): string {
-    const heads = this.pipeline.roster().filter((entry) => entry.role === 'head').map((entry) => entry.adapter_id);
-    if (!heads.includes(adapterId)) {
-      throw new Error(`adapter_id must be a head-role dog in roster (got: ${adapterId}; heads: ${heads.join(', ') || 'none'})`);
+  /** GOAL-017A U2：头犬候选 = roster 在册且 verified 的 harness；codex 明确拒绝。 */
+  private resolveHeadAdapter(adapterId: string): { adapterId: string; effortLevels: string[] } {
+    const entry = this.pipeline.roster().find((item) => item.adapter_id === adapterId);
+    if (entry === undefined) {
+      throw new Error(`adapter_id must be a verified harness in roster (got: ${adapterId})`);
     }
-    return adapterId;
+    if (entry.verified !== true) {
+      if (adapterId === 'codex') {
+        throw new Error('codex is UNVERIFIED (F-50) and cannot be head-dog');
+      }
+      throw new Error(`adapter_id must be a verified harness in roster (got: ${adapterId}; verified=false)`);
+    }
+    const effortLevels = (entry.effort_levels ?? ['LOW', 'HIGH', 'XHIGH']).map((level) => level.toUpperCase());
+    return { adapterId, effortLevels };
   }
 
   async post(input: { message: string; resume?: string; adapter_id?: string; effort?: string }): Promise<ChatPostResult> {
     const message = String(input.message ?? '').trim();
     if (message === '') throw new Error('message must be non-blank');
-    const adapterId = this.resolveHeadAdapter(
-      input.adapter_id !== undefined && input.adapter_id.trim() !== '' ? input.adapter_id.trim() : 'head-dog',
-    );
-    const effort = input.effort !== undefined && input.effort.trim() !== '' ? input.effort.trim().toUpperCase() : 'HIGH';
-    if (!CHAT_EFFORTS.has(effort)) throw new Error(`effort must be LOW|HIGH|XHIGH (got: ${input.effort})`);
+    const requestedAdapter =
+      input.adapter_id !== undefined && input.adapter_id.trim() !== '' ? input.adapter_id.trim() : 'head-dog';
+    const { adapterId, effortLevels } = this.resolveHeadAdapter(requestedAdapter);
+    const defaultEffort = effortLevels.includes('HIGH') ? 'HIGH' : effortLevels.includes('LOW') ? 'LOW' : effortLevels[0];
+    const effort = input.effort !== undefined && input.effort.trim() !== '' ? input.effort.trim().toUpperCase() : defaultEffort;
+    if (!effortLevels.includes(effort)) {
+      throw new Error(`effort must be one of ${effortLevels.join('|')} (got: ${input.effort})`);
+    }
     const sessionId = input.resume && input.resume.trim() !== '' ? input.resume.trim() : randomUUID().replace(/-/g, '');
     this.append(sessionId, { role: 'user', text: message, at_utc: new Date().toISOString() });
 

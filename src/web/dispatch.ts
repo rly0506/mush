@@ -22,6 +22,17 @@ import { buildKimiContract } from '../adapters/kimi.ts';
 import { buildHeadDogContract, extractSessionId } from '../adapters/head-dog.ts';
 import { runT1, type SpawnFn } from '../adapters/t1-runner.ts';
 import type { BoardPersistence } from './persistence.ts';
+import {
+  loadAdapterStore,
+  saveAdapterStore,
+  validateAdapterUpsert,
+  applyUserAdapterParams,
+  inferTemplateForAdapterId,
+  VERIFIED_TEMPLATES,
+  type UserAdapterRecord,
+  type AdapterTemplateId,
+} from './adapter-store.ts';
+import { loadBudgetCaps, saveBudgetCaps, DEFAULT_BUDGET_CAP_USD } from './budget-caps.ts';
 
 export type DispatchStatus =
   | 'ADMITTED'
@@ -73,6 +84,22 @@ export interface DispatchRecord {
   request?: DispatchRequestSnapshot;
 }
 
+/** GOAL-017A U1：合并视图条目（base + user override + origin 标记）。 */
+export interface AdapterView {
+  adapter_id: string;
+  protocol: string;
+  expected_provider: string;
+  expected_model_id: string;
+  role: 'head' | 'executor';
+  origin: 'base' | 'user' | 'user-override';
+  verified: boolean;
+  template?: AdapterTemplateId;
+  variants?: string[];
+  model_flag?: string;
+  effort_levels?: string[];
+  effort_injection?: EffortInjection;
+}
+
 /** 尾部截断（UTF-8 字符安全）：超长保留末段并标记 truncated。 */
 export function tailOf(text: string, maxChars: number): { text: string; truncated: boolean } {
   if (text.length <= maxChars) return { text, truncated: false };
@@ -110,6 +137,10 @@ export interface DispatchPipelineOptions {
   persistence?: BoardPersistence;
   /** GP-21：dsh preset 根目录；缺省 ~/.dsh/profiles（测试可注入临时目录）。 */
   profilesRoot?: string;
+  /** GOAL-017A U1：适配器注册表路径；缺省 <workspaceRoot>/runtime/adapters.json。 */
+  adaptersPath?: string;
+  /** GOAL-017A U3：预算 cap 持久化路径；缺省 <workspaceRoot>/runtime/budget-caps.json。 */
+  budgetCapsPath?: string;
 }
 
 export interface WorkspaceInfo {
@@ -143,12 +174,25 @@ function baseContracts(): Record<string, AdapterContract> {
 }
 
 export interface RegistryFile {
-  adapters?: Array<{ adapter_id: string; models?: string[] }>;
+  adapters?: Array<{ adapter_id: string; models?: string[]; verified?: boolean }>;
 }
 
-/** G010：静态合同 + cc-switch 注册表合成。注册表缺省时回退静态（fail-closed 不猜测）；
+/** GOAL-017A U2：verified 合同白名单（不含 codex/opencode——F-50/未验证）。 */
+const VERIFIED_WHITELIST = new Set<string>([
+  'deepseek-dsh',
+  'claude-code',
+  'kimi-code',
+  'zcode',
+  'head-dog',
+]);
+
+/** G010：静态合同 + cc-switch 注册表合成；GOAL-017A U1 再叠加用户注册表。
+ * 注册表缺省时回退静态（fail-closed 不猜测）；
  * 注册表只增补 variants 与 provider 归属，executable/协议等敏感细节不来自外部数据。 */
-export function buildContracts(registry?: RegistryFile | null): Record<string, AdapterContract> {
+export function buildContracts(
+  registry?: RegistryFile | null,
+  userAdapters: UserAdapterRecord[] = [],
+): Record<string, AdapterContract> {
   const contracts = baseContracts();
   for (const entry of registry?.adapters ?? []) {
     const base = contracts[entry.adapter_id];
@@ -159,6 +203,14 @@ export function buildContracts(registry?: RegistryFile | null): Record<string, A
       ...base,
       variants,
     });
+  }
+  for (const record of userAdapters) {
+    if (record.removed === true) {
+      delete contracts[record.adapter_id];
+      continue;
+    }
+    const contract = applyUserAdapterParams(record.template, record.adapter_id, record.params);
+    contracts[record.adapter_id] = contract;
   }
   return contracts;
 }
@@ -216,7 +268,7 @@ export class DispatchPipeline {
   readonly approvalRoot: string;
   private readonly dispatchApprovalRoot: string;
   readonly ledgerPath: string;
-  private readonly contracts: Record<string, AdapterContract>;
+  private contracts: Record<string, AdapterContract>;
   private readonly runAdapter: RunAdapterFn;
   private onEvent: (event: DispatchLifecycleEvent) => void;
   private readonly ledger = new UsdBudgetLedger();
@@ -226,6 +278,13 @@ export class DispatchPipeline {
   private readonly persistence: BoardPersistence | null;
   private readonly profilesRoot: string;
   private profileDirsCache: Set<string> | null = null;
+  private readonly adaptersPath: string;
+  private userAdapters: UserAdapterRecord[];
+  private readonly registryPath: string;
+  private registryVerified: Set<string>;
+  private readonly budgetCapsPath: string;
+  private budgetCaps: Record<string, number>;
+  private readonly baseAdapterIds: Set<string>;
 
   constructor(options: DispatchPipelineOptions) {
     this.workspaceRoot = path.resolve(options.workspaceRoot);
@@ -236,15 +295,32 @@ export class DispatchPipeline {
       options.dispatchApprovalRoot ?? path.join(this.workspaceRoot, 'goals', 'receipts', 'dispatch-approvals'),
     );
     this.ledgerPath = path.resolve(options.ledgerPath);
+    this.registryPath = path.resolve(
+      options.registryPath ?? path.join(this.workspaceRoot, 'runtime', 'capability-registry.json'),
+    );
+    this.adaptersPath = path.resolve(
+      options.adaptersPath ?? path.join(this.workspaceRoot, 'runtime', 'adapters.json'),
+    );
+    this.userAdapters = loadAdapterStore(this.adaptersPath);
+    const registry = loadRegistry(this.registryPath);
+    this.registryVerified = new Set(
+      (registry?.adapters ?? []).filter((entry) => entry.verified === true).map((entry) => entry.adapter_id),
+    );
     this.contracts =
       options.contracts ??
       buildContracts(
-        loadRegistry(options.registryPath ?? path.join(this.workspaceRoot, 'runtime', 'capability-registry.json')),
+        registry,
+        this.userAdapters,
       );
     this.onEvent = options.onEvent ?? (() => {});
     this.now = options.now ?? (() => new Date());
     this.persistence = options.persistence ?? null;
     this.profilesRoot = path.resolve(options.profilesRoot ?? path.join(homedir(), '.dsh', 'profiles'));
+    this.budgetCapsPath = path.resolve(
+      options.budgetCapsPath ?? path.join(this.workspaceRoot, 'runtime', 'budget-caps.json'),
+    );
+    this.budgetCaps = loadBudgetCaps(this.budgetCapsPath);
+    this.baseAdapterIds = new Set(Object.keys(baseContracts()));
     // GP-03：重启回放——已落盘的派发记录重新入内存（recent() 跨重启可用）。
     // DEF-05 修复：header.status 只反映落盘瞬间，事件链才是权威——回放时
     // 以最后一个生命周期事件的状态为准（747c7040 曾显示 ADMITTED 而实为超时）。
@@ -349,6 +425,36 @@ export class DispatchPipeline {
     writeFileSync(this.ledgerPath, JSON.stringify(entry) + '\n', { flag: 'a', encoding: 'utf8' });
   }
 
+  /** GOAL-017A U3：cap 改动追加台账一行（kind=CAP_CHANGE）。 */
+  private appendCapChange(actorId: string, previousCapUsd: number, newCapUsd: number): void {
+    const atUtc = this.now().toISOString();
+    if (this.persistence !== null) {
+      this.persistence.appendLedger({
+        atUtc,
+        actorId,
+        decision: 'ADMITTED',
+        amountUsd: 0,
+        capUsd: newCapUsd,
+        spentBeforeUsd: this.ledger.spentUsd(actorId),
+        remainingUsd: newCapUsd - this.ledger.spentUsd(actorId),
+        meta: { kind: 'CAP_CHANGE', previous_cap_usd: previousCapUsd, new_cap_usd: newCapUsd },
+      });
+      return;
+    }
+    mkdirSync(path.dirname(this.ledgerPath), { recursive: true });
+    writeFileSync(
+      this.ledgerPath,
+      JSON.stringify({
+        kind: 'CAP_CHANGE',
+        at_utc: atUtc,
+        actor_id: actorId,
+        previous_cap_usd: previousCapUsd,
+        new_cap_usd: newCapUsd,
+      }) + '\n',
+      { flag: 'a', encoding: 'utf8' },
+    );
+  }
+
   /** GP-21：探测一次并缓存 ~/.dsh/profiles 下的目录名；缓存后不再反复读盘。 */
   private profileDirs(): Set<string> {
     if (this.profileDirsCache !== null) return this.profileDirsCache;
@@ -434,7 +540,7 @@ export class DispatchPipeline {
     if (!effortLevels.includes(effort)) {
       throw new InputError(`effort must be one of ${effortLevels.join('|')} for ${adapterId}`);
     }
-    const capUsd = body.cap_usd === undefined ? 5 : Number(body.cap_usd);
+    const capUsd = body.cap_usd === undefined ? (this.budgetCaps[adapterId] ?? DEFAULT_BUDGET_CAP_USD) : Number(body.cap_usd);
     if (!Number.isFinite(capUsd) || capUsd <= 0) throw new InputError('cap_usd must be > 0');
     const amountUsd = body.amount_usd === undefined ? 0 : Number(body.amount_usd);
     if (!Number.isFinite(amountUsd) || amountUsd < 0) throw new InputError('amount_usd must be >= 0');
@@ -576,6 +682,106 @@ export class DispatchPipeline {
     return this.records.get(dispatchId) ?? null;
   }
 
+  /** GOAL-017A U1：合并视图（base + user override + origin）。 */
+  listAdapters(): AdapterView[] {
+    return Object.values(this.contracts)
+      .filter((contract) => contract.adapter_id !== 'fake-t1' || process.env.MUSH_INCLUDE_FAKE_ROSTER === '1')
+      .map((contract) => {
+        const user = this.userAdapters.find((entry) => entry.adapter_id === contract.adapter_id && entry.removed !== true);
+        const origin = user !== undefined ? (this.baseAdapterIds.has(contract.adapter_id) ? 'user-override' : 'user') : 'base';
+        return {
+          adapter_id: contract.adapter_id,
+          protocol: contract.protocol,
+          expected_provider: contract.expected_provider,
+          expected_model_id: contract.expected_model_id,
+          role: contract.role ?? 'executor',
+          origin,
+          verified: this.isAdapterVerified(contract.adapter_id),
+          ...(user !== undefined ? { template: user.template } : {}),
+          ...(contract.variants !== undefined ? { variants: [...contract.variants] } : {}),
+          ...(contract.model_flag !== undefined ? { model_flag: contract.model_flag } : {}),
+          ...(contract.effort_levels !== undefined ? { effort_levels: [...contract.effort_levels] } : {}),
+          ...(contract.effort_injection !== undefined ? { effort_injection: { ...contract.effort_injection } } : {}),
+        };
+      })
+      .sort((a, b) => a.adapter_id.localeCompare(b.adapter_id));
+  }
+
+  /** GOAL-017A U1：新增/覆盖用户适配器并持久化。 */
+  upsertAdapter(input: unknown): AdapterView {
+    let parsed: { template: AdapterTemplateId; adapterId: string; params: import('./adapter-store.ts').UserAdapterParams };
+    try {
+      parsed = validateAdapterUpsert(input);
+    } catch (error) {
+      throw new InputError(error instanceof Error ? error.message : String(error));
+    }
+    const now = this.now().toISOString();
+    const existing = this.userAdapters.find((entry) => entry.adapter_id === parsed.adapterId);
+    const record: UserAdapterRecord = {
+      adapter_id: parsed.adapterId,
+      template: parsed.template,
+      params: parsed.params,
+      removed: false,
+      created_at_utc: existing?.created_at_utc ?? now,
+      updated_at_utc: now,
+    };
+    const index = this.userAdapters.findIndex((entry) => entry.adapter_id === parsed.adapterId);
+    if (index >= 0) this.userAdapters[index] = record;
+    else this.userAdapters.push(record);
+    saveAdapterStore(this.adaptersPath, this.userAdapters);
+    this.rebuildContracts();
+    const view = this.listAdapters().find((entry) => entry.adapter_id === parsed.adapterId);
+    if (view === undefined) throw new InputError('adapter upsert failed to produce a merged view');
+    return view;
+  }
+
+  /** GOAL-017A U1：软删适配器（removed:true，roster 隐藏，历史派发不受影响）。 */
+  removeAdapter(adapterId: string): void {
+    if (adapterId.trim() === '') throw new InputError('adapter_id must be non-blank');
+    const active = this.contracts[adapterId] !== undefined;
+    const existing = this.userAdapters.find((entry) => entry.adapter_id === adapterId);
+    if (!active && existing === undefined) throw new InputError(`adapter not found: ${adapterId}`);
+    const template = existing?.template ?? inferTemplateForAdapterId(adapterId, this.userAdapters);
+    if (template === null) throw new InputError(`adapter not found: ${adapterId}`);
+    const now = this.now().toISOString();
+    const record: UserAdapterRecord = {
+      adapter_id: adapterId,
+      template,
+      params: existing?.params ?? {},
+      removed: true,
+      created_at_utc: existing?.created_at_utc ?? now,
+      updated_at_utc: now,
+    };
+    const index = this.userAdapters.findIndex((entry) => entry.adapter_id === adapterId);
+    if (index >= 0) this.userAdapters[index] = record;
+    else this.userAdapters.push(record);
+    saveAdapterStore(this.adaptersPath, this.userAdapters);
+    this.rebuildContracts();
+  }
+
+  /** GOAL-017A U2：verified 头犬候选（任意在册且 verified 的 harness）。 */
+  verifiedAdapters(): string[] {
+    return Object.values(this.contracts)
+      .filter((contract) => this.isAdapterVerified(contract.adapter_id))
+      .map((contract) => contract.adapter_id)
+      .sort();
+  }
+
+  private isAdapterVerified(adapterId: string): boolean {
+    const user = this.userAdapters.find((entry) => entry.adapter_id === adapterId && entry.removed !== true);
+    if (user !== undefined) return VERIFIED_TEMPLATES.has(user.template);
+    if (this.registryVerified.has(adapterId)) return true;
+    return VERIFIED_WHITELIST.has(adapterId);
+  }
+
+  private rebuildContracts(): void {
+    const registry = loadRegistry(this.registryPath);
+    this.registryVerified = new Set(
+      (registry?.adapters ?? []).filter((entry) => entry.verified === true).map((entry) => entry.adapter_id),
+    );
+    this.contracts = buildContracts(registry, this.userAdapters);
+  }
+
   /** G009：在册犬只名册（派发下拉/看板视图的取数源）——合同表投影，
    * 只含身份字段，不含 executable 路径等敏感细节。
    * 测试假犬（fake-t1）不进名册——owner 2026-08-17 反馈：生产下拉不应出现
@@ -590,6 +796,7 @@ export class DispatchPipeline {
     role: 'head' | 'executor';
     effort_levels?: string[];
     effort_injection?: EffortInjection;
+    verified: boolean;
   }> {
     return Object.values(this.contracts)
       .filter((contract) => contract.adapter_id !== 'fake-t1' || process.env.MUSH_INCLUDE_FAKE_ROSTER === '1')
@@ -599,6 +806,7 @@ export class DispatchPipeline {
         expected_provider: contract.expected_provider,
         expected_model_id: contract.expected_model_id,
         role: contract.role ?? 'executor',
+        verified: this.isAdapterVerified(contract.adapter_id),
         ...(contract.variants !== undefined ? { variants: [...contract.variants] } : {}),
         ...(contract.model_flag !== undefined ? { model_flag: contract.model_flag } : {}),
         ...(contract.effort_levels !== undefined ? { effort_levels: [...contract.effort_levels] } : {}),
@@ -626,17 +834,43 @@ export class DispatchPipeline {
     return [...this.records.values()].slice(-limit).reverse();
   }
 
-  budgetProjection(): { actors: Array<{ actor_id: string; spent_usd: number; cap_usd: number; entries: UsdAdmissionEntry[] }> } {
-    const actorIds = new Set<string>([...this.contracts ? Object.keys(this.contracts) : []]);
-    for (const entry of this.ledger.allEntries()) actorIds.add(entry.actorId);
+  /** GOAL-017A U3/U4：预算投影——cap 读持久化；spent 仅 real 且 amount>0；
+   * admission_count 含 dry-run（不含 CAP_CHANGE 留痕行）。 */
+  budgetProjection(): { actors: Array<{ actor_id: string; spent_usd: number; cap_usd: number; admission_count: number; entries: UsdAdmissionEntry[] }> } {
+    const actorIds = new Set<string>([...this.contracts ? Object.keys(this.contracts) : [], ...this.ledger.allEntries().map((entry) => entry.actorId), ...Object.keys(this.budgetCaps)]);
     return {
-      actors: [...actorIds].map((actorId) => ({
-        actor_id: actorId,
-        spent_usd: this.ledger.spentUsd(actorId),
-        cap_usd: 5,
-        entries: this.ledger.entries(actorId) as UsdAdmissionEntry[],
-      })),
+      actors: [...actorIds].map((actorId) => {
+        const allEntries = this.ledger.entries(actorId).filter((entry) => (entry.meta as Record<string, unknown>).kind !== 'CAP_CHANGE');
+        const admission_count = allEntries.length;
+        const spent_usd = allEntries
+          .filter((entry) => entry.decision === 'ADMITTED' && entry.amountUsd > 0 && entry.meta.real === true)
+          .reduce((sum, entry) => sum + entry.amountUsd, 0);
+        const cap_usd = this.budgetCaps[actorId] ?? DEFAULT_BUDGET_CAP_USD;
+        return {
+          actor_id: actorId,
+          spent_usd,
+          cap_usd,
+          admission_count,
+          entries: allEntries as UsdAdmissionEntry[],
+        };
+      }),
     };
+  }
+
+  /** GOAL-017A U3：读取 per-actor caps（缺省 5 不落盘）。 */
+  getBudgetCaps(): Record<string, number> {
+    return { ...this.budgetCaps };
+  }
+
+  /** GOAL-017A U3：更新 per-actor cap，持久化并追加 CAP_CHANGE 台账留痕。 */
+  setBudgetCap(actorId: string, capUsd: number): number {
+    if (actorId.trim() === '') throw new InputError('actor must be non-blank');
+    if (!Number.isFinite(capUsd) || capUsd <= 0) throw new InputError('cap_usd must be > 0');
+    const previous = this.budgetCaps[actorId] ?? DEFAULT_BUDGET_CAP_USD;
+    this.budgetCaps[actorId] = capUsd;
+    saveBudgetCaps(this.budgetCapsPath, this.budgetCaps);
+    this.appendCapChange(actorId, previous, capUsd);
+    return capUsd;
   }
 
   listWorkspaces(extraCandidates: string[] = []): WorkspaceInfo[] {

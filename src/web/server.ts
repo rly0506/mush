@@ -384,8 +384,71 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       })();
       return;
     }
+    if (route === 'GET /api/budget/caps') {
+      sendJson(response, 200, { ok: true, caps: dispatch.getBudgetCaps() });
+      return;
+    }
+    const budgetCapPut = /^\/api\/budget\/caps\/([^/]+)$/.exec(url.pathname);
+    if (request.method === 'PUT' && budgetCapPut !== null) {
+      void (async () => {
+        let body: Record<string, unknown>;
+        try {
+          body = JSON.parse(await readBody(request)) as Record<string, unknown>;
+        } catch {
+          sendJson(response, 400, { ok: false, error: 'body must be JSON' });
+          return;
+        }
+        const capUsd = body.cap_usd;
+        try {
+          const value = dispatch.setBudgetCap(decodeURIComponent(budgetCapPut[1]), Number(capUsd));
+          sendJson(response, 200, { ok: true, actor_id: decodeURIComponent(budgetCapPut[1]), cap_usd: value });
+        } catch (error) {
+          if (error instanceof InputError) sendJson(response, 400, { ok: false, error: error.message });
+          else sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+        }
+      })();
+      return;
+    }
     if (route === 'GET /api/budget') {
       sendJson(response, 200, { ok: true, ...dispatch.budgetProjection() });
+      return;
+    }
+    if (route === 'GET /api/adapters') {
+      sendJson(response, 200, { ok: true, adapters: dispatch.listAdapters() });
+      return;
+    }
+    if (route === 'POST /api/adapters') {
+      void (async () => {
+        let body: unknown;
+        try {
+          body = JSON.parse(await readBody(request));
+        } catch {
+          sendJson(response, 400, { ok: false, error: 'body must be JSON' });
+          return;
+        }
+        try {
+          const view = dispatch.upsertAdapter(body);
+          sendJson(response, 201, { ok: true, adapter: view });
+        } catch (error) {
+          if (error instanceof InputError) sendJson(response, 400, { ok: false, error: error.message });
+          else sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+        }
+      })();
+      return;
+    }
+    const adapterDelete = /^\/api\/adapters\/([A-Za-z0-9._-]+)$/.exec(url.pathname);
+    if (request.method === 'DELETE' && adapterDelete !== null) {
+      try {
+        dispatch.removeAdapter(adapterDelete[1]);
+        sendJson(response, 200, { ok: true, adapter_id: adapterDelete[1], removed: true });
+      } catch (error) {
+        if (error instanceof InputError) {
+          const status = /not found/.test(error.message) ? 404 : 400;
+          sendJson(response, status, { ok: false, error: error.message });
+        } else {
+          sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+        }
+      }
       return;
     }
     if (route === 'POST /api/chat') {

@@ -1,0 +1,27 @@
+{
+  "batch": "BATCH-41",
+  "goal_id": "MUSH-GOAL-017A",
+  "packet": "rm004-p17a-deepseek-dispatch-freedom",
+  "branch": "g017a",
+  "worktree": "runtime/worktrees/deepseek-c",
+  "at_utc": "2026-08-17T07:00:00Z",
+  "executor": "deepseek-dsh (backend)",
+  "units": {
+    "U1_adapters_crud": "runtime/adapters.json schema v1 用户覆盖层；GET/POST/DELETE /api/adapters；同 id 覆盖、新增追加、软删 removed:true；roster/knownContracts 读合并层；模板外字段 fail-closed。",
+    "U2_head_role": "chat.post adapter_id 放开为任意 roster 在册且 verified harness；verified = registry verified:true 或合同白名单（deepseek-dsh/claude-code/kimi-code/zcode/head-dog）；codex 因 F-50 拒绝并返回原因；zcode 合同去掉 --json/--max-turns 改裸传 --prompt；本地 registry 增 zcode verified:true（runtime 忽略目录，代码白名单兜底）。",
+    "U3_budget_caps": "runtime/budget-caps.json 持久化 per-actor cap；GET /api/budget/caps、PUT /api/budget/caps/:actor；改动追加台账 kind=CAP_CHANGE 留痕（persistence 下走哈希链）。",
+    "U4_counting": "budgetProjection 每 actor 增 admission_count（含 dry-run）；spent_usd 仅 real 且 amount>0 计入；dry-run 只进 count。"
+  },
+  "tests": {
+    "new": [
+      "tests/g017a-dispatch-freedom.test.ts（10 用例：CRUD 合并/覆盖/软删/HTTP、verified 名单、chat 解耦、caps PUT/留痕、projection cap+count）",
+      "tests/g012b-chat-ux.test.ts（更新为 verified-harness 语义）",
+      "tests/adapters-zcode.test.ts（更新为裸传合同）",
+      "tests/web-dispatch.test.ts（更新 projection 语义）"
+    ],
+    "full_run": "304/304 PASS",
+    "baseline": "294/294 PASS before additions; after additions 304/304 PASS"
+  },
+  "red_lines": "零框架/零构建/零外链；未改 page.ts；未触碰 D:\\意向项目；未 push；密钥未入库；127.0.0.1 不变。",
+  "acceptance": "D15：机检全绿，待头犬审核 + owner 显式接受"
+}

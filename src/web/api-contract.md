@@ -1,10 +1,28 @@
 # mush Board API 契约 v1
 
-- 状态：`v1.4`（2026-08-17 定稿 v1；v1.1 GOAL-007B；v1.2 GP-02；v1.3 GOAL-011 聊天节；v1.3.1 GOAL-012B chat 参数化+reply；v1.4 GOAL-013 profile/effort 合同/rerun **及** GOAL-013L 静态品牌资产路由 /assets/brands/:name.svg——本文件为权威源）
+- 状态：`v1.5`（2026-08-17 定稿 v1；v1.1 GOAL-007B；v1.2 GP-02；v1.3 GOAL-011 聊天节；v1.3.1 GOAL-012B chat 参数化+reply；v1.4 GOAL-013 profile/effort 合同/rerun **及** GOAL-013L 静态品牌资产路由；v1.5 GOAL-017A 适配器 CRUD/头犬解耦/budget caps/计数——本文件为权威源）
 - 宿主：`src/web/`（node:http，零依赖）；默认只绑 `127.0.0.1`（对外暴露 = 触发门 4，不实现）
 - 序列化：JSON（UTF-8，LF 结尾）；SSE 用 `text/event-stream`，帧格式 `data: <json>\n\n`
 - 错误约定：失败响应一律 `{ "ok": false, "error": "<human-readable>" }`
 - 版本演进：v1 字段**只能向后兼容新增**；删除/改义/改型 = 破坏性变更，需头犬批准并同步 GOAL-007
+
+### v1.5 向后兼容扩展（GOAL-017A，2026-08-17）
+
+- 新增适配器注册表 CRUD：
+  - `GET /api/adapters`：合并视图（base + 用户覆盖 + origin 标记 + verified）；
+  - `POST /api/adapters`：基于基础模板（dsh/claude/codex/kimi/opencode/zcode）
+    创建或覆盖用户适配器；模板外字段 fail-closed；
+  - `DELETE /api/adapters/:id`：软删（`removed:true`，roster 隐藏，历史派发不受影响）。
+- roster / knownContracts 读合并层；roster 条目新增 `verified: boolean`。
+- 头犬解耦：`POST /api/chat` 的 `adapter_id` 放开为**任意 roster 在册且
+  verified 的 harness**（registry `verified:true` 或合同白名单
+  deepseek-dsh/claude-code/kimi-code/zcode/head-dog）；codex 因 F-50 保持
+  UNVERIFIED，接口层拒绝并返回原因；`head-dog` 继续可用（deepseek 别名）。
+- 新增 `runtime/budget-caps.json`：per-actor cap（初始默认 5）；
+  `GET /api/budget/caps`、`PUT /api/budget/caps/:actor`；改动追加台账一行
+  `kind=CAP_CHANGE` 留痕。
+- `GET /api/budget` 的每个 actor 新增 `admission_count`（含 dry-run）；
+  `spent_usd` 语义明确：仅 real 且 `amount_usd > 0` 计入；dry-run 只进 count。
 
 ### v1.4 向后兼容扩展（GOAL-013，2026-08-17）
 
@@ -19,6 +37,7 @@
   字段，按当前默认），生成新 dispatch；`real` 可经 body 覆盖，仍走既有 approval 门；
 - `GET /api/dispatch/:id` 的 `dispatch` 新增可选 `request` 快照字段
   （rerun 数据源；旧记录缺省无此字段）。
+- 新增静态品牌资产路由 `GET /assets/brands/:name.svg`（GOAL-013L）。
 
 ### v1.3 向后兼容扩展（GOAL-011，2026-08-17）
 
@@ -53,7 +72,14 @@
 | `GET /api/dispatch/:id` | **新**：派发状态与事件 | v1 |
 | `GET /api/workspaces` | **新**：workspace 列表/校验 | v1 |
 | `POST /api/workspaces/select` | **新**：持久化当前 workspace | v1 |
+| `POST /api/workspaces/create` | **新**：登记新 workspace | v1.2 |
 | `GET /api/budget` | **新**：USD 台账投影 | v1 |
+| `GET /api/budget/caps` | **新**：per-actor cap 表 | v1.5 |
+| `PUT /api/budget/caps/:actor` | **新**：更新 per-actor cap（留痕） | v1.5 |
+| `GET /api/adapters` | **新**：适配器合并视图 | v1.5 |
+| `POST /api/adapters` | **新**：创建/覆盖用户适配器 | v1.5 |
+| `DELETE /api/adapters/:id` | **新**：软删适配器 | v1.5 |
+| `GET /assets/brands/:name.svg` | **新**：品牌图标静态资产 | v1.4 |
 
 ## POST /api/dispatch
 
@@ -61,13 +87,13 @@
 
 ```json
 {
-  "adapter_id": "fake-t1 | deepseek-dsh | claude-code | zcode | codex | opencode | kimi-code",
+  "adapter_id": "fake-t1 | deepseek-dsh | claude-code | zcode | codex | opencode | kimi-code | <user-adapter>",
   "prompt": "string (1..64000)",
   "workspace": "string? (缺省=已选 workspace 或服务 cwd)",
   "effort": "string?（缺省 LOW；必须属于所选合同 effort_levels；未声明合同回退 LOW|HIGH|XHIGH）",
   "profile": "string?（v1.4：dsh preset 目录名；仅 ~/.dsh/profiles 下存在者）",
   "model_id": "string?（G009：必须属于所选合同 variants）",
-  "cap_usd": "number?（缺省 5；>0）",
+  "cap_usd": "number?（缺省=该 actor 的 budget-caps 值或 5；>0）",
   "amount_usd": "number?（缺省 0=估算后记账）",
   "real": "boolean?（缺省 false=dry-run）"
 }
@@ -104,6 +130,36 @@
 `{ "ok": true, "dispatch": { "dispatch_id", "status", "adapter_id", "receipt_path", "events": [ {kind, at_utc, payload} ], "stdout_tail"?, "stderr_tail"?, "request"? } }`
 不存在 → `404`。（`stdout_tail`/`stderr_tail` 为 v1.1 新增；`request` 为 v1.4 新增。）
 
+## GET /api/adapters（v1.5）
+
+`{ "ok": true, "adapters": [ { "adapter_id", "protocol", "expected_provider", "expected_model_id", "role", "origin": "base|user|user-override", "verified": boolean, "template"?, "variants"?, "model_flag"?, "effort_levels"?, "effort_injection"? } ] }`
+- 合并视图 = 基础合同 + 用户覆盖（`runtime/adapters.json`）；软删条目不出现；
+- `fake-t1` 不进生产视图（与 roster 同规则）。
+
+## POST /api/adapters（v1.5）
+
+请求：
+
+```json
+{
+  "template": "dsh | claude | codex | kimi | opencode | zcode",
+  "adapter_id": "string (^[A-Za-z0-9._-]+$)",
+  "params": {
+    "profile": "string?（仅 dsh）",
+    "model_id": "string?（claude/codex/kimi/opencode/zcode）"
+  }
+}
+```
+
+- 创建/覆盖用户适配器；模板外字段 fail-closed → `400`；
+- 响应 `201`：`{ "ok": true, "adapter": AdapterView }`。
+
+## DELETE /api/adapters/:id（v1.5）
+
+- 软删：写 `removed:true`，roster 隐藏，历史派发不受影响；
+- 成功 `200`：`{ "ok": true, "adapter_id": id, "removed": true }`；
+- 不存在/已软删 → `404`。
+
 ## GET /api/workspaces
 
 `{ "ok": true, "workspaces": [ { "path", "is_git": bool, "mush_managed": bool, "selected": bool } ] }`
@@ -126,9 +182,24 @@
 
 ## GET /api/budget
 
-`{ "ok": true, "actors": [ { "actor_id", "spent_usd", "cap_usd", "entries": [ {at_utc, decision, amount_usd, remaining_usd, meta} ] } ] }`
+`{ "ok": true, "actors": [ { "actor_id", "spent_usd", "cap_usd", "admission_count", "entries": [ {at_utc, decision, amount_usd, remaining_usd, meta} ] } ] }`
 - 投影源：`runtime/budget-ledger.jsonl`（append-only，每行一条 admission/spend 事件，
-  与 `src/core/budget.ts` UsdBudgetLedger 同构）。
+  与 `src/core/budget.ts` UsdBudgetLedger 同构）；
+- `cap_usd` 来自 `runtime/budget-caps.json`，缺省 5；
+- `spent_usd` 仅统计 real 且 `amount_usd > 0` 的 ADMITTED 事件；dry-run 只进
+  `admission_count`，不计 spent；
+- `admission_count` 含 dry-run 与 real 的 admission 事件（不含 `CAP_CHANGE` 留痕）。
+
+## GET /api/budget/caps（v1.5）
+
+`{ "ok": true, "caps": { "<actor>": number } }`
+- 缺省未落盘的 actor 按 5 计，不在此表。
+
+## PUT /api/budget/caps/:actor（v1.5）
+
+请求 `{ "cap_usd": number }` → `200 { "ok": true, "actor_id": actor, "cap_usd": number }`
+- `cap_usd` 必须 >0；改动持久化到 `runtime/budget-caps.json`，并追加台账一行
+  `kind=CAP_CHANGE` 留痕。
 
 ## GET /api/snapshot（v1 扩展）
 
@@ -146,23 +217,25 @@
 `dispatch` 生命周期 phase 顺序：`ADMISSION → EXECUTE → REPORT → REVIEW`；终态
 status ∈ `DRY_RUN | ADMITTED | BLOCKED_WAITING_OWNER | BLOCKED_ENV | FAIL | PASS`。
 
-## 聊天 API（v1.3，GOAL-011 M1 新增；v1.3.1 见下）
+## 聊天 API（v1.3，GOAL-011 M1 新增；v1.3.1 见下；v1.5 头犬解耦）
 
 ### POST /api/chat
 
-请求（v1.3.1）：`{ "message": "string (1..64000)", "resume": "session_id?",
-"adapter_id": "string?", "effort": "LOW|HIGH|XHIGH?" }`
+请求（v1.3.1 + v1.5）：`{ "message": "string (1..64000)", "resume": "session_id?",
+"adapter_id": "string?", "effort": "string?" }`
 - 语义：把 message 作为 owner 消息派发给头犬（章程注入 + 会话续跑）；
   聊天即真实执行（head-dog approval 在案，D6）；
 - v1.3.1（GOAL-012B，向后兼容新增，两字段可选）：
-  - `adapter_id`：头犬选择，缺省 `head-dog`；**仅 roster 中 role=head 的犬
-    合法**，executor/未知一律 `400`（fail-closed）；
-  - `effort`：思维档位，缺省 `HIGH`；非法档位 `400`；
+  - `adapter_id`：头犬选择，缺省 `head-dog`；**v1.5 起为任意 roster 在册且
+    verified 的 harness**（registry `verified:true` 或合同白名单）；
+    `head-dog` 继续可用；codex 因 F-50 保持 UNVERIFIED，接口拒绝并返回原因；
+  - `effort`：思维档位，缺省按所选合同的 effort_levels 取 HIGH（若支持）否则
+    该合同首档；非法档位 `400`；
 - 响应 `200`（v1.3.1 修正为同步语义：回复随响应返回，前端直渲气泡；
   原 v1.3 的 202+SSE 回填语义废弃，history 拉取保留为对账路径）：
   `{ "ok": true, "session_id", "role": "head", "dispatch_id", "status", "reply" }`
   （`reply` = 头犬回复文本，来自既有 head turn 落盘内容）；
-- `400`：message 为空/超长、adapter_id 非 head、effort 非法；`resume` 指向
+- `400`：message 为空/超长、adapter_id 非 verified、effort 非法；`resume` 指向
   未知会话按新会话处理（创建新文件）。
 - 持久化：`runtime/chat/<session_id>.jsonl`，每行一条 `{role:"user"|"head",
   text, at_utc, dispatch_id?}`，append-only。
@@ -172,17 +245,17 @@ status ∈ `DRY_RUN | ADMITTED | BLOCKED_WAITING_OWNER | BLOCKED_ENV | FAIL | PA
 `{ "ok": true, "turns": [ {role, text, at_utc, dispatch_id?} ] }`
 - 缺 session → `400`；缺文件 → `200` + 空 `turns`；limit 缺省 50、负值按 1。
 
-### roster role 字段（v1.3）
+### roster role / verified 字段（v1.3 / v1.5）
 
-`GET /api/snapshot` 及 roster 消费点的犬只条目新增 `"role": "head" | "executor"`；
-`head-dog` 为唯一 head，其余为 executor。
+`GET /api/snapshot` 及 roster 消费点的犬只条目新增 `"role": "head" | "executor"`
+（v1.3）与 `"verified": boolean`（v1.5）；`head-dog` 为唯一 role=head，但
+verified 的 executor 也可经聊天层任头犬（角色与 harness 解耦）。
 
-<<<<<<< HEAD
 ### roster effort 字段（v1.4）
 
 roster 条目新增 `effort_levels?: string[]` 与 `effort_injection?:
 {kind: 'flag'|'env'|'none', name?}`，供 UI 按犬渲染档位。
-=======
+
 ## 静态品牌资产（v1.4，GOAL-013L / rm003-p13 新增）
 
 ### GET /assets/brands/:name.svg
@@ -198,7 +271,6 @@ roster 条目新增 `effort_levels?: string[]` 与 `effort_injection?:
   kimi→kimi / opencode→opencode / head-dog→deepseek`；`<img>` `onerror` 静默回退
   手绘内联 SVG（codex/zcode 直接手绘）；资产内 `fill=currentColor`，容器 `color`
   继承实现主题化。
->>>>>>> g013-logo
 
 ## 实现与契约一致性
 
