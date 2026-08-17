@@ -1,27 +1,29 @@
 {
   "batch": "BATCH-42",
-  "goal_id": "MUSH-GOAL-018A",
-  "packet": "rm004-p18a-deepseek-workstreams",
-  "branch": "g018a",
-  "worktree": "runtime/worktrees/deepseek-d",
-  "at_utc": "2026-08-17T08:00:00Z",
-  "executor": "deepseek-dsh (backend)",
-  "units": {
-    "U1_stream_model": "runtime/streams.jsonl append-only work-stream 模型；dispatch 支持 stream_id/goal_id/new_stream；默认自动归流（犬×Goal）；强制新开。",
-    "U2_resume": "kimi resume_flag=-r、claude --resume、zcode --resume 已声明；同流自动携带上次 session_id；codex 因 F-50 跳过并注释。",
-    "U3_context": "AdapterContract 增 context_management；dsh none 走 75% 阈值换窗；dsh 窗口内固定章程头+流历史+新指令尾缝合。",
-    "U4_handoff": "HANDOFF-BEGIN/END 解析、归档、换窗注入、外部补写 API 均已实现。",
-    "U5_project_brief": "派发 prompt 自动附加工作区 AGENTS.md（超长截断 4000 字符）。",
-    "U6_dsh_web_probe": "只读探测 dsh web bundle：程序化向既有会话发消息可行（Session.prompt RPC），但非公开 REST；报告 goals/receipts/dsh-web-api-probe.md。",
-    "U7_stream_api": "GET /api/streams、GET /api/streams/:id、POST /api/streams/:id/handoff。"
+  "goal_id": "MUSH-GOAL-018B",
+  "packet": "rm004-p18b-kimi-workstreams（D29 修订 v2）",
+  "branch": "g018b",
+  "worktree": "runtime/worktrees/kimi-e",
+  "base": "g017b（前端串行，含调度自由五项）",
+  "at_utc": "2026-08-17T09:20:00Z",
+  "executor": "kimi-k3 (thinking high)",
+  "deliverables": {
+    "1_流视图": "新『工作流』标签（只读，管理面板 GP-31 明确不做）——流卡片（标题/关联 Goal 徽章/状态/统计：派发数·会话链·上下文估算占用%（>75% 高亮）·交接计数）+ 点开时间线（派发链 + 会话链标记：真续跑🟢/缝合🟡）+ HANDOFF 五节卡片式渲染（做了什么/定了什么/文件在哪/下一步/未解问题；head_written 暴毙代写标注头犬署名，犬亲笔/代写分徽章）",
+    "2_派发表单": "工作流下拉（默认『自动归流：同犬×Goal 归活动流』说明文案 + 流列表同源 /api/streams）+ 新开流勾选（new_stream:true）+ 强制新窗勾选（new_window:true，同流不复用当前窗口/session）——三字段随派发提交（v1.6 mock）",
+    "3_会话恢复": "localStorage 持久化当前 session_id（mush.chat.session）+ 页面加载即 switchChatSession 全量 GET history 重渲染；会话选择器（mush.chat.sessions 注册表，上限 20，可切换/新建）——刷新不再丢对话显示；发送/切换/新建均同步注册表与持久化",
+    "4_主题动效": "极夜主题/品牌色体系沿用（未动令牌）；动效规范不变（working=辉光+跳动）；新增 stream-card/handoff-block 样式入既有变量"
   },
+  "mock_honesty": "p18a（契约 v1.6）未落盘：/api/streams、stream_id/new_stream/new_window、HANDOFF 归档字段均按其包内描述 mock 消费；流 API 404 时流视图显示『v1.6 落盘后自动出现』空态，不炸板；会话恢复链路为既有 v1.3 真端点（非 mock，冒烟已实证）",
   "tests": {
-    "new": [
-      "tests/g018a-workstreams.test.ts（9 用例：自动归流/真续跑/前缀稳定/75% 换窗/HANDOFF 回路/AGENTS.md/流 API/解析器）"
-    ],
-    "full_run": "318/318 PASS",
-    "baseline": "309/309 PASS before additions; after additions 318/318 PASS"
+    "new": "tests/g018b-workstreams.test.ts（5 用例：流标签+统计+时间线 / 会话链标记 / HANDOFF 五节+署名 / 表单三控件随提交 / 恢复逻辑+选择器）",
+    "full_run": "304/304 PASS → goals/receipts/BATCH-42-test-output.txt",
+    "parse_regression": "web-page-parse vm.Script 每批必过"
   },
-  "red_lines": "零框架/零构建/零外链；未改 page.ts；未触碰 D:\\意向项目；未 push；密钥未入库；127.0.0.1 不变。",
-  "acceptance": "D15：机检全绿，待头犬审核 + owner 显式接受"
+  "smoke": {
+    "script": "scripts/g018b-workstreams-smoke.cjs（真实执行，exit=0）",
+    "result": "12/12 PASS → goals/receipts/BATCH-42-smoke-output.txt",
+    "coverage": "发消息两轮同 session → 模拟刷新 GET history 完整恢复（4 轮/双角色/含第二轮文本）→ 会话 B 独立切换历史不串扰 + 页面六结构断言"
+  },
+  "red_lines": "零后端改动（授权范围）；零框架/零构建/零外链；凭据永不渲染；模板正则双写；master 零触碰",
+  "acceptance": "D15：机检全绿 + 冒烟真实执行，待头犬审核 + owner 显式接受"
 }

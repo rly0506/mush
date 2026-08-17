@@ -73,7 +73,16 @@ export function renderBoardPage(): string {
   }
   #head-dog-badge .logo-slot { display: inline-flex; width: 20px; height: 20px; }
   #head-dog-badge .logo-slot svg, #head-dog-badge .logo-slot img { width: 20px; height: 20px; }
-  /* GOAL-017B：UNVERIFIED 头犬候选灰显 + 原因徽标 */
+  /* GOAL-018B：工作流视图 + 交接块样式 */
+  .stream-card { cursor: pointer; }
+  .stream-card:hover { border-color: var(--accent-deep); }
+  .stream-timeline { margin-top: 8px; border-top: 1px solid #1a2531; padding-top: 8px; }
+  .stream-entry { font-size: 12px; padding: 3px 0; }
+  .handoff-block { background: #0e1620; border: 1px solid var(--accent-deep); border-radius: 8px; padding: 8px 12px; margin: 6px 0; }
+  .handoff-title { font-size: 12px; color: var(--accent); margin-bottom: 4px; }
+  .handoff-section { font-size: 12px; margin: 4px 0; }
+  .handoff-label { color: var(--ink-dim); font-size: 11px; }
+  .handoff-text { white-space: pre-wrap; word-break: break-word; }
   #chat-head-select option.unverified { color: var(--ink-faint); }
   .badge.unverified { color: var(--ink-faint); border-color: var(--ink-faint); font-size: 10px; }
   /* GOAL-017B #1：犬只管理（添加/移除） */
@@ -254,6 +263,7 @@ export function renderBoardPage(): string {
 <nav>
   <button data-view="chat" class="active">对话</button>
   <button data-view="dispatch">调度</button>
+  <button data-view="streams">工作流</button>
   <button data-view="dogs">犬队状态</button>
   <button data-view="epochs">事件链</button>
   <button data-view="budget">预算消耗</button>
@@ -270,6 +280,7 @@ export function renderBoardPage(): string {
         <option selected>HIGH</option>
         <option>XHIGH</option>
       </select></label>
+      <label>会话 <select id="chat-session-select" style="width:auto;padding:3px 8px;font-size:12px"><option value="">（新会话）</option></select></label>
       <span class="mono" id="chat-session-label"></span>
       <label><input type="checkbox" id="notify-toggle"> 浏览器通知（派发终态，需授权）</label>
       <button class="act cancel" id="chat-new-session" type="button" style="padding:3px 10px;font-size:12px">新会话</button>
@@ -306,6 +317,14 @@ export function renderBoardPage(): string {
           <textarea id="dispatch-prompt" maxlength="64000" placeholder="写给犬的任务…"></textarea>
         </div>
         <div>
+          <label for="dispatch-stream">工作流（v1.6，可选）</label>
+          <select id="dispatch-stream"><option value="">（自动归流：同犬×Goal 归活动流）</option></select>
+          <div style="display:flex;gap:10px;margin-top:6px;font-size:12px;color:var(--ink-dim);align-items:center;flex-wrap:wrap">
+            <label style="margin:0"><input type="checkbox" id="dispatch-new-stream"> 新开流</label>
+            <label style="margin:0"><input type="checkbox" id="dispatch-new-window"> 强制新窗（同流不复用当前窗口/session）</label>
+          </div>
+        </div>
+        <div>
           <label for="dispatch-effort">effort 档位（D20）</label>
           <select id="dispatch-effort">
             <option>LOW</option>
@@ -329,6 +348,7 @@ export function renderBoardPage(): string {
     <div id="dispatch-list"><div class="empty">暂无派发记录</div></div>
   </section>
   <section id="view-dogs" class="view"><div class="roster-manage" id="roster-manage"></div><div id="dogs-table"></div></section>
+  <section id="view-streams" class="view"><div class="hint" style="margin-bottom:8px">工作流只读视图（流管理面板属 GP-31）。窗口键 = 犬×Goal；交接块随流记录归档。</div><div id="streams-list"><div class="empty">暂无工作流（v1.6 流 API 落盘后自动出现）</div></div></section>
   <section id="view-epochs" class="view"></section>
   <section id="view-budget" class="view"></section>
   <section id="view-approvals" class="view"></section>
@@ -666,6 +686,11 @@ export function renderBoardPage(): string {
     if (!prompt) { toast('任务不能为空', false); return; }
     var body = { adapter_id: adapterId, prompt: prompt, effort: effort, cap_usd: capUsd, real: real };
     if (workspace) body.workspace = workspace;
+    // GOAL-018B #2：工作流控制面（v1.6 mock）——显式选流 / 新开流 / 强制新窗。
+    var streamSel = document.getElementById('dispatch-stream');
+    if (streamSel && streamSel.value) body.stream_id = streamSel.value;
+    if (document.getElementById('dispatch-new-stream').checked) body.new_stream = true;
+    if (document.getElementById('dispatch-new-window').checked) body.new_window = true;
     var modelSel = document.getElementById('dispatch-model');
     if (modelSel && modelSel.value) body.model_id = modelSel.value;
     postJson('/api/dispatch', body).then(function (result) {
@@ -1103,12 +1128,24 @@ export function renderBoardPage(): string {
       }).catch(function (error) { toast('应答失败：' + error, false); });
   }
 
-  /* ---------- GOAL-012：聊天面板（消费 v1.3 契约；M1 未落盘时优雅降级 mock 提示） ---------- */
+  /* ---------- GOAL-012 + GOAL-018B #3：聊天面板（v1.3 契约）与会话恢复 ---------- */
+  // GOAL-018B：localStorage 持久化当前 session_id——刷新页面不丢对话显示。
   var chatSessionId = null;
+  try {
+    var savedSession = localStorage.getItem('mush.chat.session');
+    if (savedSession && savedSession.trim() !== '') chatSessionId = savedSession.trim();
+  } catch (e) { /* 隐私模式忽略 */ }
   var chatTurnCount = 0;
   var chatPending = false;
   var chatActionSeen = {};       // dispatch_id → 已回填终态（去重）
   var chatPromptedApprovals = {}; // request_file → 已自动弹窗（去重，触发门直通）
+
+  function saveChatSession() {
+    try {
+      if (chatSessionId) localStorage.setItem('mush.chat.session', chatSessionId);
+      else localStorage.removeItem('mush.chat.session');
+    } catch (e) { /* 隐私模式忽略 */ }
+  }
 
   function chatStreamEl() { return document.getElementById('chat-stream'); }
 
@@ -1232,6 +1269,9 @@ export function renderBoardPage(): string {
       var data = result.body || {};
       if (result.status === 200 && data.ok) {
         chatSessionId = data.session_id || chatSessionId;
+        registerSessionId(chatSessionId); // GOAL-018B #3：会话注册表（选择器数据源）
+        saveChatSession();
+        renderSessionSelector();
         document.getElementById('chat-session-label').textContent = chatSessionId ? 'session ' + String(chatSessionId).slice(0, 8) : '';
         // D3：v1.3.1 同步语义——响应体 reply 即头犬回复，替换占位气泡直渲。
         removeThinking();
@@ -1267,12 +1307,66 @@ export function renderBoardPage(): string {
     }).catch(function () { /* 静默：下一帧 SSE 再试 */ });
   }
 
-  function chatNewSession() {
-    chatSessionId = null;
+  /* ---------- GOAL-018B #3：会话选择器 + 刷新恢复 ---------- */
+  // 会话列表来源：chatSessionIds 注册表（localStorage 累积，本机 owner 单用户场景足够；
+  // 后端枚举 API 属 p18a v1.6 面，落盘后联调批可换数据源）。
+  function knownSessionIds() {
+    try {
+      var raw = JSON.parse(localStorage.getItem('mush.chat.sessions') || '[]');
+      return Array.isArray(raw) ? raw.filter(function (s) { return typeof s === 'string' && s !== ''; }) : [];
+    } catch (e) { return []; }
+  }
+
+  function registerSessionId(id) {
+    if (!id) return;
+    var ids = knownSessionIds();
+    if (ids.indexOf(id) < 0) {
+      ids.unshift(id);
+      try { localStorage.setItem('mush.chat.sessions', JSON.stringify(ids.slice(0, 20))); } catch (e) { /* ignore */ }
+    }
+  }
+
+  function renderSessionSelector() {
+    var sel = document.getElementById('chat-session-select');
+    if (!sel) return;
+    var ids = knownSessionIds();
+    if (chatSessionId && ids.indexOf(chatSessionId) < 0) ids.unshift(chatSessionId);
+    sel.innerHTML = '<option value="">（新会话）</option>' + ids.map(function (id) {
+      return '<option value="' + esc(id) + '"' + (id === chatSessionId ? ' selected' : '') + '>session ' + esc(id.slice(0, 8)) + '</option>';
+    }).join('');
+  }
+
+  function switchChatSession(sessionId) {
+    chatSessionId = sessionId || null;
     chatTurnCount = 0;
     chatActionSeen = {};
-    document.getElementById('chat-session-label').textContent = '';
-    chatStreamEl().innerHTML = '<div class="empty">新会话已开始。向头犬下达指令。</div>';
+    saveChatSession();
+    document.getElementById('chat-session-label').textContent = chatSessionId ? 'session ' + String(chatSessionId).slice(0, 8) : '';
+    if (!chatSessionId) {
+      chatStreamEl().innerHTML = '<div class="empty">新会话已开始。向头犬下达指令。</div>';
+      renderSessionSelector();
+      return;
+    }
+    chatStreamEl().innerHTML = '<div class="empty">恢复会话中…</div>';
+    // 完整历史重渲染（不限于增量）：刷新/切换都走这条权威路径。
+    getJson('/api/chat/history?session=' + encodeURIComponent(chatSessionId) + '&limit=50').then(function (data) {
+      var el = chatStreamEl();
+      if (!data || !data.ok || !Array.isArray(data.turns) || data.turns.length === 0) {
+        el.innerHTML = '<div class="empty">该会话暂无记录（或 M1 前会话文件缺失）。</div>';
+      } else {
+        el.innerHTML = '';
+        chatTurnCount = 0;
+        data.turns.forEach(function (turn) { appendChatRow(turn.role === 'user' ? 'user' : 'head', turn.text, turn.at_utc, turn.dispatch_id); });
+      }
+      renderSessionSelector();
+    }).catch(function () {
+      chatStreamEl().innerHTML = '<div class="empty">会话历史暂不可达。</div>';
+      renderSessionSelector();
+    });
+  }
+
+  function chatNewSession() {
+    switchChatSession(null);
   }
 
   /* ---------- 汇总刷新 ---------- */
@@ -1398,6 +1492,10 @@ export function renderBoardPage(): string {
     if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendChat(); }
   });
   document.getElementById('chat-new-session').addEventListener('click', chatNewSession);
+  // GOAL-018B #3：会话选择器切换/新建。
+  document.getElementById('chat-session-select').addEventListener('change', function () {
+    switchChatSession(this.value);
+  });
   // GOAL-017B #2/#3：级联选择联动（harness 切换 → 变体重算 + 徽章链刷新）。
   document.getElementById('chat-head-select').addEventListener('change', renderHeadVariantOptions);
   document.getElementById('chat-head-variant').addEventListener('change', renderHeadDogBadge);
@@ -1452,6 +1550,139 @@ export function renderBoardPage(): string {
     }).catch(function () { renderWorkspaces(); });
   }
 
+  /* ---------- GOAL-018B #1：工作流只读视图（契约 v1.6 mock：p18a 未落盘按描述开发） ---------- */
+  var streamsData = null;
+  var streamTimelineCache = {};
+  var openStreams = {};
+
+  function loadStreams() {
+    return getJson('/api/streams').then(function (data) {
+      if (data && data.ok && Array.isArray(data.streams)) streamsData = data.streams;
+      renderStreams();
+    }).catch(function () { renderStreams(); });
+  }
+
+  // HANDOFF 五节卡片式渲染（D29 修订 v2 #4；契约 v1.6 实字段：open_issues，联调批对齐）。
+  // 暴毙代写（head_written）标注头犬署名——外部补写（POST handoff）亦视为代写。
+  function renderHandoffBlock(handoff) {
+    if (!handoff) return '';
+    var sections = [
+      ['做了什么', handoff.done],
+      ['定了什么', handoff.decided],
+      ['文件在哪', handoff.files],
+      ['下一步', handoff.next],
+      ['未解问题', handoff.open_issues || handoff.open]
+    ];
+    var rows = sections.map(function (pair) {
+      if (!pair[1]) return '';
+      return '<div class="handoff-section"><div class="handoff-label">' + pair[0] + '</div>' +
+        '<div class="handoff-text">' + esc(pair[1]) + '</div></div>';
+    }).join('');
+    var badge = handoff.head_written
+      ? ' <span class="badge unverified">暴毙代写 · 头犬署名</span>'
+      : ' <span class="badge ok">犬亲笔交接</span>';
+    return '<div class="handoff-block"><div class="handoff-title">HANDOFF 交接' + badge +
+      (handoff.at_utc ? ' <span class="mono">' + escTime(handoff.at_utc) + '</span>' : '') + '</div>' + rows + '</div>';
+  }
+
+  function renderStreams() {
+    var el = document.getElementById('streams-list');
+    if (!el) return;
+    // GOAL-018B #2：派发表单工作流下拉与流列表同源（自动归流为缺省文案）。
+    var streamSel = document.getElementById('dispatch-stream');
+    if (streamSel) {
+      var prevStream = streamSel.value;
+      streamSel.innerHTML = '<option value="">（自动归流：同犬×Goal 归活动流）</option>' +
+        (streamsData || []).map(function (s) {
+          return '<option value="' + esc(s.stream_id) + '"' + (s.stream_id === prevStream ? ' selected' : '') + '>' +
+            esc(s.title || s.stream_id) + (s.goal_id ? ' [' + esc(s.goal_id) + ']' : '') + '</option>';
+        }).join('');
+    }
+    if (!streamsData || streamsData.length === 0) {
+      el.innerHTML = '<div class="empty">暂无工作流（v1.6 流 API 落盘后自动出现；mock 消费中）</div>';
+      return;
+    }
+    el.innerHTML = streamsData.map(function (s) {
+      // v1.6 实形：events[] + handoffs[]（统计现场计算；s.stats mock 回退保留）。
+      var events = s.events || [];
+      var handoffs = s.handoffs || [];
+      var stats = s.stats || {};
+      var dispatchCount = stats.dispatch_count !== undefined ? stats.dispatch_count : events.length;
+      var sessionCount = stats.session_count !== undefined ? stats.session_count
+        : events.map(function (e) { return e.session_id; }).filter(function (id, i, arr) { return id && arr.indexOf(id) === i; }).length;
+      var handoffCount = stats.handoff_count !== undefined ? stats.handoff_count : handoffs.length;
+      var ctxPct = typeof stats.context_pct === 'number' ? Math.min(100, stats.context_pct)
+        : (events.length > 0 && typeof events[events.length - 1].context_estimate === 'number'
+          ? Math.min(100, Math.round(events[events.length - 1].context_estimate * 100)) : null);
+      var open = openStreams[s.stream_id] === true;
+      return '<div class="card stream-card" data-stream="' + esc(s.stream_id) + '">' +
+        '<h3>' + esc(s.title || s.stream_id) +
+        (s.goal_id ? ' <span class="badge">' + esc(s.goal_id) + '</span>' : '') +
+        ' <span class="badge ' + (s.status === 'active' ? 'RUNNING' : 'ok') + '">' + esc(s.status || 'active') + '</span></h3>' +
+        '<div class="mono" style="font-size:12px;color:var(--ink-dim)">' +
+        '派发 ' + dispatchCount + ' · 会话链 ' + sessionCount +
+        (ctxPct !== null ? ' · 上下文估算 <span class="' + (ctxPct > 75 ? 'hash' : '') + '">' + ctxPct + '%</span>' : '') +
+        ' · 交接 ' + handoffCount + '</div>' +
+        '<div class="stream-timeline" style="display:' + (open ? 'block' : 'none') + '">' +
+        (streamTimelineCache[s.stream_id] || '加载中…') + '</div></div>';
+    }).join('');
+    el.querySelectorAll('.stream-card').forEach(function (card) {
+      card.addEventListener('click', function () { toggleStreamTimeline(card); });
+    });
+  }
+
+  function streamLinkMarker(entry) {
+    // 会话链标记（显式 link 字段优先；v1.6 实形走 toggleStreamTimeline 内
+    // session_id 比较推断——真续跑🟢同 session / 缝合·换窗🟡同流不同 session）。
+    if (entry.link === 'resumed' || entry.resumed === true) return '<span title="真续跑">🟢</span>';
+    if (entry.link === 'stitched' || entry.stitched === true) return '<span title="缝合">🟡</span>';
+    return '';
+  }
+  void streamLinkMarker;
+
+  function toggleStreamTimeline(card) {
+    var streamId = card.getAttribute('data-stream');
+    if (openStreams[streamId]) {
+      delete openStreams[streamId];
+      renderStreams();
+      return;
+    }
+    openStreams[streamId] = true;
+    renderStreams();
+    if (streamTimelineCache[streamId]) return;
+    getJson('/api/streams/' + encodeURIComponent(streamId)).then(function (data) {
+      if (!data || !data.ok || !data.stream) {
+        streamTimelineCache[streamId] = '<span class="hash">无时间线数据</span>';
+      } else {
+        // v1.6 实形：events[] 与 handoffs[] 分列——合并为单时间线（按 at_utc 排序）。
+        var s = data.stream;
+        var entries = (s.events || []).map(function (e) { return { kind: 'dispatch', at_utc: e.at_utc, event: e }; })
+          .concat((s.handoffs || []).map(function (h) { return { kind: 'handoff', at_utc: h.at_utc, handoff: h }; }));
+        entries.sort(function (a, b) { return String(a.at_utc || '') < String(b.at_utc || '') ? -1 : 1; });
+        var lastSessionId = null;
+        streamTimelineCache[streamId] = entries.map(function (entry) {
+          if (entry.kind === 'handoff') return renderHandoffBlock(entry.handoff);
+          var ev = entry.event;
+          // 会话链标记：同 session_id 复用 = 真续跑🟢；同流不同 session（有前窗）= 缝合/换窗🟡。
+          var marker = '';
+          if (ev.session_id) {
+            if (lastSessionId !== null && ev.session_id === lastSessionId) marker = '<span title="真续跑">🟢</span>';
+            else if (lastSessionId !== null) marker = '<span title="缝合/换窗">🟡</span>';
+            lastSessionId = ev.session_id;
+          }
+          return '<div class="stream-entry">' + marker + ' ' +
+            '<span class="mono">' + esc(String(ev.dispatch_id || '').slice(0, 12)) + '…</span> ' +
+            esc(ev.adapter_id || '') + ' <span class="mono">' + escTime(ev.at_utc || '') + '</span>' +
+            (ev.context_estimate ? ' <span class="hint">ctx≈' + Math.round(ev.context_estimate * 100) + '%</span>' : '') + '</div>';
+        }).join('') || '<span class="hash">（空时间线）</span>';
+      }
+      renderStreams();
+    }).catch(function () {
+      streamTimelineCache[streamId] = '<span class="hash">时间线加载失败</span>';
+      renderStreams();
+    });
+  }
+
   function loadBudget() {
     return getJson('/api/budget').then(function (data) {
       if (data.ok) budget = data;
@@ -1462,6 +1693,9 @@ export function renderBoardPage(): string {
   refresh().then(function () {
     loadWorkspaces();
     loadBudget();
+    loadStreams();
+    // GOAL-018B #3：页面加载即恢复上次会话（localStorage session_id → GET history 全量重渲染）。
+    if (chatSessionId) switchChatSession(chatSessionId); else renderSessionSelector();
     var status = document.getElementById('sse-status');
     var source = new EventSource('/api/stream');
     source.onopen = function () { status.textContent = 'SSE 实时'; status.className = 'live'; };

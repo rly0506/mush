@@ -1,0 +1,14 @@
+PASS  会话 A 两轮同 session  — 167add38
+PASS  刷新后会话 A 完整恢复（4 轮）  — turns=4
+PASS  恢复内容含 user 与 head 双角色
+PASS  恢复内容含第二轮文本
+PASS  会话 B 独立 session
+PASS  切换会话 B 历史正确（2 轮，不含 A 内容）
+PASS  页面含会话恢复逻辑（localStorage+加载重渲）
+PASS  页面含会话选择器
+PASS  页面含工作流标签与流视图
+PASS  页面含强制新窗+新开流控件
+PASS  页面含 HANDOFF 交接块渲染（五节+头犬署名）
+PASS  页面含会话链标记（真续跑/缝合）
+
+=== g018b smoke: 12/12 PASS ===
