@@ -1600,7 +1600,7 @@ export function renderBoardPage(): string {
       el.querySelectorAll('button[data-task-move]').forEach(function (btn) {
         btn.addEventListener('click', function () {
           postJson('/api/tasks/' + encodeURIComponent(btn.getAttribute('data-task-move')) + '/transition',
-            { to: btn.getAttribute('data-to') }).then(function (result) {
+            { status: btn.getAttribute('data-to') }).then(function (result) {
             if (result.body && result.body.ok) { loadTasks(); }
             else { toast('迁移失败：' + ((result.body && result.body.error) || result.status), false); }
           }).catch(function (error) { toast('迁移失败：' + error, false); });

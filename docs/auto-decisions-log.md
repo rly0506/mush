@@ -652,3 +652,19 @@ RM-001、RM-002 全部构件正式收官。另：派发包编号改带 RM 前缀
 - **owner 侧余项**：目检亮色主题（任务池已留目检卡 `2c616c60`）；
   RM-004 余 M0 carve-out / M1 旗舰（待 owner 授权）/ M2 聊天流式；
   GP-29（pi 复活，DEF-13 的正路）升优先与否待 owner 一句话。
+
+## AD-42 · 任务池迁移 bug 热修 + GP 池迁移 + M2 排期落盘（2026-08-17，头犬 zcode 会话）
+
+- **owner 实测报障**：任务池「→ READY/→ CANCELLED」恒报"status must be
+  one of…"。根因：GOAL-020 B5 按 mock 写的请求体发 `{to}`，真后端 v1.7
+  契约要 `{status}`（mock→真升级暴露的契约漂移，合并冒烟未覆盖按钮
+  点击路径）。热修一行 + 回归断言；真后端迁移实测 IDEA→READY 200。
+- **GP 池迁移执行**：gp-import --write，32 项池条目入 runtime/tasks.jsonl
+  （任务池现 34 卡）；markdown 池转归档（D26 安排兑现）。
+- **排期批准落盘（owner 2026-08-17）**：M2+M0 并行；GP-29 升高（DEF-13
+  正路）；GP-35 新立（owner 原则：**模型选择以实测为准**——选定 harness
+  后探测当前密钥下实际可用模型，cc-switch 数据+nonce 证据为源，实际返回
+  模型回填 roster，官方优先不排第三方；教训源 DEF-01/F-50）。
+- **M2 派发单就绪**：p20a（deepseek，owner 手开窗口投喂——DEF-13）/
+  p20b（kimi，看板审批卡）。契约 v1.9 号段已预留。
+- 342/342 全绿。

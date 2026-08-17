@@ -62,3 +62,11 @@ test('B5 任务池三泳道（新骨架内，v1.7 mock 标注）', () => {
   assert.match(html, /\/api\/tasks/, '任务 API 消费（mock）');
   assert.match(html, /v1\.7|mock/, 'v1.7 未落盘诚实标注');
 });
+
+// AD-42 回归：迁移请求体字段必须是 { status }（后端 v1.7 契约）——
+// mock 漂移曾发 { to } 导致真实环境迁移按钮恒 400。
+test('task transition request body uses { status } per v1.7 contract (mock-drift regression)', () => {
+  const html = renderBoardPage();
+  assert.match(html, /transition',\s*\{ status: btn\.getAttribute\('data-to'\) \}/, 'transition body must be { status }');
+  assert.doesNotMatch(html, /\{ to: btn\.getAttribute/, 'must not send { to }');
+});

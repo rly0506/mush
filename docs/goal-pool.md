@@ -66,9 +66,11 @@
 
 | GP-27 | DEF-10：派发默认工作区取持久化选择（.mush/workspace.json 启动恢复）；GP-18 完成通知升级 | owner 2026-08-17 | 中 | idea | — | 头犬派发漏字段的教训 + 等待无反馈诉求 |
 | GP-28 | Linux 对照续：dsh 凭据容器化方案（最小凭据挂载或 env 注入，密钥不进命令行/日志）；完成后补 Linux nonce 基线与对照结论 | AD-27 | 低 | idea | — | 副线，Windows 原生已够用 |
-| GP-29 | pi 通道复活：pi-rpc runner 接入派发管线（core 状态机已移植），deepseek 真会话终局 | D28 | 中 | idea | G018 后 | dsh 真续跑的正路 |
+| GP-29 | pi 通道复活：pi-rpc runner 接入派发管线（core 状态机已移植），deepseek 真会话终局——DEF-13 后成为看板派 dsh 真任务的唯一正路 | D28+owner 2026-08-17 批准升优先 | 高 | idea | G018 后 | dsh 真续跑的正路 |
 | GP-30 | dsh 上游版本观察：headless 加 --resume 即重探（机会性） | D28④ | 低 | idea | — | 被动受益 |
 | GP-31 | 完整流管理面板：界面手动关流（带交接）/合并流/编辑 handoff 文本；v1 只做最小控制面（派发时选流/强制新窗 + 只读时间线），痛点出现再升级 | D29 | 低 | idea | G018 v1 落地后 | owner"先做最小控制面试试，完整面板以后完善" |
 | GP-32 | D30 实现修正：①审批单次消费制——**已完成（AD-38，契约 v1.8）**：自动审批卡+报备面板+批准即焚令牌+否决/SUPERSEDED+回放补建+owner 亲启通道；②看板 API 无调用者身份——本机任意进程可调（loopback+Host 校验不鉴别调用者），评估最小 token/握手方案（聊天通道现维持回环信任） | D30/AD-34 | 高 | ①done ②idea | — | 头犬安全审查线 |
 | GP-33 | 用量监控（D32）：模仿 ccusage——本地会话日志解析（各 harness）+ 定价表 → per-actor 用量/费用投影进预算面板；cc-switch 代理库为 claude/codex 侧数据源；零依赖 | owner 2026-08-17 + 头犬调研 | 中 | idea | — | dsh/kimi 本地日志格式需先探测 |
 | GP-34 | 「雪原营地」前端改版（D33+**D34 融合**，章程 goals/GOAL-020-snowfield-taskpool.md = 雪原 B1-B4 + 任务池前端 B5 合一）：单屏指挥台 + 审批内联收编（弹窗废除但**报备信息必须内联可展开**）+ 冷白纸面 + 排版阶梯 + 三泳道入新骨架；零后端；基线 **331**；owner↔kimi 直启线执行，头犬验收 | kimi 计划书 + owner 转呈 | 高 | queued | p19b 合并后 | worktree kimi-f 复用须等 p19b 清场 |
+
+| GP-35 | 模型实测选择（owner 原则：以实测为准）：选定 harness 后**探测该 harness 当前密钥下实际可用的模型清单**（cc-switch 通道数据 + nonce 证据），模型下拉以实测为主、合同声明为兜底；派发回执中的**实际返回模型**回填 roster（权威优先于自述）；官方模型优先但不排除第三方（如 claude code 接 deepseek）；UNKNOWN 诚实标注。衔接 D13/D20，教训源 DEF-01（claude 通道实发 deepseek）/F-50（codex 假通道） | owner 2026-08-17 | 高 | idea | GP-33 监控（同一探测数据面） |
