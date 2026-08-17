@@ -1,0 +1,11 @@
+PASS  看板页面 200
+PASS  快照含 roster（级联数据源）  — roster=7
+PASS  roster 含 head-dog（徽章链缺省）
+PASS  #1 adapters CRUD 端点状态已探明（mock 标注）  — status=404（404=p17a 未落盘，前端 mock 级交付已标注）
+PASS  #2 级联选择结构（harness+variant+UNVERIFIED）
+PASS  #3 徽章链联动（adapterId+model）
+PASS  #4 品牌主色表+运行辉光
+PASS  #6 预算计数+cap 编辑结构
+PASS  #1 管理条+软删确认结构
+
+=== g017b smoke: 9/9 PASS ===

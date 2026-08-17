@@ -1,0 +1,30 @@
+{
+  "goal_id": "MUSH-GOAL-017B",
+  "title": "调度自由·前端（owner 复验六项之前端侧，派发包 rm004-p17b）",
+  "status": "AUTO_ACCEPTED_PENDING_OWNER",
+  "branch": "g017b",
+  "worktree": "runtime/worktrees/kimi-d",
+  "executor": "kimi-k3 (thinking high)",
+  "completed_at_utc": "2026-08-17T08:10:00Z",
+  "dod_checklist": {
+    "1_犬只管理_UI": "DONE（mock 级）— 添加（模板+命名 POST /api/adapters）/ 移除（确认对话+软删语义明示 DELETE）；roster 即时刷新",
+    "2_头犬级联选择": "DONE（mock 级）— harness → 变体两级；UNVERIFIED 灰显+原因徽标；adapter_id+model_id 随消息提交",
+    "3_徽章链": "DONE — 页头徽章 = 所选 harness 官方图标 + 模型名，双下拉联动",
+    "4_品牌色_运行辉光": "DONE — 官方主色 CSS 变量表 + JS BRAND_COLORS；运行态边缘辉光（--dog-brand）+ 跳动；idle 品牌色不发光；reduced-motion 降级保持",
+    "6_预算面板活化": "DONE（mock 级）— spent/admission_count/cap 行；cap 行内编辑 PUT（校验/toast/失败原因）",
+    "测试": "DONE — 299/299 全绿（新增 5 用例）；web-page-parse 每批必过（又抓获一处 \\\\n 转义缺陷并修复）",
+    "冒烟": "DONE — scripts/g017b-dispatch-freedom-smoke.cjs 9/9 PASS（exit=0），含 adapters 端点未落盘探明标注",
+    "零后端改动": "HELD — 授权范围严格零后端；v1.5 消费点全部 mock 级并诚实标注"
+  },
+  "mock_honesty": "p17a 未落盘：adapters CRUD / caps PUT / verified 字段为 mock 级交付（冒烟实测 404 已探明标注）；联调批待 g017a 合并后补真链路（添加犬→roster 出现→移除→消失 / zcode 头犬徽章切换 / cap 编辑流转）",
+  "commits": [
+    "2c15c15 feat(G17B): dispatch-freedom frontend (299/299)",
+    "（本提交）docs(G17B): BATCH-41 + GOAL-017B receipts"
+  ],
+  "boundaries_held": [
+    "F-45：全部工作在 runtime/worktrees/kimi-d（g017b），master 零触碰",
+    "零后端改动；零框架/零构建/零外链；凭据永不渲染；127.0.0.1 不变",
+    "模板转义铁律：\\\\n 双写缺陷被 DEF-07 防线抓获即修"
+  ],
+  "acceptance_semantics": "D15：机检全绿 + 冒烟真实执行 → AUTO_ACCEPTED；DONE 与否决权归 owner。待头犬（zcode）审核 + owner 显式接受。"
+}
