@@ -490,6 +490,55 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
 
+    if (route === 'GET /api/tasks') {
+      sendJson(response, 200, { ok: true, tasks: dispatch.listTasks() });
+      return;
+    }
+    if (route === 'POST /api/tasks') {
+      void (async () => {
+        let body: unknown;
+        try {
+          body = JSON.parse(await readBody(request));
+        } catch {
+          sendJson(response, 400, { ok: false, error: 'body must be JSON' });
+          return;
+        }
+        try {
+          const task = dispatch.createTask(body);
+          sendJson(response, 201, { ok: true, task });
+        } catch (error) {
+          if (error instanceof InputError) sendJson(response, 400, { ok: false, error: error.message });
+          else sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+        }
+      })();
+      return;
+    }
+    const taskTransition = /^\/api\/tasks\/([A-Za-z0-9_-]+)\/transition$/.exec(url.pathname);
+    if (request.method === 'POST' && taskTransition !== null) {
+      void (async () => {
+        let body: Record<string, unknown>;
+        try {
+          body = JSON.parse(await readBody(request)) as Record<string, unknown>;
+        } catch {
+          sendJson(response, 400, { ok: false, error: 'body must be JSON' });
+          return;
+        }
+        try {
+          const task = dispatch.transitionTask(taskTransition[1], body.status);
+          sendJson(response, 200, { ok: true, task });
+        } catch (error) {
+          if (error instanceof InputError) {
+            const status = /not found/.test(error.message) ? 404 : 400;
+            sendJson(response, status, { ok: false, error: error.message });
+          } else {
+            sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+          }
+        }
+      })();
+      return;
+    }
+
+
     if (route === 'GET /api/adapters') {
       sendJson(response, 200, { ok: true, adapters: dispatch.listAdapters() });
       return;

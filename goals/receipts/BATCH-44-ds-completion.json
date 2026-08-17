@@ -1,0 +1,24 @@
+{
+  "batch": "BATCH-44-ds",
+  "goal_id": "MUSH-GOAL-019A",
+  "packet": "rm004-p19a-deepseek-taskpool",
+  "branch": "g019a",
+  "worktree": "runtime/worktrees/deepseek-e",
+  "at_utc": "2026-08-17T09:00:00Z",
+  "executor": "deepseek-dsh (backend)",
+  "units": {
+    "U1_task_model": "src/web/tasks.ts：runtime/tasks.jsonl append-only、状态折叠读、迁移白名单状态机。",
+    "U2_task_api": "GET /api/tasks、POST /api/tasks、POST /api/tasks/:id/transition（v1.7 契约）。",
+    "U3_dispatch_link": "dispatch 可选 task_id；ADMITTED 后 dispatch_id 追加进任务记录；未触碰 approval 段。",
+    "U4_gp_import": "scripts/gp-import.cjs：解析 goal-pool.md，dry-run 默认，--write 落盘。"
+  },
+  "tests": {
+    "new": [
+      "tests/g019a-taskpool.test.ts（4 用例：create/list 折叠、transition 白名单+append-only、dispatch 回链、HTTP API 含非法迁移 400/缺失 404）"
+    ],
+    "full_run": "336/336 PASS",
+    "baseline": "332/332 PASS before additions; after additions 336/336 PASS"
+  },
+  "red_lines": "零框架/零构建/零外链；未改 page.ts；未改 dispatch.ts approval 段与 server approval 路由段；未触碰 D:\\意向项目；未 push；密钥未入库；127.0.0.1 不变。",
+  "acceptance": "D15：机检全绿，待头犬审核 + owner 显式接受"
+}
