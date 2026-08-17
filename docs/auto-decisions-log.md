@@ -668,3 +668,29 @@ RM-001、RM-002 全部构件正式收官。另：派发包编号改带 RM 前缀
 - **M2 派发单就绪**：p20a（deepseek，owner 手开窗口投喂——DEF-13）/
   p20b（kimi，看板审批卡）。契约 v1.9 号段已预留。
 - 342/342 全绿。
+
+## AD-43 · DEF-13 第二轮溯源（2026-08-17，头犬 zcode 会话）
+
+- **owner 报障**：dsh 第三方密钥使用时报 PI_AI_ERROR（同 DEF-13 签名），
+  并提供外部诊断（dsh-tools 双包 Symbol 冲突论 + 清理重建方 + 社区
+  Symbol.for 修复说）。
+- **逐条验证**：
+  ①双 realm 属实（D:\npm-global 应用侧 + ~/.dsh/profiles 插件侧 195 包，
+  含两份 dsh-tools@rc.6/pi-ai）——但 profiles 树为 dsh **自管自愈**机制，
+  移除即重建（F-11 同款行为），单移 dsh-tools 复测仍崩（崩点 9s→30s
+  行为有变化但未愈）→「清理重建」方对本环境无效；
+  ②dsh-tools 两份源码中 **Symbol() 零命中**——社区 Symbol.for 修复说
+  与 rc.6/rc.7 版本不对应；
+  ③**rc.7 已发布并升级实测：工具任务仍崩**（H1 用例 11-17s PI_AI_ERROR
+  确定性复现；一次 120s TIMEOUT 系首跑安装延迟假象）；
+  ④调试补丁（openai-completions catch 注入堆栈打印）未命中——错误
+  以字符串化 error 事件从 pi-ai 引擎内部冒出，原始堆栈被上游吞没，
+  本地补丁路线中止（性价比不可接受，且 profiles 自愈会覆盖补丁）。
+- **定性收窄**：pi-ai 引擎（@earendil-works/pi-ai）OpenAI 兼容流在
+  **工具调用轮次**的解析缺陷，触发条件=第三方 DeepSeek 通道 + 模型
+  发起工具调用（与 DEF-13 一致）；交互 TUI 路径历史上不受影响
+  （p19a 经 owner 窗口全工具链交付）。
+- **待 owner 确认的关键事实**：本轮报错出现于交互窗口还是看板派发
+  （决定 TUI 是否也已沦陷——rc.7 升级后未复验 TUI）。
+- **路线裁决建议**：上游 issue（附四轮二分矩阵）+ GP-29 pi 复活为
+  战略修复（已高优先）；GP-30 增记 rc.7 无修。
