@@ -1,0 +1,40 @@
+{
+  "goal_id": "MUSH-GOAL-021",
+  "phase": "B (frontend chat streaming UX)",
+  "rm": "RM-004 / M2 聊天流式（前端）",
+  "packet": "rm004-p20b-kimi-chat-streaming",
+  "branch": "g021b",
+  "worktree": "runtime/worktrees/kimi-g",
+  "base_commit": "b0eeb98",
+  "status": "MACHINE_ACCEPTED_PENDING_OWNER",
+  "semantics": "D15：机检验收规格全绿（362/366，4 红 = GP-32 genie-safe-delete 环境噪音，与 master 基线一致零回归），请求 AUTO_ACCEPTED；DONE 与否决权仍归 owner",
+  "executor": "kimi-k3 (frontend)",
+  "completed_at_utc": "2026-08-18T06:45:00Z",
+  "units_dod": {
+    "U1": "异步发送 UX：发送即上屏 pending 气泡；SSE kind=chat 帧阶段机（思考中→生成中→完成/失败）；HEARTBEAT elapsed_ms 心跳耗时实时显示 —— 达成（202 ack + chatHandleFrame 阶段机 + 早到帧认领 + 320s 看门狗）",
+    "U2": "打字机渲染：回复增量渐显（AnimationFrame 节流，reduced-motion 降级直接全显） —— 达成（typewriter-text 容器 + rAF tick + matchMedia 检测；REPORT 权威全文定版）",
+    "U3": "失败/超时气泡态 + 重试按钮；会话恢复/选择器语义不变 —— 达成（chat-failed + chat-retry + chatFinishFailure 统一出口；resume/selector 零改动；在途派发跳过历史回补守卫）",
+    "U4": "雪原设计体系沿用（15px 正文/600 头犬字重/28px 签名徽章不动） —— 达成（结构断言锁定）"
+  },
+  "verification": {
+    "npm_test": "366 tests / 362 PASS / 4 FAIL（GP-32 环境噪音，master b0eeb98 原样 355/359 同 4 红；新 7 用例全绿）；输出 tests/g021b-test-output.txt",
+    "new_tests": "tests/g021b-chat-streaming-ux.test.ts 7 用例 ≥ 派发包结构断言要求（pending 气泡/阶段态/打字机容器/重试）",
+    "smoke": "scripts/g021b-chat-streaming-smoke.cjs 13/13 PASS 真实执行（202 → SSE 帧序 ADMITTED,HEARTBEAT,EXECUTE,HEARTBEAT,EXECUTE,REPORT → 增量=全文 → JSONL 双轮 → FAIL 路径 → 页面结构）；输出 tests/g021b-smoke-output.txt",
+    "backward_compat": "基线 355/359 保留通过；仅 tests/web-chat-ux-012b.test.ts D3 按 v1.9 契约改写（与 021A 后端对齐）；后端零改动",
+    "red_lines": "零后端改动；审批段（GP-32/D30）未改；零框架/构建/外链；DEF-07 模板无新增反斜杠正则；未 push；密钥未入库；D:\\意向项目 只读；path-limited commit G21B-*"
+  },
+  "evidence_paths_and_hashes": [
+    { "path": "src/web/page.ts", "sha256": "83089C13D701A1B417652AD55DAD889FE747B972293BA90BA73971B376A8E217" },
+    { "path": "tests/web-chat-ux-012b.test.ts", "sha256": "C7E5C1CA394BC402B8B92184AEEF0F7E20AC32D57C1F4DE9EE714857A28141B9" },
+    { "path": "tests/g021b-chat-streaming-ux.test.ts", "sha256": "CDCD0235701C41DD05968B0C42F9716D72D002A01B768B7DA19C6D8EA4F81713" },
+    { "path": "tests/g021b-test-output.txt", "sha256": "2537D0117131E7F3510A0F24F7FA3092C669CAF88981232A28097B0686EE6BDE" },
+    { "path": "tests/g021b-smoke-output.txt", "sha256": "4682E660DE1973813B8AA329302D452B869A66E0C3569754B268587B72BF2E74" },
+    { "path": "scripts/g021b-chat-streaming-smoke.cjs", "sha256": "630A828C535B712A397B0E7527783612B6DEF7B0D36EF3837EA8F50410A94F0C" },
+    { "path": "goals/receipts/BATCH-47-kimi-completion.json", "sha256": "（本文件落盘后由提交锚点佐证）" }
+  ],
+  "acceptance": {
+    "mode": "standing-default D15",
+    "machine_checks": "362/366 GREEN（4 红环境噪音基线一致）；smoke 13/13；new=7",
+    "awaiting": "头犬审核 + owner 显式接受"
+  }
+}
