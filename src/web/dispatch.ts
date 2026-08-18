@@ -61,6 +61,21 @@ import {
   linkDispatchToTask,
   type Task,
 } from './tasks.ts';
+import {
+  loadCarveouts,
+  appendCarveout,
+  buildCarveout,
+  revokeCarveout as revokeCarveoutSnapshot,
+  expireCarveout,
+  parseGrantCarveoutInput,
+  resolveActiveCarveout,
+  readCarveoutToken,
+  rotateCarveoutToken,
+  hasAgentBridgeSegment,
+  isPathWithinRoots,
+  type Carveout,
+  type CarveoutWhitelistSnapshot,
+} from './carveouts.ts';
 
 export type DispatchStatus =
   | 'ADMITTED'
@@ -97,6 +112,10 @@ export interface DispatchRequestSnapshot {
   goal_id?: string;
   resume_session?: string;
   task_id?: string;
+  /** GOAL-014（M0）：carve-out 声明式写面——派发目标工作根与切片引用。 */
+  cwd?: string;
+  carveout_id?: string;
+  carveout_whitelist?: CarveoutWhitelistSnapshot;
   cap_usd: number;
   real: boolean;
 }
@@ -118,6 +137,8 @@ export interface DispatchRecord {
   stream_id?: string;
   /** GOAL-019 U3：任务池回链。 */
   task_id?: string;
+  /** GOAL-014（M0）：关联的 ACTIVE carve-out 切片（写面声明式留痕）。 */
+  carveout_id?: string;
   /** GP-10（契约 v1.4）：rerun 用的历史请求快照；旧记录缺省无此字段。 */
   request?: DispatchRequestSnapshot;
 }
@@ -203,6 +224,8 @@ export type RunAdapterFn = (
     workspaceRoot: string;
     receiptPath: string;
     timeoutMs: number;
+    /** GOAL-014（M0）：carve-out 指定的犬工作根（spawn cwd）；缺省 workspaceRoot。 */
+    cwd?: string;
     /** GOAL-021 U3：增量 stdout 透传（可选）。宿主收到原始 chunk，负责节流合帧。 */
     onStdout?: (chunk: string) => void;
   },
@@ -238,6 +261,10 @@ export interface DispatchPipelineOptions {
   streamsPath?: string;
   /** GOAL-019 U1：任务池日志路径；缺省 <workspaceRoot>/runtime/tasks.jsonl。 */
   tasksPath?: string;
+  /** GOAL-014（M0）：carve-out 记录路径；缺省 <workspaceRoot>/runtime/carveouts.jsonl。 */
+  carveoutsPath?: string;
+  /** GOAL-014（M0）：owner 一次性 token 文件；缺省 <workspaceRoot>/.mush/carveout-token。 */
+  carveoutTokenPath?: string;
 }
 
 export interface WorkspaceInfo {
@@ -388,6 +415,9 @@ export class DispatchPipeline {
   private readonly streamsPath: string;
   private streams: WorkStream[];
   private readonly tasksPath: string;
+  /** GOAL-014（M0）：carve-out 记录路径与 owner token 文件路径。 */
+  private readonly carveoutsPath: string;
+  private readonly carveoutTokenPath: string;
 
   constructor(options: DispatchPipelineOptions) {
     this.workspaceRoot = path.resolve(options.workspaceRoot);
@@ -438,6 +468,17 @@ export class DispatchPipeline {
     this.tasksPath = path.resolve(
       options.tasksPath ?? path.join(this.workspaceRoot, 'runtime', 'tasks.jsonl'),
     );
+    this.carveoutsPath = path.resolve(
+      options.carveoutsPath ?? path.join(this.workspaceRoot, 'runtime', 'carveouts.jsonl'),
+    );
+    this.carveoutTokenPath = path.resolve(
+      options.carveoutTokenPath ?? path.join(this.workspaceRoot, '.mush', 'carveout-token'),
+    );
+    // GOAL-014（M0）：owner 授权通道最小握手——启动时确保 token 文件存在
+    // （缺省自动生成，owner 可读文件取得），权限 0600，每次 grant 旋转。
+    if (readCarveoutToken(this.carveoutTokenPath) === null) {
+      rotateCarveoutToken(this.carveoutTokenPath, this.now);
+    }
     this.baseAdapterIds = new Set(Object.keys(baseContracts()));
     // GP-03：重启回放——已落盘的派发记录重新入内存（recent() 跨重启可用）。
     // DEF-05 修复：header.status 只反映落盘瞬间，事件链才是权威——回放时
@@ -490,6 +531,7 @@ export class DispatchPipeline {
               workspaceRoot: opts.workspaceRoot,
               receiptPath: opts.receiptPath,
               timeoutMs: opts.timeoutMs,
+              ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
             });
             return {
               exitCode: piResult.exitCode,
@@ -507,6 +549,7 @@ export class DispatchPipeline {
             timeoutMs: opts.timeoutMs,
             spawn: options.spawn,
             onStdout: opts.onStdout,
+            ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
           });
           return {
             exitCode: result.exitCode,
@@ -731,6 +774,33 @@ export class DispatchPipeline {
       throw new InputError(`workspace not registered: ${workspace}（先经 POST /api/workspaces/select 登记）`);
     }
 
+    // GOAL-014（M0）：carve-out 声明式写面校验。携带 carveout_id 时 cwd 必须
+    // 位于白名单根下（.agent-bridge 任意仓永久 deny），快照留痕供头犬事后
+    // diff 审核；不做运行时文件写拦截（运行时强拦截留 GP-14 隔离区）。
+    const carveoutId =
+      typeof body.carveout_id === 'string' && body.carveout_id.trim() !== '' ? body.carveout_id.trim() : undefined;
+    const cwd = typeof body.cwd === 'string' && body.cwd.trim() !== '' ? path.resolve(body.cwd) : undefined;
+    let carveoutWhitelist: CarveoutWhitelistSnapshot | undefined;
+    if (carveoutId !== undefined || cwd !== undefined) {
+      if (carveoutId === undefined) {
+        throw new InputError('cwd requires carveout_id (carve-out declarative gate)');
+      }
+      const active = this.activeCarveout(); // 写面留痕：回收过期
+      if (active === null || active.carveout_id !== carveoutId) {
+        throw new InputError(`carveout is not ACTIVE: ${carveoutId}`);
+      }
+      if (cwd === undefined) {
+        throw new InputError('carveout_id requires cwd (must be within carve-out whitelist root)');
+      }
+      if (hasAgentBridgeSegment(cwd)) {
+        throw new InputError(`cwd under .agent-bridge is permanently denied (golden reference): ${cwd}`);
+      }
+      if (!isPathWithinRoots(cwd, active.paths)) {
+        throw new InputError(`cwd not within carve-out whitelist roots: ${cwd}`);
+      }
+      carveoutWhitelist = { paths: [...active.paths], expires_at: active.expires_at, task_ref: active.task_ref };
+    }
+
     const dispatchId =
       internal?.dispatchId !== undefined && /^[0-9a-f]{32}$/.test(internal.dispatchId)
         ? internal.dispatchId
@@ -749,6 +819,9 @@ export class DispatchPipeline {
       ...(goalId !== undefined ? { goal_id: goalId } : {}),
       ...(typeof body.resume_session === 'string' && body.resume_session.trim() !== '' ? { resume_session: body.resume_session } : {}),
       ...(typeof body.task_id === 'string' && body.task_id.trim() !== '' ? { task_id: body.task_id.trim() } : {}),
+      ...(carveoutId !== undefined && carveoutWhitelist !== undefined
+        ? { cwd, carveout_id: carveoutId, carveout_whitelist: carveoutWhitelist }
+        : {}),
     };
     const record: DispatchRecord = {
       dispatch_id: dispatchId,
@@ -763,6 +836,7 @@ export class DispatchPipeline {
       session_id: null,
       ...(resolvedStream !== null ? { stream_id: resolvedStream.stream_id } : {}),
       ...(typeof body.task_id === 'string' && body.task_id.trim() !== '' ? { task_id: body.task_id.trim() } : {}),
+      ...(carveoutId !== undefined ? { carveout_id: carveoutId } : {}),
       request,
     };
 
@@ -839,6 +913,7 @@ export class DispatchPipeline {
       workspaceRoot: workspace,
       receiptPath,
       timeoutMs: timeoutSec * 1000,
+      ...(cwd !== undefined ? { cwd } : {}),
       ...(streamThrottle !== null ? { onStdout: (chunk: string) => streamThrottle.push(chunk) } : {}),
     });
     streamThrottle?.flush();
@@ -907,6 +982,10 @@ export class DispatchPipeline {
         goal_id: request.goal_id,
         resume_session: request.resume_session,
         task_id: request.task_id,
+        // GOAL-014（M0）：carve-out 切片引用随重跑透传，dispatch() 重新校验
+        // 当前 ACTIVE（原切片已过期/撤销 → rerun 拒绝，不绕过写面门）。
+        ...(request.carveout_id !== undefined ? { carveout_id: request.carveout_id } : {}),
+        ...(request.cwd !== undefined ? { cwd: request.cwd } : {}),
         cap_usd: capUsd,
         real,
       },
@@ -972,6 +1051,74 @@ export class DispatchPipeline {
     record.error = 'owner rejected the approval request (D30)';
     this.emit(record, 'REVIEW', 'REJECTED', { reason: 'owner rejected' });
     return record;
+  }
+
+  // ---- GOAL-014（M0）：carve-out owner 授权通道 + 写面声明式校验 ----
+
+  /** 当前 ACTIVE carve-out（写面调用：回收过期留痕后返回；无 = null）。 */
+  activeCarveout(): Carveout | null {
+    this.reapExpiredCarveout();
+    return this.resolveActive();
+  }
+
+  /** owner 授权通道：校验一次性 token → 创建 ACTIVE 切片（同时刻最多 1 份）→ 旋转 token。 */
+  grantCarveout(input: unknown, token: string): Carveout {
+    this.requireCarveoutToken(token);
+    let parsed;
+    try {
+      parsed = parseGrantCarveoutInput(input);
+    } catch (error) {
+      throw new InputError(error instanceof Error ? error.message : String(error));
+    }
+    this.reapExpiredCarveout(); // 过期 ACTIVE 先标注 EXPIRED，避免阻塞新授权
+    const active = this.resolveActive();
+    if (active !== null) {
+      throw new InputError(
+        `a carve-out is already ACTIVE: ${active.carveout_id} (${active.task_ref}) — revoke first (single-slice grant)`,
+      );
+    }
+    const record = buildCarveout(parsed, this.now());
+    appendCarveout(this.carveoutsPath, record);
+    rotateCarveoutToken(this.carveoutTokenPath, this.now); // 每次 grant 旋转
+    return record;
+  }
+
+  /** 收回：校验 token + 目标切片 ACTIVE → 追加 REVOKED 快照。 */
+  revokeCarveout(carveoutId: string, token: string): Carveout {
+    this.requireCarveoutToken(token);
+    const id = typeof carveoutId === 'string' ? carveoutId.trim() : '';
+    if (id === '') throw new InputError('carveout_id must be non-blank');
+    const byId = new Map(loadCarveouts(this.carveoutsPath).map((record) => [record.carveout_id, record]));
+    const record = byId.get(id);
+    if (record === undefined) throw new InputError(`carveout not found: ${id}`);
+    if (record.status !== 'ACTIVE') throw new InputError(`carveout ${id} is not ACTIVE (status=${record.status})`);
+    const revoked = revokeCarveoutSnapshot(record, this.now());
+    appendCarveout(this.carveoutsPath, revoked);
+    return revoked;
+  }
+
+  private currentCarveoutToken(): string | null {
+    return readCarveoutToken(this.carveoutTokenPath);
+  }
+
+  private requireCarveoutToken(provided: string): void {
+    const token = typeof provided === 'string' ? provided.trim() : '';
+    if (token === '') throw new CarveoutAuthError('carve-out token is required');
+    if (token !== this.currentCarveoutToken()) {
+      throw new CarveoutAuthError('carve-out token mismatch (file missing, rotated, or stale)');
+    }
+  }
+
+  private resolveActive(): Carveout | null {
+    return resolveActiveCarveout(loadCarveouts(this.carveoutsPath), this.now()).active;
+  }
+
+  /** 已过期但状态仍为 ACTIVE 的记录追加 EXPIRED 快照（append-only，幂等允许冗余）。 */
+  private reapExpiredCarveout(): void {
+    const resolution = resolveActiveCarveout(loadCarveouts(this.carveoutsPath), this.now());
+    if (resolution.expired !== null) {
+      appendCarveout(this.carveoutsPath, expireCarveout(resolution.expired, this.now()));
+    }
   }
 
   /** GOAL-017A U1：合并视图（base + user override + origin）。 */
@@ -1432,3 +1579,4 @@ export class DispatchPipeline {
 }
 
 export class InputError extends Error {}
+export class CarveoutAuthError extends Error {}

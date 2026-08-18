@@ -1,0 +1,36 @@
+{
+  "batch": "BATCH-48-ds",
+  "goal_id": "MUSH-GOAL-014",
+  "phase": "A (backend carve-out mechanism)",
+  "packet": "rm004-p14a-deepseek-carveout",
+  "branch": "g014a",
+  "worktree": "runtime/worktrees/deepseek-g",
+  "base_commit": "b0eeb98",
+  "at_utc": "2026-08-18T06:52:00Z",
+  "executor": "deepseek-dsh (backend)",
+  "units": {
+    "U1_data_model": "src/web/carveouts.ts — runtime/carveouts.jsonl append-only（carveout_id/owner_grant_utc/task_ref/paths[]绝对路径/expires_at/status=ACTIVE|EXPIRED|REVOKED）；同时刻最多 1 份 ACTIVE；.agent-bridge/ 整树任意仓永久 deny（段级判定）；路径根匹配 path.relative 防前缀逃逸；post-hoc auditCarveoutPaths（头犬 diff 审核：超白名单根或 .agent-bridge = violations 红线）",
+    "U2_owner_channel": "POST /api/carveout/grant（loopback + .mush/carveout-token 一次性 token，权限 0600，每次 grant 旋转）/ revoke / GET active；token 缺失/不匹配 403；grant 输入 fail-closed（空 task_ref/空 paths/含 .agent-bridge/expires_at 非法 = 400）；已有 ACTIVE = 400；revoke 不存在 404、非 ACTIVE 400",
+    "U3_dispatch_write_surface": "POST /api/dispatch 新增可选 carveout_id+cwd：cwd 须在当前 ACTIVE 白名单根下且不命中 .agent-bridge；cwd 未带 carveout_id 拒绝；记录/request 快照记 carveout_id + carveout_whitelist 快照（事件链留痕）；spawn 工作目录 = cwd（t1/pi-rpc runner 透传，缺省回退 workspaceRoot）；不做运行时文件写拦截（留 GP-14）；rerun 透传切片引用并重新校验当前 ACTIVE",
+    "U4_contract_v110": "api-contract.md 升 v1.10：carve-out grant/revoke/active 端点 + dispatch 携带 carveout_id/cwd 语义 + GET /api/dispatch/:id 增 carveout_id"
+  },
+  "tests": {
+    "new": "tests/g014a-carveouts.test.ts（11 用例：grant 拒 .agent-bridge / 无 ACTIVE 拒携 id 与裸 cwd / ACTIVE 范围内放行+快照留痕+cwd 透传 spawn / cwd 在白名单内但命中 .agent-bridge 子树拒 / 过期失效+EXPIRED 落盘 / 撤销生效 / 单切片拒绝+撤销后可再授权 / token 旋转+旧 token 失效 / post-hoc diff 审核 violations / HTTP grant-revoke-active 全链路含 403/404 / loadCarveouts 折叠+rerun 重校验切片）。",
+    "full_run": "370 tests / 366 PASS / 4 FAIL（4 个 FAIL 均为 GP-32 rmSync 环境噪音，master 主仓原样复现，属既有噪音）",
+    "baseline": "359 基线全部保留（不含环境噪音）+ 新 11 用例全绿；g014a 单文件 11/11 PASS，exit 0",
+    "output": "tests/g014a-test-output.txt"
+  },
+  "red_lines": "零框架/零构建/零外链；未改 page.ts（前端登记 UX 留 kimi 同步批）；未改 dispatch.ts/server.ts approval 段（D30 审批卡不动）；未触碰 D:\\意向项目 任何文件（M0 只做机制）；意向项目路径零硬编码（白名单由 owner grant 时声明）；未 push 任何远端；密钥未入库；127.0.0.1 不变；批次编号 48-ds 起（避开 46-ds/47-kimi）。",
+  "evidence_paths_and_hashes": [
+    { "path": "src/web/carveouts.ts", "sha256": "60DF1A6506A30F5C5AEA663729F7725163B65DC0E05BFA42F0A9E51F5132CD7F" },
+    { "path": "src/web/dispatch.ts", "sha256": "E40D43393FC55C784186A1AB7B789E37A1A52F93CC7960A2F139367D5B3533B2" },
+    { "path": "src/web/server.ts", "sha256": "4382320EBFC5262B39830CA633A46387C48E6C819EEA2A39FE92CB33D74A8C6A" },
+    { "path": "src/web/persistence.ts", "sha256": "FE9F84E5C6F3AA43735734B141CB07E117126EBB201D646BB35892E410B59A43" },
+    { "path": "src/adapters/t1-runner.ts", "sha256": "098A6CAD6C75798A38BEAF12C74215F08EC977F9197BEC1ED5D338C8913DEEA2" },
+    { "path": "src/adapters/pi-rpc-runner.ts", "sha256": "420739F2722A5EC78A5EF96B5E4269026BBDC8E07D3C4085C6964210B7C4A5B2" },
+    { "path": "src/web/api-contract.md", "sha256": "7CFCBEE31A5941264F53A60310F1759151A0AAB8C0BDE8430A4F83D91A9CB37C" },
+    { "path": "tests/g014a-carveouts.test.ts", "sha256": "D51D3B4FF03A41B3F2EEA8953A1D377B8A9D4CD726526DC46CFB23A9E9739594" },
+    { "path": "tests/g014a-test-output.txt", "sha256": "66D88C509B05E4251220BC3696ED8716C9319389EB78C1612436BABEC2306DD4" }
+  ],
+  "acceptance": "D15：机检全绿（359 基线 + 11 新 = 370，4 环境噪音 master 复现），请求头犬审核 + owner 显式接受；DONE 与否决权归 owner"
+}

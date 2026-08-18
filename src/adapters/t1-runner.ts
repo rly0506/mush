@@ -71,6 +71,8 @@ export interface T1RunOptions {
   timeoutMs: number;
   spawn?: SpawnFn;
   identityVerifier?: (evidence: T1IdentityEvidence) => void;
+  /** GOAL-014（M0）：carve-out 指定的犬工作根（spawn cwd）；缺省回退 workspaceRoot。 */
+  cwd?: string;
   /** GOAL-021 U3：增量 stdout 透传钩子（聊天流式/EXECUTE 增量事件源）。
    *  每个原始 chunk 到达即调用，宿主（dispatch/chat）负责节流合帧。缺失 = 只累积不流转。 */
   onStdout?: (chunk: string) => void;
@@ -153,7 +155,7 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
 
   let child: ChildProcessLike;
   try {
-    child = spawn(contract.executable, args, { cwd: options.workspaceRoot });
+    child = spawn(contract.executable, args, { cwd: options.cwd ?? options.workspaceRoot });
   } catch (error) {
     // DEF-02 环境自适应：沙箱可能让 nodeSpawn 同步抛 EPERM——同样受控收尾。
     const spawnError = error instanceof Error ? error : new Error(String(error));

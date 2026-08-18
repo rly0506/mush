@@ -15,7 +15,7 @@ import { EventLog } from '../core/event-log.ts';
 import { parseBridgeEventV2 } from '../schema/events.ts';
 import { collectBoardSnapshot } from './sources.ts';
 import { renderBoardPage } from './page.ts';
-import { DispatchPipeline, InputError } from './dispatch.ts';
+import { DispatchPipeline, InputError, CarveoutAuthError } from './dispatch.ts';
 import { BoardPersistence } from './persistence.ts';
 import { ChatService } from './chat.ts';
 
@@ -324,6 +324,59 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
           status: record.status,
           admission: record.admission,
         });
+      })();
+      return;
+    }
+    if (route === 'GET /api/carveout/active') {
+      // GOAL-014（M0）：当前 ACTIVE carve-out（或 null）——前端顶部条带数据源。
+      sendJson(response, 200, { ok: true, active: dispatch.activeCarveout() });
+      return;
+    }
+    if (route === 'POST /api/carveout/grant') {
+      void (async () => {
+        let body: Record<string, unknown>;
+        try {
+          body = JSON.parse(await readBody(request)) as Record<string, unknown>;
+        } catch {
+          sendJson(response, 400, { ok: false, error: 'body must be JSON' });
+          return;
+        }
+        try {
+          // loopback（Host 白名单已在入口强制）+ 一次性 token 最小握手。
+          const carveout = dispatch.grantCarveout(body, typeof body.token === 'string' ? body.token : '');
+          sendJson(response, 201, { ok: true, carveout });
+        } catch (error) {
+          if (error instanceof CarveoutAuthError) sendJson(response, 403, { ok: false, error: error.message });
+          else if (error instanceof InputError) sendJson(response, 400, { ok: false, error: error.message });
+          else sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+        }
+      })();
+      return;
+    }
+    if (route === 'POST /api/carveout/revoke') {
+      void (async () => {
+        let body: Record<string, unknown>;
+        try {
+          body = JSON.parse(await readBody(request)) as Record<string, unknown>;
+        } catch {
+          sendJson(response, 400, { ok: false, error: 'body must be JSON' });
+          return;
+        }
+        try {
+          const revoked = dispatch.revokeCarveout(
+            typeof body.carveout_id === 'string' ? body.carveout_id : '',
+            typeof body.token === 'string' ? body.token : '',
+          );
+          sendJson(response, 200, { ok: true, carveout_id: revoked.carveout_id, status: revoked.status });
+        } catch (error) {
+          if (error instanceof CarveoutAuthError) sendJson(response, 403, { ok: false, error: error.message });
+          else if (error instanceof InputError) {
+            const status = /not found/.test(error.message) ? 404 : 400;
+            sendJson(response, status, { ok: false, error: error.message });
+          } else {
+            sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+          }
+        }
       })();
       return;
     }

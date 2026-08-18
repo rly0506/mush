@@ -51,6 +51,8 @@ export interface PiRpcRunOptions {
   timeoutMs: number;
   spawn?: PiRpcSpawnFn;
   resumeSession?: string;
+  /** GOAL-014（M0）：carve-out 指定的犬工作根（spawn cwd）；缺省回退 workspaceRoot。 */
+  cwd?: string;
 }
 
 const HANDSHAKE_TIMEOUT_MS = 30_000;
@@ -94,7 +96,7 @@ export async function runPiRpc(contract: AdapterContract, prompt: string, option
 
   let child: ReturnType<PiRpcSpawnFn>;
   try {
-    child = spawnFn(contract.executable, args, { cwd: options.workspaceRoot });
+    child = spawnFn(contract.executable, args, { cwd: options.cwd ?? options.workspaceRoot });
   } catch (error) {
     // DEF-02 受控：spawn 同步异常不崩宿主。
     result.exitCode = 127;
