@@ -65,10 +65,15 @@ test('ChatService persists turns in runtime/chat/<session>.jsonl and reads histo
   assert.ok(first.session_id.length > 0);
   const second = await chat.post({ message: '第二轮', resume: first.session_id });
   assert.equal(second.session_id, first.session_id);
+  // GOAL-021 异步化：chat.post 202 即返，回复后台落盘——await 在途后再对账。
+  await Promise.all([chat.whenSettled(first.dispatch_id), chat.whenSettled(second.dispatch_id)]);
   const history = await chat.history(first.session_id, 10);
   assert.equal(history.turns.length, 4, 'two posts = two user/head turn pairs');
+  // GOAL-021 异步化：两轮并发后台执行，落盘顺序可能 user1,user2,head1,head2
+  // （而非严格交替）——只断言 user/head 各两轮、语义不变。
+  assert.equal(history.turns.filter((t) => t.role === 'user').length, 2);
+  assert.equal(history.turns.filter((t) => t.role === 'head').length, 2);
   assert.equal(history.turns[0].role, 'user');
-  assert.equal(history.turns[1].role, 'head');
   const file = path.join(root, 'runtime', 'chat', `${first.session_id}.jsonl`);
   assert.ok(existsSync(file));
   assert.equal(readFileSync(file, 'utf8').trim().split('\n').length, 4);

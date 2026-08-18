@@ -109,7 +109,13 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
   }
   // 注入管线也要把生命周期事件推 SSE（构造期 onEvent 无法前向引用 broadcast）。
   dispatch.setEventListener((event) => broadcast(event));
-  const chat = options.chat ?? new ChatService({ pipeline: dispatch, runtimeRoot });
+  const chat =
+    options.chat ??
+    new ChatService({
+      pipeline: dispatch,
+      runtimeRoot,
+      onEvent: (event) => broadcast(event as unknown as Record<string, unknown>),
+    });
 
   async function handleEventPost(request: IncomingMessage, response: ServerResponse): Promise<void> {
     let raw: string;
@@ -587,15 +593,15 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
           return;
         }
         try {
-          // GOAL-012B：D1 参数化（adapter_id/effort 可选透传）+ D3 同步语义
-          // （200 + reply/status，前端响应到达即渲染头犬气泡；异步化留 M3+）。
+          // GOAL-021 U1：异步受理——202 即返 {dispatch_id, session_id}；回复经
+          // SSE chat 帧（/api/stream kind=chat）流式推送；会话 JSONL 语义不变。
           const result = await chat.post({
             message: typeof body.message === 'string' ? body.message : '',
             resume: typeof body.resume === 'string' ? body.resume : undefined,
             adapter_id: typeof body.adapter_id === 'string' ? body.adapter_id : undefined,
             effort: typeof body.effort === 'string' ? body.effort : undefined,
           });
-          sendJson(response, 200, { ok: true, ...result });
+          sendJson(response, 202, { ok: true, ...result });
         } catch (error) {
           sendJson(response, 400, { ok: false, error: error instanceof Error ? error.message : String(error) });
         }

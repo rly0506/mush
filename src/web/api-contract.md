@@ -1,6 +1,6 @@
 # mush Board API 契约 v1
 
-- 状态：`v1.8`（2026-08-17 定稿 v1；v1.1 GOAL-007B；v1.2 GP-02；v1.3 GOAL-011 聊天节；v1.3.1 GOAL-012B chat 参数化+reply；v1.4 GOAL-013 profile/effort 合同/rerun **及** GOAL-013L 静态品牌资产路由；v1.5 GOAL-017A 适配器 CRUD/头犬解耦/budget caps/计数；v1.6 GOAL-018 work-stream/真续跑/换窗/HANDOFF/流 API；v1.7 GOAL-019 任务池；v1.8 GP-32 逐单审批——本文件为权威源）
+- 状态：`v1.9`（2026-08-17 定稿 v1；v1.1 GOAL-007B；v1.2 GP-02；v1.3 GOAL-011 聊天节；v1.3.1 GOAL-012B chat 参数化+reply；v1.4 GOAL-013 profile/effort 合同/rerun **及** GOAL-013L 静态品牌资产路由；v1.5 GOAL-017A 适配器 CRUD/头犬解耦/budget caps/计数；v1.6 GOAL-018 work-stream/真续跑/换窗/HANDOFF/流 API；v1.7 GOAL-019 任务池；v1.8 GP-32 逐单审批；v1.9 GOAL-021 聊天流式——本文件为权威源）
 - 宿主：`src/web/`（node:http，零依赖）；默认只绑 `127.0.0.1`（对外暴露 = 触发门 4，不实现）
 - 序列化：JSON（UTF-8，LF 结尾）；SSE 用 `text/event-stream`，帧格式 `data: <json>\n\n`
 - 错误约定：失败响应一律 `{ "ok": false, "error": "<human-readable>" }`
@@ -37,6 +37,25 @@
 - **owner 亲启通道**：ChatService 内部调用携带 `originOwner`（owner 敲字
   即批准，不设卡）；公开 `POST /api/dispatch` 不接受该语义，代理发起的
   real 派发一律停卡。
+
+### v1.9 向后兼容扩展（GOAL-021，2026-08-17；聊天流式）
+
+- **chat 异步化（破坏性语义变更，取代 v1.3.1 同步 200）**：`POST /api/chat` 改 `202`
+  即返 `{ ok, session_id, role:"head", dispatch_id, status:"PENDING", note }`，不再同步
+  等待回复；回复经 `GET /api/stream` 的 `kind=chat` 帧流式推送，会话 JSONL 语义不变
+  （user turn 受理即落盘；head turn 在 REPORT 后落盘）；
+- **SSE chat 帧**：`GET /api/stream` 新增 `kind=chat` 事件（阶段序
+  `ADMITTED → EXECUTE(增量) → HEARTBEAT(耗时) → REPORT(含回复全文)`）：
+  - `{ kind:"chat", phase:"ADMITTED", session_id, dispatch_id, at_utc, payload:{status} }`；
+  - `{ kind:"chat", phase:"EXECUTE", ..., payload:{stream_text} }`（增量合帧）；
+  - `{ kind:"chat", phase:"HEARTBEAT", ..., payload:{elapsed_ms} }`（实时耗时）；
+  - `{ kind:"chat", phase:"REPORT", ..., payload:{status, elapsed_ms, reply} }`（回复全文）；
+  - 失败路径：后台执行抛错 → `phase:REPORT, payload:{status:"FAIL", error, reply}`；
+- **t1 流式回调（存量派发增量帧）**：`dispatch.dispatch()` 支持可选内部
+  `onStdout`；在途 stdout 经节流合帧（≥512B 或 ≥200ms）为 `kind=dispatch`、
+  `phase:EXECUTE`、`payload:{progress:"stream", stream_text}` 增量帧，并把合并文本
+  转发宿主（聊天层据此发 chat 帧）。普通派发（不注流式回调）行为不变；
+
 
 ### v1.5 向后兼容扩展（GOAL-017A，2026-08-17）
 
@@ -305,6 +324,7 @@
 | `event` | bridge event entry（sequence/sha256/event） | POST /api/events |
 | `approval` | {request_file, decision} | owner 应答 |
 | `dispatch` | {dispatch_id, phase, status, adapter_id, receipt_path?, error?} | 派发生命周期 |
+| `chat` | {kind:"chat", phase, session_id, dispatch_id, at_utc, payload} | 聊天流式（v1.9, GOAL-021） |
 | `loop` | {run_id, sequence, from, to, sha256} | loop 状态机迁移（G006 接线后） |
 
 `dispatch` 生命周期 phase 顺序：`ADMISSION → EXECUTE → REPORT → REVIEW`；终态
@@ -324,14 +344,17 @@ status ∈ `DRY_RUN | ADMITTED | BLOCKED_WAITING_OWNER | BLOCKED_ENV | FAIL | PA
     `head-dog` 继续可用；codex 因 F-50 保持 UNVERIFIED，接口拒绝并返回原因；
   - `effort`：思维档位，缺省按所选合同的 effort_levels 取 HIGH（若支持）否则
     该合同首档；非法档位 `400`；
-- 响应 `200`（v1.3.1 修正为同步语义：回复随响应返回，前端直渲气泡；
-  原 v1.3 的 202+SSE 回填语义废弃，history 拉取保留为对账路径）：
-  `{ "ok": true, "session_id", "role": "head", "dispatch_id", "status", "reply" }`
-  （`reply` = 头犬回复文本，来自既有 head turn 落盘内容）；
+- 响应 `202`（v1.9 改为异步受理，取代 v1.3.1 的同步 200）：
+  `{ "ok": true, "session_id", "role": "head", "dispatch_id", "status": "PENDING", "note" }`
+  其中 `status:"PENDING"` 表示已受理；**不再携带同步 `reply`**——回复经
+  `GET /api/stream` 的 `kind=chat` 帧（`phase:REPORT, payload.reply`）流式推送；
+  前端待 REPORT 后渲染头犬气泡（打字机由 `phase:EXECUTE` 增量驱动）。
+  （v1.3.1 同步 200 + reply 语义已废弃，history 对账路径保留。）
 - `400`：message 为空/超长、adapter_id 非 verified、effort 非法；`resume` 指向
   未知会话按新会话处理（创建新文件）。
 - 持久化：`runtime/chat/<session_id>.jsonl`，每行一条 `{role:"user"|"head",
-  text, at_utc, dispatch_id?}`，append-only。
+  text, at_utc, dispatch_id?}`，append-only；user turn 受理即落盘，head turn 在
+  REPORT 后落盘（回复全文）。
 
 ### GET /api/chat/history?session=<id>&limit=<n>
 
