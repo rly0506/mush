@@ -1,0 +1,44 @@
+{
+  "goal_id": "MUSH-GOAL-014",
+  "phase": "A (backend carve-out mechanism)",
+  "rm": "RM-004 / M0 意向项目 carve-out（安全前置，M1 旗舰底座）",
+  "packet": "rm004-p14a-deepseek-carveout",
+  "branch": "g014a",
+  "worktree": "runtime/worktrees/deepseek-g",
+  "base_commit": "b0eeb98",
+  "status": "MACHINE_ACCEPTED_PENDING_OWNER",
+  "semantics": "D15：机检验收规格全绿（359 基线 + 11 新 = 370，4 环境噪音 master 复现），请求 AUTO_ACCEPTED；DONE 与否决权仍归 owner",
+  "executor": "deepseek-dsh (backend)",
+  "completed_at_utc": "2026-08-18T06:52:00Z",
+  "units_dod": {
+    "DoD1_data_model": "runtime/carveouts.jsonl append-only 数据模型（carveout_id/owner_grant_utc/task_ref/paths[]/expires_at/status）—— 达成（carveouts.ts；同时刻最多 1 ACTIVE；.agent-bridge/ 任意仓永久 deny 段级判定）",
+    "DoD2_dispatch_write_surface": "dispatch 声明式写面校验 + 白名单快照留痕（carveout_id+cwd，cwd 在白名单根下）—— 达成（dispatch.ts 校验段 + request/记录快照；事后 auditCarveoutPaths 供头犬 diff；运行时拦截留 GP-14）",
+    "DoD3_owner_channel": "POST /api/carveout/grant（loopback + 一次性 token .mush/carveout-token 0600 每次 grant 旋转）/ revoke / GET active —— 达成（server.ts 路由；token 缺失/不匹配 403）",
+    "DoD4_frontend_ux": "前端登记 UX 由 kimi 同步批承接 —— 本包不做（明确排除）",
+    "DoD5_tests": "新增 ≥6（实际 11）—— 达成（未授权拒绝/.agent-bridge deny/范围内放行/过期/撤销/多切片拒绝/token 旋转 + HTTP/审计/rerun）；脚本化冒烟 = 测试即验收",
+    "DoD6_contract": "api-contract.md 升 v1.10 —— 达成（carve-out grant/revoke/active + dispatch 携带语义）"
+  },
+  "verification": {
+    "npm_test": "370 tests：366 PASS / 4 FAIL（4 个 FAIL 均为 GP-32 rmSync 环境噪音，master b0eeb98 主仓同一文件原样复现——gp32-approvals 3 例 + web-dispatch 1 例，非本批引入）；g014a 新 11 用例全绿，exit 0",
+    "new_tests": "tests/g014a-carveouts.test.ts 11 用例 ≥ 要求 6：grant 拒 .agent-bridge / 未授权（无 ACTIVE）拒携 id + 裸 cwd 拒 / ACTIVE 范围内放行+快照+cwd 透传 / cwd 命中 .agent-bridge 子树拒 / 过期失效+EXPIRED 落盘 / 撤销生效 / 单切片拒绝+撤销后可再授权 / token 旋转+旧 token 失效 / post-hoc diff 审核 / HTTP 全链路 403/404 / rerun 重校验切片",
+    "backward_compat": "359 基线全部保留（不含 4 环境噪音红）；RunAdapterFn/T1RunOptions/PiRpcRunOptions 均向后兼容新增 cwd?；dispatch 未带 carveout_id/cwd 行为不变；persistence header 向后兼容读",
+    "red_lines": "page.ts 未改；审批段（D30/GP-32）未改；零框架/构建/外链；未 push；密钥未入库；D:\\意向项目 只读未触碰；意向项目路径零硬编码（owner grant 声明）；DEF-07 路径匹配用字符串段判定非正则（无模板正则双写风险）"
+  },
+  "evidence_paths_and_hashes": [
+    { "path": "src/web/carveouts.ts", "sha256": "60DF1A6506A30F5C5AEA663729F7725163B65DC0E05BFA42F0A9E51F5132CD7F" },
+    { "path": "src/web/dispatch.ts", "sha256": "E40D43393FC55C784186A1AB7B789E37A1A52F93CC7960A2F139367D5B3533B2" },
+    { "path": "src/web/server.ts", "sha256": "4382320EBFC5262B39830CA633A46387C48E6C819EEA2A39FE92CB33D74A8C6A" },
+    { "path": "src/web/persistence.ts", "sha256": "FE9F84E5C6F3AA43735734B141CB07E117126EBB201D646BB35892E410B59A43" },
+    { "path": "src/adapters/t1-runner.ts", "sha256": "098A6CAD6C75798A38BEAF12C74215F08EC977F9197BEC1ED5D338C8913DEEA2" },
+    { "path": "src/adapters/pi-rpc-runner.ts", "sha256": "420739F2722A5EC78A5EF96B5E4269026BBDC8E07D3C4085C6964210B7C4A5B2" },
+    { "path": "src/web/api-contract.md", "sha256": "7CFCBEE31A5941264F53A60310F1759151A0AAB8C0BDE8430A4F83D91A9CB37C" },
+    { "path": "tests/g014a-carveouts.test.ts", "sha256": "D51D3B4FF03A41B3F2EEA8953A1D377B8A9D4CD726526DC46CFB23A9E9739594" },
+    { "path": "tests/g014a-test-output.txt", "sha256": "66D88C509B05E4251220BC3696ED8716C9319389EB78C1612436BABEC2306DD4" },
+    { "path": "goals/receipts/BATCH-48-ds-completion.json", "sha256": "EA585650FF1FC33EE047721D6157784F384BCB276814BC11661FBA54023BA09C" }
+  ],
+  "acceptance": {
+    "mode": "standing-default D15",
+    "machine_checks": "359 基线保留 + 11 新全绿（370 total；4 GP-32 环境噪音 master 复现）; exit 0; new=11",
+    "awaiting": "头犬审核 + owner 显式接受（M0 机检已绿，停此等 owner）"
+  }
+}

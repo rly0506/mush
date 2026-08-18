@@ -1,10 +1,41 @@
 # mush Board API 契约 v1
 
-- 状态：`v1.9`（2026-08-17 定稿 v1；v1.1 GOAL-007B；v1.2 GP-02；v1.3 GOAL-011 聊天节；v1.3.1 GOAL-012B chat 参数化+reply；v1.4 GOAL-013 profile/effort 合同/rerun **及** GOAL-013L 静态品牌资产路由；v1.5 GOAL-017A 适配器 CRUD/头犬解耦/budget caps/计数；v1.6 GOAL-018 work-stream/真续跑/换窗/HANDOFF/流 API；v1.7 GOAL-019 任务池；v1.8 GP-32 逐单审批；v1.9 GOAL-021 聊天流式——本文件为权威源）
+- 状态：`v1.10`（2026-08-17 定稿 v1；v1.1 GOAL-007B；v1.2 GP-02；v1.3 GOAL-011 聊天节；v1.3.1 GOAL-012B chat 参数化+reply；v1.4 GOAL-013 profile/effort 合同/rerun **及** GOAL-013L 静态品牌资产路由；v1.5 GOAL-017A 适配器 CRUD/头犬解耦/budget caps/计数；v1.6 GOAL-018 work-stream/真续跑/换窗/HANDOFF/流 API；v1.7 GOAL-019 任务池；v1.8 GP-32 逐单审批；v1.9 GOAL-021 聊天流式；v1.10 GOAL-014 carve-out——本文件为权威源）
 - 宿主：`src/web/`（node:http，零依赖）；默认只绑 `127.0.0.1`（对外暴露 = 触发门 4，不实现）
 - 序列化：JSON（UTF-8，LF 结尾）；SSE 用 `text/event-stream`，帧格式 `data: <json>\n\n`
 - 错误约定：失败响应一律 `{ "ok": false, "error": "<human-readable>" }`
 - 版本演进：v1 字段**只能向后兼容新增**；删除/改义/改型 = 破坏性变更，需头犬批准并同步 GOAL-007
+
+
+### v1.10 向后兼容扩展（GOAL-014，2026-08-18；M0 carve-out 安全底座）
+
+- **语义**：把「意向项目整树只读」细化为「默认只读 + owner 圈定可写范围」。
+  carve-out = 单切片授权：`runtime/carveouts.jsonl`（append-only）记录
+  `carveout_id / owner_grant_utc / task_ref / paths[]（绝对路径）/ expires_at /
+  status(ACTIVE|EXPIRED|REVOKED)`；**同一时刻最多 1 份 ACTIVE**；
+  `.agent-bridge/` 整树任意仓**永久 deny**，任何 carve-out 不可覆盖（黄金参照底线）。
+- 新增 owner 授权通道（仅 loopback + 一次性 token 最小握手，防本机任意进程调 grant）：
+  - `POST /api/carveout/grant`：body
+    `{ task_ref, paths[], expires_at, token }` → `201 { ok, carveout }`；
+    token 取自 `<workspaceRoot>/.mush/carveout-token`（权限 0600，**每次 grant 旋转**，
+    旧 token 立即失效）；token 缺失/不匹配 → `403`；输入非法（空 task_ref、空 paths、
+    含 `.agent-bridge` 段、expires_at 非 ISO-8601）→ `400`；已有 ACTIVE → `400`。
+  - `POST /api/carveout/revoke`：body `{ carveout_id, token }` →
+    `200 { ok, carveout_id, status:"REVOKED" }`；token 不匹配 → `403`；
+    carveout 不存在 → `404`；非 ACTIVE → `400`。
+  - `GET /api/carveout/active`：→ `200 { ok, active: Carveout | null }`；
+    当前 ACTIVE（未过期/未撤销）或 null（前端顶部条带数据源；过期自动消失）。
+- **dispatch 携带 carveout_id/cwd（声明式写面校验，非运行时拦截）**：
+  - `POST /api/dispatch` 新增可选 `carveout_id` + `cwd`（绝对路径）；
+  - 语义：`cwd` 必须位于该 carve-out 白名单某根之下且不命中 `.agent-bridge`；
+    携带 `cwd` 而未携带 `carveout_id`，或 `carveout_id` 非当前 ACTIVE → `400`；
+  - 校验通过后：犬进程 spawn 的工作目录 = `cwd`（回执仍落 workspace）；
+    dispatch 记录/`request` 快照记 `carveout_id` + `carveout_whitelist` 快照
+    （`{ paths, expires_at, task_ref }`，事件链留痕）；
+  - rerun 透传原切片引用并在执行前**重新校验**当前 ACTIVE（原切片已过期/撤销
+    → rerun 拒绝，不绕过写面门）；
+  - 不做运行时文件写拦截（留 GP-14 隔离区）；头犬事后 diff 审核犬产物 vs
+    白名单（超范围 = 红线违反，触发宪法 §2 审计）。
 
 
 ### v1.7 向后兼容扩展（GOAL-019，2026-08-17）
@@ -154,6 +185,9 @@
 | `GET /api/tasks` | **新**：任务池列表 | v1.7 |
 | `POST /api/tasks` | **新**：创建任务 | v1.7 |
 | `POST /api/tasks/:id/transition` | **新**：任务状态迁移 | v1.7 |
+| `GET /api/carveout/active` | **新**：当前 ACTIVE carve-out（或 null） | v1.10 |
+| `POST /api/carveout/grant` | **新**：owner 授权通道（token 握手 + 旋转） | v1.10 |
+| `POST /api/carveout/revoke` | **新**：收回 carve-out（置 REVOKED） | v1.10 |
 | `GET /assets/brands/:name.svg` | **新**：品牌图标静态资产 | v1.4 |
 
 ## POST /api/dispatch
@@ -172,6 +206,8 @@
   "goal_id": "string?（v1.6：Goal 关联；窗口键组成部分）",
   "new_stream": "boolean?（v1.6：true 强制新开流）",
   "task_id": "string?（v1.7：任务池回链；ADMITTED 后 dispatch_id 追加进任务）",
+  "carveout_id": "string?（v1.10：M0 切片引用；须为当前 ACTIVE carve-out，否则 400）",
+  "cwd": "string?（v1.10：犬工作根，绝对路径；须在白名单根下且不命中 .agent-bridge；携带时必须同时携带 carveout_id）",
   "cap_usd": "number?（缺省=该 actor 的 budget-caps 值或 5；>0）",
   "amount_usd": "number?（缺省 0=估算后记账）",
   "real": "boolean?（缺省 false=dry-run）"
@@ -235,12 +271,48 @@
 请求 `{ "status": "READY|QUEUED|IN_FLIGHT|DONE|BLOCKED|CANCELLED" }`
 - 合法迁移白名单校验；非法迁移 `400` 带原因；任务不存在 `404`。
 
+## GET /api/carveout/active（v1.10）
+
+`{ "ok": true, "active": Carveout | null }`
+- `Carveout = { "carveout_id", "owner_grant_utc", "task_ref", "paths": string[],
+  "expires_at", "status": "ACTIVE" }`；
+- 当前 ACTIVE（未过期/未撤销）或 `null`；过期 ACTIVE 自动视为不存在（不返回）；
+  前端顶部条带消费点：路径 + 任务 + 剩余有效，过期自动消失。
+
+## POST /api/carveout/grant（v1.10）
+
+请求：
+
+```json
+{
+  "task_ref": "string（goal+packet，如 MUSH-GOAL-015 / rm004-p14b）",
+  "paths": ["/abs/path（绝对路径；文件或目录白名单根）"],
+  "expires_at": "ISO-8601 UTC",
+  "token": "string（一次性；取自 <workspaceRoot>/.mush/carveout-token）"
+}
+```
+
+- 语义：创建 ACTIVE carve-out（同一时刻最多 1 份；有现存 ACTIVE → `400`）；
+  `paths` 含 `.agent-bridge` 段（任意仓）→ `400`（永久 deny，黄金参照底线）；
+  `expires_at` 必须为合法 ISO-8601 UTC → 否则 `400`；
+  token 缺失/不匹配 → `403`；成功 → `201 { ok, carveout }`；
+  **每次 grant 旋转 token 文件**（旧 token 立即失效）；
+- 数据落 `runtime/carveouts.jsonl`（append-only，每行一条完整快照）。
+
+## POST /api/carveout/revoke（v1.10）
+
+请求 `{ "carveout_id": "string", "token": "string" }`
+- 语义：目标切片置 `REVOKED`（追加快照，append-only 不改历史行）；
+- token 缺失/不匹配 → `403`；carveout 不存在 → `404`；非 ACTIVE → `400`；
+- 成功 → `200 { ok, carveout_id, status: "REVOKED" }`。
+
 
 
 ## GET /api/dispatch/:id
 
-`{ "ok": true, "dispatch": { "dispatch_id", "status", "adapter_id", "receipt_path", "events": [ {kind, at_utc, payload} ], "stdout_tail"?, "stderr_tail"?, "request"? } }`
-不存在 → `404`。（`stdout_tail`/`stderr_tail` 为 v1.1 新增；`request` 为 v1.4 新增。）
+`{ "ok": true, "dispatch": { "dispatch_id", "status", "adapter_id", "receipt_path", "events": [ {kind, at_utc, payload} ], "stdout_tail"?, "stderr_tail"?, "carveout_id"?, "request"? } }`
+不存在 → `404`。（`stdout_tail`/`stderr_tail` 为 v1.1 新增；`request` 为 v1.4 新增；
+`carveout_id` 为 v1.10 新增——M0 切片引用；`request.carveout_whitelist` 为白名单快照留痕。）
 
 ## GET /api/adapters（v1.5）
 
