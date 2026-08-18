@@ -89,6 +89,8 @@ export function renderBoardPage(): string {
   /* GOAL-020 B5：任务池三泳道（dashi 范式入位新骨架） */
   .task-board { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
   .task-lane { background: var(--panel-hi); border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-height: 200px; }
+  .lane-body { max-height: 60vh; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--ink-faint) transparent;
+    border-bottom: 1px solid var(--line); box-shadow: inset 0 -12px 10px -10px rgba(29, 39, 51, 0.18); }
   .task-lane h3 { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--ink-dim); letter-spacing: 1px; }
   .lane-todo h3 { color: #7a5cc0; }
   .lane-doing h3 { color: var(--info); }
@@ -102,6 +104,12 @@ export function renderBoardPage(): string {
   .badge.prio-中 { color: var(--ember); border-color: var(--ember); }
   .badge.prio-低 { color: var(--ink-faint); border-color: var(--ink-faint); }
   .badge.BLOCKED { color: var(--ember); border-color: var(--ember); }
+  /* GOAL-022：人话原则（D36）——序号/Goal 聚簇角标/批量派发条 */
+  .task-seq { color: var(--ink-faint); font-size: 12px; font-weight: 400; }
+  .badge.goal-cluster { color: var(--accent); border-color: var(--accent-deep); background: #eafaf7; font-size: 10px; }
+  .task-select { margin-right: 6px; vertical-align: middle; width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; }
+  .task-batch-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px dashed var(--line); }
+  .task-batch-bar .hint { color: var(--ink-dim); }
   /* GOAL-018B：工作流视图 + 交接块样式 */
   .stream-card { cursor: pointer; }
   .stream-card:hover { border-color: var(--accent-deep); }
@@ -783,8 +791,10 @@ export function renderBoardPage(): string {
         // G7B-D2：响应到达即有 dispatch_id，卡片即时可见；生命周期靠 SSE upsert 刷新。
         trackDispatch(data.dispatch_id, adapterId, data.status);
         toast('派发已受理：' + data.status + ' ' + (data.dispatch_id || ''), true);
+        advanceDispatchQueue(); // GOAL-022：批量派发逐单推进
         document.getElementById('dispatch-result').textContent =
           'dispatch_id=' + data.dispatch_id + ' status=' + data.status;
+        document.getElementById('dispatch-form').removeAttribute('data-task-id');
         refresh();
       } else if (result.status === 402) {
         toast('超预算门（DENIED）：' + (data.error || ''), false);
@@ -1569,34 +1579,92 @@ export function renderBoardPage(): string {
     }).catch(function () { renderTasks(); });
   }
 
+  /* ---------- GOAL-022（D36 人话原则）：状态/按钮全面中文化 + ID 折叠 + 排序聚簇 ---------- */
+  var TASK_STATUS_CN = {
+    IDEA: '构想', READY: '就绪', QUEUED: '已排队', IN_FLIGHT: '执行中',
+    DONE: '完成', BLOCKED: '受阻', CANCELLED: '已取消'
+  };
+  // 迁移按钮动词化（目标状态 → 人类动作）
+  var TASK_VERB_CN = {
+    READY: '转就绪', QUEUED: '排队', IN_FLIGHT: '开始执行',
+    DONE: '标记完成', BLOCKED: '标记受阻', CANCELLED: '取消'
+  };
+  // 多选批量派发选择集（task_id → true；待办泳道复选框）
+  var taskSelection = {};
+  var PRIORITY_RANK = { '高': 0, '中': 1, '低': 2 };
+
+  function taskSeq(t) {
+    // 机器语言折叠：卡片显示 #序号（创建顺序），原始 task_id 入悬浮 title。
+    var all = tasksData || [];
+    return all.indexOf(t) + 1;
+  }
+
+  function sortTasksForLane(list) {
+    // 排序：优先级（高>中>低）> 创建时间（早先晚后）；同 goal_id 视觉聚簇（相邻即聚）。
+    return list.slice().sort(function (a, b) {
+      var pa = PRIORITY_RANK[a.priority] !== undefined ? PRIORITY_RANK[a.priority] : 1;
+      var pb = PRIORITY_RANK[b.priority] !== undefined ? PRIORITY_RANK[b.priority] : 1;
+      if (pa !== pb) return pa - pb;
+      return String(a.created_at_utc || a.created_at || '') < String(b.created_at_utc || b.created_at || '') ? -1 : 1;
+    }).sort(function (a, b) {
+      // 同 Goal 聚簇（稳定二次排序：同 goal_id 相邻，不动优先级主序内的相对先后）
+      var ga = a.goal_id || '';
+      var gb = b.goal_id || '';
+      if (ga === gb) return 0;
+      return ga < gb ? -1 : 1;
+    });
+  }
+
   function renderTasks() {
     var lanes = { todo: [], doing: [], done: [] };
     (tasksData || []).forEach(function (t) { lanes[laneOf(t.status)].push(t); });
     ['todo', 'doing', 'done'].forEach(function (lane) {
       var el = document.getElementById('lane-' + lane);
       if (!el) return;
-      var list = lanes[lane];
+      var list = sortTasksForLane(lanes[lane]);
       var blockedCount = (tasksData || []).filter(function (t) { return t.status === 'BLOCKED'; }).length;
       var blockedBadge = lane === 'doing' && blockedCount > 0
-        ? '<div class="hint" style="margin-bottom:6px"><span class="badge BLOCKED">BLOCKED ' + blockedCount + '</span></div>' : '';
+        ? '<div class="hint" style="margin-bottom:6px"><span class="badge BLOCKED">受阻 ' + blockedCount + '</span></div>' : '';
+      var batchBar = '';
+      if (lane === 'todo') {
+        var selectedCount = Object.keys(taskSelection).filter(function (k) { return taskSelection[k]; }).length;
+        batchBar = '<div class="task-batch-bar">' +
+          '<button class="act approve" id="btn-dispatch-selected" type="button"' + (selectedCount === 0 ? ' disabled style="opacity:.45"' : '') + '>派发所选（' + selectedCount + '）</button>' +
+          '<span class="hint" style="display:inline">每单仍各停审批卡（D30）</span></div>';
+      }
       if (list.length === 0) {
-        el.innerHTML = blockedBadge + '<div class="empty" style="padding:12px 0;font-size:12px">（空）</div>';
+        el.innerHTML = blockedBadge + batchBar + '<div class="empty" style="padding:12px 0;font-size:12px">（空）</div>';
+        bindBatchBar(el);
         return;
       }
-      el.innerHTML = blockedBadge + list.map(function (t) {
+      el.innerHTML = blockedBadge + batchBar + list.map(function (t) {
         var transitions = (TASK_TRANSITIONS[t.status] || []);
         var btns = transitions.map(function (next) {
-          return '<button class="act cancel" data-task-move="' + esc(t.task_id) + '" data-to="' + esc(next) + '" type="button">→ ' + esc(next) + '</button>';
+          return '<button class="act cancel" data-task-move="' + esc(t.task_id) + '" data-to="' + esc(next) + '" type="button">' + esc(TASK_VERB_CN[next] || next) + '</button>';
         }).join('');
         var dispatchBtn = t.status === 'READY' || t.status === 'QUEUED'
           ? '<button class="act approve" data-task-dispatch="' + esc(t.task_id) + '" type="button">派发</button>' : '';
-        return '<div class="task-card">' +
-          '<div class="task-title">' + esc(t.title) + '</div>' +
+        var checkbox = lane === 'todo'
+          ? '<input type="checkbox" class="task-select" data-task-select="' + esc(t.task_id) + '"' + (taskSelection[t.task_id] ? ' checked' : '') + ' title="选中批量派发">' : '';
+        var goalBadge = t.goal_id ? '<span class="badge goal-cluster">' + esc(t.goal_id) + '</span>' : '';
+        var seq = taskSeq(t);
+        return '<div class="task-card" title="' + esc(t.task_id) + '">' +
+          '<div class="task-title">' + checkbox + '<span class="task-seq">#' + seq + '</span> ' + esc(t.title) + '</div>' +
           '<div class="task-meta"><span class="badge prio-' + esc(t.priority || '中') + '">' + esc(t.priority || '中') + '</span>' +
+          '<span class="badge">' + esc(TASK_STATUS_CN[t.status] || t.status) + '</span>' +
+          goalBadge +
           '<span>' + esc(t.source || 'manual') + '</span>' +
           '<span>派发链 ' + ((t.dispatch_ids || []).length) + '</span></div>' +
           '<div class="task-actions">' + btns + dispatchBtn + '</div></div>';
       }).join('');
+      bindBatchBar(el);
+      el.querySelectorAll('input[data-task-select]').forEach(function (box) {
+        box.addEventListener('change', function () {
+          taskSelection[box.getAttribute('data-task-select')] = box.checked;
+          if (!box.checked) delete taskSelection[box.getAttribute('data-task-select')];
+          renderTasks();
+        });
+      });
       el.querySelectorAll('button[data-task-move]').forEach(function (btn) {
         btn.addEventListener('click', function () {
           postJson('/api/tasks/' + encodeURIComponent(btn.getAttribute('data-task-move')) + '/transition',
@@ -1608,17 +1676,46 @@ export function renderBoardPage(): string {
       });
       el.querySelectorAll('button[data-task-dispatch]').forEach(function (btn) {
         btn.addEventListener('click', function () {
-          var taskId = btn.getAttribute('data-task-dispatch');
-          var task = (tasksData || []).filter(function (t) { return t.task_id === taskId; })[0];
-          // 「派发」按钮预填派发表单携带 task_id（v1.7 字段随提交）。
-          var dispatchBtn = document.querySelector('button[data-view="dispatch"]');
-          if (dispatchBtn) dispatchBtn.click();
-          document.getElementById('dispatch-prompt').value = task ? (task.title + (task.detail ? '\\n\\n' + task.detail : '')) : '';
-          document.getElementById('dispatch-form').setAttribute('data-task-id', taskId);
-          toast('已预填派发表单（task_id=' + taskId + '）', true);
+          prefillDispatchFromTask(btn.getAttribute('data-task-dispatch'));
         });
       });
     });
+  }
+
+  function bindBatchBar(laneEl) {
+    var btn = laneEl.querySelector('#btn-dispatch-selected');
+    if (!btn || btn.getAttribute('data-bound')) return;
+    btn.setAttribute('data-bound', '1');
+    btn.addEventListener('click', function () {
+      var ids = Object.keys(taskSelection);
+      if (ids.length === 0) { toast('请先勾选待办卡片', false); return; }
+      // 逐单预填依次提交：每单仍各停审批卡（D30 语义不破）。
+      // 串行预填第一单，后续单随审批应答逐单推进（队列寄存）。
+      dispatchQueue = ids.slice();
+      taskSelection = {};
+      prefillDispatchFromTask(dispatchQueue.shift());
+      if (dispatchQueue.length > 0) {
+        toast('批量派发：共 ' + (dispatchQueue.length + 1) + ' 单，逐单预填——每单审批应答后自动预填下一单', true);
+      }
+    });
+  }
+
+  var dispatchQueue = [];
+
+  function prefillDispatchFromTask(taskId) {
+    var task = (tasksData || []).filter(function (t) { return t.task_id === taskId; })[0];
+    // 「派发」预填派发表单携带 task_id（v1.7 字段随提交；v1.7 落盘前为前端提案）。
+    var dispatchBtn = document.querySelector('button[data-view="dispatch"]');
+    if (dispatchBtn) dispatchBtn.click();
+    document.getElementById('dispatch-prompt').value = task ? (task.title + (task.detail ? '\\n\\n' + task.detail : '')) : '';
+    document.getElementById('dispatch-form').setAttribute('data-task-id', taskId);
+    toast('已预填派发表单（#' + (task ? taskSeq(task) : '?') + '）', true);
+  }
+
+  // 批量队列推进：派发提交成功后自动预填下一单。
+  function advanceDispatchQueue() {
+    if (dispatchQueue.length === 0) return;
+    prefillDispatchFromTask(dispatchQueue.shift());
   }
 
   document.getElementById('task-create-form').addEventListener('submit', function (event) {

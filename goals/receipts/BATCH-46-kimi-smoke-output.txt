@@ -1,0 +1,13 @@
+PASS  GET /api/tasks 真端点 200（v1.7 已随 p19a 落盘）  — status=200
+PASS  34 张真卡载入  — tasks=34
+PASS  待办泳道优先级排序正确（高>中>低）  — todo=29
+PASS  状态中文映射七态齐备
+PASS  迁移按钮动词化（转就绪/开始执行/标记完成/标记受阻）
+PASS  迁移按钮不渲染裸枚举
+PASS  #序号折叠 + task_id 入 title
+PASS  排序函数 + 优先级权重 + Goal 聚簇角标
+PASS  泳道内滚动（lane-body max-height+overflow-y）
+PASS  多选复选框 + 派发所选 + 逐单审批提示
+PASS  派发预填携带 task_id
+
+=== g022 smoke: 11/11 PASS ===
