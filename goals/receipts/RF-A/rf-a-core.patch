@@ -1,0 +1,422 @@
+From f596f7a09b4b192e0fc2ff90099d492be6de398d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=E4=BB=BB=E9=94=82=E5=B8=85?= <1666488691@qq.com>
+Date: Sat, 25 Jul 2026 12:49:51 +0800
+Subject: [PATCH 1/4] fix(refresh): fail closed unless loopback is refused
+
+---
+ backend/cli.py                                |  11 +-
+ .../tests/test_coverage_observation_cli.py    | 221 ++++++++++++++----
+ 2 files changed, 183 insertions(+), 49 deletions(-)
+
+diff --git a/backend/cli.py b/backend/cli.py
+index 46a3462..f3662c0 100644
+--- a/backend/cli.py
++++ b/backend/cli.py
+@@ -13,7 +13,7 @@ import sys
+ from datetime import date, datetime, timedelta
+ from pathlib import Path
+ from urllib.error import HTTPError, URLError
+-from urllib.request import Request, urlopen
++from urllib.request import ProxyHandler, Request, build_opener
+ 
+ # 让 `import app.*` 在从任意目录运行 cli.py 时都可用
+ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+@@ -591,7 +591,7 @@ def _coverage_status_payload(
+ def refresh_once():
+     """Run one refresh through the live backend, or one refused-only offline call."""
+     try:
+-        health = _request_json(HEALTH_URL, timeout=HEALTH_TIMEOUT_SECONDS)
++        health = _open_loopback_json(HEALTH_URL, timeout=HEALTH_TIMEOUT_SECONDS)
+     except (ConnectionRefusedError, URLError) as exc:
+         if _is_connection_refused(exc):
+             _run_local_refresh_once()
+@@ -604,7 +604,7 @@ def refresh_once():
+         _command_error("health response was not the expected 200 {status: ok}")
+ 
+     try:
+-        status, result = _request_json(
++        status, result = _open_loopback_json(
+             Request(REFRESH_URL, data=b"", method="POST"),
+             timeout=REFRESH_TIMEOUT_SECONDS,
+         )
+@@ -616,8 +616,9 @@ def refresh_once():
+     typer.echo(json.dumps(result, ensure_ascii=False, sort_keys=True))
+ 
+ 
+-def _request_json(request: str | Request, *, timeout: int) -> tuple[int, object]:
+-    with urlopen(request, timeout=timeout) as response:
++def _open_loopback_json(request: str | Request, *, timeout: int) -> tuple[int, object]:
++    opener = build_opener(ProxyHandler({}))
++    with opener.open(request, timeout=timeout) as response:
+         return int(response.status), json.loads(response.read().decode("utf-8"))
+ 
+ 
+diff --git a/backend/tests/test_coverage_observation_cli.py b/backend/tests/test_coverage_observation_cli.py
+index 61df765..2dbdfbf 100644
+--- a/backend/tests/test_coverage_observation_cli.py
++++ b/backend/tests/test_coverage_observation_cli.py
+@@ -4,7 +4,9 @@ from __future__ import annotations
+ import json
+ from datetime import datetime, timezone
+ from urllib.error import HTTPError, URLError
++from urllib.request import ProxyHandler
+ 
++import pytest
+ from fastapi.testclient import TestClient
+ from typer.testing import CliRunner
+ 
+@@ -55,25 +57,16 @@ class _Response:
+         return False
+ 
+ 
+-class _RawResponse(_Response):
+-    def __init__(self, status: int, raw: bytes):
+-        self.status = status
+-        self._raw = raw
+-
+-    def read(self) -> bytes:
+-        return self._raw
+-
+-
+ def test_refresh_once_posts_once_after_valid_health_without_local_fallback(monkeypatch):
+     calls = []
+ 
+-    def fake_urlopen(request, *, timeout):
++    def fake_loopback(request, *, timeout):
+         calls.append((request, timeout))
+         if len(calls) == 1:
+-            return _Response(200, {"status": "ok"})
+-        return _Response(200, _valid_refresh_result())
++            return 200, {"status": "ok"}
++        return 200, _valid_refresh_result()
+ 
+-    monkeypatch.setattr(dossier_cli, "urlopen", fake_urlopen)
++    monkeypatch.setattr(dossier_cli, "_open_loopback_json", fake_loopback)
+     monkeypatch.setattr(dossier_cli, "init_db", lambda: (_ for _ in ()).throw(AssertionError("no local DB")))
+ 
+     result = CliRunner().invoke(dossier_cli.app, ["refresh-once"])
+@@ -89,13 +82,13 @@ def test_refresh_once_posts_once_after_valid_health_without_local_fallback(monke
+ def test_refresh_once_accepts_a_valid_health_object_with_additional_fields(monkeypatch):
+     calls = []
+ 
+-    def fake_urlopen(_request, *, timeout):
++    def fake_loopback(_request, *, timeout):
+         calls.append(timeout)
+         if len(calls) == 1:
+-            return _Response(200, {"status": "ok", "version": "local"})
+-        return _Response(200, _valid_refresh_result())
++            return 200, {"status": "ok", "version": "local"}
++        return 200, _valid_refresh_result()
+ 
+-    monkeypatch.setattr(dossier_cli, "urlopen", fake_urlopen)
++    monkeypatch.setattr(dossier_cli, "_open_loopback_json", fake_loopback)
+     monkeypatch.setattr(dossier_cli, "init_db", lambda: (_ for _ in ()).throw(AssertionError("no local DB")))
+ 
+     result = CliRunner().invoke(dossier_cli.app, ["refresh-once"])
+@@ -104,15 +97,23 @@ def test_refresh_once_accepts_a_valid_health_object_with_additional_fields(monke
+     assert len(calls) == 2
+ 
+ 
+-def test_refresh_once_uses_local_path_only_for_connection_refused(monkeypatch):
++@pytest.mark.parametrize(
++    "transport_error",
++    [
++        ConnectionRefusedError("no listener"),
++        URLError(ConnectionRefusedError("no listener")),
++        URLError(OSError(10061, "connection refused")),
++    ],
++)
++def test_refresh_once_uses_local_path_only_for_connection_refused(monkeypatch, transport_error):
+     calls = []
+     local_calls = []
+ 
+     def refused(_request, *, timeout):
+         calls.append(timeout)
+-        raise URLError(ConnectionRefusedError("no listener"))
++        raise transport_error
+ 
+-    monkeypatch.setattr(dossier_cli, "urlopen", refused)
++    monkeypatch.setattr(dossier_cli, "_open_loopback_json", refused)
+     monkeypatch.setattr(dossier_cli, "init_db", lambda: local_calls.append("init"))
+     monkeypatch.setattr(
+         "app.services.auto_refresh.refresh_once",
+@@ -131,8 +132,8 @@ def test_refresh_once_reachable_bad_health_fails_closed_without_local_fallback(m
+     local_calls = []
+     monkeypatch.setattr(
+         dossier_cli,
+-        "urlopen",
+-        lambda _request, *, timeout: _Response(200, {"status": "unexpected"}),
++        "_open_loopback_json",
++        lambda _request, *, timeout: (200, {"status": "unexpected"}),
+     )
+     monkeypatch.setattr(dossier_cli, "init_db", lambda: local_calls.append("init"))
+ 
+@@ -147,12 +148,16 @@ def test_refresh_once_non_200_or_transport_health_failure_never_falls_back(monke
+     local_calls = []
+     monkeypatch.setattr(dossier_cli, "init_db", lambda: local_calls.append("init"))
+ 
+-    monkeypatch.setattr(dossier_cli, "urlopen", lambda _request, *, timeout: _Response(503, {"status": "ok"}))
++    monkeypatch.setattr(
++        dossier_cli,
++        "_open_loopback_json",
++        lambda _request, *, timeout: (503, {"status": "ok"}),
++    )
+     non_200 = CliRunner().invoke(dossier_cli.app, ["refresh-once"])
+ 
+     monkeypatch.setattr(
+         dossier_cli,
+-        "urlopen",
++        "_open_loopback_json",
+         lambda _request, *, timeout: (_ for _ in ()).throw(URLError(OSError("network unreachable"))),
+     )
+     transport = CliRunner().invoke(dossier_cli.app, ["refresh-once"])
+@@ -164,7 +169,11 @@ def test_refresh_once_non_200_or_transport_health_failure_never_falls_back(monke
+ 
+ def test_refresh_once_malformed_health_json_fails_closed_without_local_fallback(monkeypatch):
+     local_calls = []
+-    monkeypatch.setattr(dossier_cli, "urlopen", lambda _request, *, timeout: _RawResponse(200, b"{"))
++    monkeypatch.setattr(
++        dossier_cli,
++        "_open_loopback_json",
++        lambda _request, *, timeout: (_ for _ in ()).throw(json.JSONDecodeError("malformed", "", 0)),
++    )
+     monkeypatch.setattr(dossier_cli, "init_db", lambda: local_calls.append("init"))
+ 
+     result = CliRunner().invoke(dossier_cli.app, ["refresh-once"])
+@@ -177,7 +186,7 @@ def test_refresh_once_timeout_fails_closed_without_local_fallback(monkeypatch):
+     local_calls = []
+     monkeypatch.setattr(
+         dossier_cli,
+-        "urlopen",
++        "_open_loopback_json",
+         lambda _request, *, timeout: (_ for _ in ()).throw(TimeoutError("timed out")),
+     )
+     monkeypatch.setattr(dossier_cli, "init_db", lambda: local_calls.append("init"))
+@@ -191,15 +200,15 @@ def test_refresh_once_timeout_fails_closed_without_local_fallback(monkeypatch):
+ def test_refresh_once_rejects_post_payload_with_missing_or_extra_keys(monkeypatch):
+     calls = []
+ 
+-    def fake_urlopen(_request, *, timeout):
++    def fake_loopback(_request, *, timeout):
+         calls.append(timeout)
+         if len(calls) == 1:
+-            return _Response(200, {"status": "ok"})
++            return 200, {"status": "ok"}
+         payload = _valid_refresh_result()
+         payload["unexpected"] = True
+-        return _Response(200, payload)
++        return 200, payload
+ 
+-    monkeypatch.setattr(dossier_cli, "urlopen", fake_urlopen)
++    monkeypatch.setattr(dossier_cli, "_open_loopback_json", fake_loopback)
+     monkeypatch.setattr(dossier_cli, "init_db", lambda: (_ for _ in ()).throw(AssertionError("no local DB")))
+ 
+     result = CliRunner().invoke(dossier_cli.app, ["refresh-once"])
+@@ -216,20 +225,22 @@ def test_refresh_once_rejects_missing_key_or_malformed_post_json(monkeypatch):
+     def missing_key(_request, *, timeout):
+         calls.append(timeout)
+         if len(calls) == 1:
+-            return _Response(200, {"status": "ok"})
++            return 200, {"status": "ok"}
+         payload = _valid_refresh_result()
+         payload.pop("news_errors")
+-        return _Response(200, payload)
++        return 200, payload
+ 
+-    monkeypatch.setattr(dossier_cli, "urlopen", missing_key)
++    monkeypatch.setattr(dossier_cli, "_open_loopback_json", missing_key)
+     missing = CliRunner().invoke(dossier_cli.app, ["refresh-once"])
+ 
+     calls.clear()
+     def malformed(_request, *, timeout):
+         calls.append(timeout)
+-        return _Response(200, {"status": "ok"}) if len(calls) == 1 else _RawResponse(200, b"[")
++        if len(calls) == 1:
++            return 200, {"status": "ok"}
++        raise json.JSONDecodeError("malformed", "", 0)
+ 
+-    monkeypatch.setattr(dossier_cli, "urlopen", malformed)
++    monkeypatch.setattr(dossier_cli, "_open_loopback_json", malformed)
+     malformed_result = CliRunner().invoke(dossier_cli.app, ["refresh-once"])
+ 
+     assert missing.exit_code == 1
+@@ -245,22 +256,22 @@ def test_refresh_once_rejects_post_http_or_type_failure_without_a_second_run(mon
+     def http_failure(_request, *, timeout):
+         calls.append(timeout)
+         if len(calls) == 1:
+-            return _Response(200, {"status": "ok"})
++            return 200, {"status": "ok"}
+         raise HTTPError(dossier_cli.REFRESH_URL, 503, "unavailable", hdrs=None, fp=None)
+ 
+-    monkeypatch.setattr(dossier_cli, "urlopen", http_failure)
++    monkeypatch.setattr(dossier_cli, "_open_loopback_json", http_failure)
+     failed_http = CliRunner().invoke(dossier_cli.app, ["refresh-once"])
+ 
+     calls.clear()
+     def wrong_type(_request, *, timeout):
+         calls.append(timeout)
+         if len(calls) == 1:
+-            return _Response(200, {"status": "ok"})
++            return 200, {"status": "ok"}
+         payload = _valid_refresh_result()
+         payload["news_refreshed"] = True
+-        return _Response(200, payload)
++        return 200, payload
+ 
+-    monkeypatch.setattr(dossier_cli, "urlopen", wrong_type)
++    monkeypatch.setattr(dossier_cli, "_open_loopback_json", wrong_type)
+     failed_type = CliRunner().invoke(dossier_cli.app, ["refresh-once"])
+ 
+     assert failed_http.exit_code == 1
+@@ -271,15 +282,15 @@ def test_refresh_once_rejects_post_http_or_type_failure_without_a_second_run(mon
+ def test_refresh_once_accepts_a_lock_busy_nine_field_response(monkeypatch):
+     calls = []
+ 
+-    def fake_urlopen(_request, *, timeout):
++    def fake_loopback(_request, *, timeout):
+         calls.append(timeout)
+         if len(calls) == 1:
+-            return _Response(200, {"status": "ok"})
++            return 200, {"status": "ok"}
+         payload = _valid_refresh_result()
+         payload["running"] = True
+-        return _Response(200, payload)
++        return 200, payload
+ 
+-    monkeypatch.setattr(dossier_cli, "urlopen", fake_urlopen)
++    monkeypatch.setattr(dossier_cli, "_open_loopback_json", fake_loopback)
+     monkeypatch.setattr(dossier_cli, "init_db", lambda: (_ for _ in ()).throw(AssertionError("no local DB")))
+ 
+     result = CliRunner().invoke(dossier_cli.app, ["refresh-once"])
+@@ -288,6 +299,128 @@ def test_refresh_once_accepts_a_lock_busy_nine_field_response(monkeypatch):
+     assert json.loads(result.stdout)["running"] is True
+ 
+ 
++def test_open_loopback_json_uses_explicit_proxy_free_opener_without_mutating_env(monkeypatch):
++    proxy_env = {
++        "HTTP_PROXY": "http://proxy.invalid:8080",
++        "HTTPS_PROXY": "http://proxy.invalid:8443",
++        "ALL_PROXY": "socks5://proxy.invalid:1080",
++        "NO_PROXY": "example.invalid",
++    }
++    for name, value in proxy_env.items():
++        monkeypatch.setenv(name, value)
++
++    built_handlers = []
++    opened = []
++
++    class FakeOpener:
++        def open(self, request, *, timeout):
++            opened.append((request, timeout))
++            if len(opened) == 1:
++                return _Response(200, {"status": "ok"})
++            return _Response(200, _valid_refresh_result())
++
++    def fake_build_opener(*handlers):
++        built_handlers.append(handlers)
++        return FakeOpener()
++
++    monkeypatch.setattr(dossier_cli, "build_opener", fake_build_opener)
++
++    health = dossier_cli._open_loopback_json(
++        dossier_cli.HEALTH_URL,
++        timeout=dossier_cli.HEALTH_TIMEOUT_SECONDS,
++    )
++    refresh = dossier_cli._open_loopback_json(
++        dossier_cli.Request(dossier_cli.REFRESH_URL, data=b"", method="POST"),
++        timeout=dossier_cli.REFRESH_TIMEOUT_SECONDS,
++    )
++
++    assert health == (200, {"status": "ok"})
++    assert refresh == (200, _valid_refresh_result())
++    assert len(built_handlers) == 2
++    assert all(len(handlers) == 1 for handlers in built_handlers)
++    assert all(isinstance(handlers[0], ProxyHandler) for handlers in built_handlers)
++    assert all(handlers[0].proxies == {} for handlers in built_handlers)
++    assert opened[0] == (dossier_cli.HEALTH_URL, dossier_cli.HEALTH_TIMEOUT_SECONDS)
++    assert opened[1][0].full_url == dossier_cli.REFRESH_URL
++    assert opened[1][0].method == "POST"
++    assert opened[1][1] == dossier_cli.REFRESH_TIMEOUT_SECONDS
++    assert {name: dossier_cli.os.environ[name] for name in proxy_env} == proxy_env
++
++
++def test_refresh_once_routes_health_and_post_through_loopback_seam(monkeypatch):
++    calls = []
++
++    def fake_loopback(request, *, timeout):
++        calls.append((request, timeout))
++        if len(calls) == 1:
++            return 200, {"status": "ok"}
++        return 200, _valid_refresh_result()
++
++    monkeypatch.setattr(dossier_cli, "_open_loopback_json", fake_loopback)
++    monkeypatch.setattr(dossier_cli, "init_db", lambda: (_ for _ in ()).throw(AssertionError("no local DB")))
++
++    result = CliRunner().invoke(dossier_cli.app, ["refresh-once"])
++
++    assert result.exit_code == 0
++    assert len(calls) == 2
++    assert calls[0] == (dossier_cli.HEALTH_URL, dossier_cli.HEALTH_TIMEOUT_SECONDS)
++    assert calls[1][0].full_url == dossier_cli.REFRESH_URL
++    assert calls[1][0].method == "POST"
++    assert calls[1][1] == dossier_cli.REFRESH_TIMEOUT_SECONDS
++
++
++@pytest.mark.parametrize(
++    "transport_error",
++    [
++        HTTPError(dossier_cli.HEALTH_URL, 503, "unavailable", hdrs=None, fp=None),
++        OSError("network unreachable"),
++    ],
++)
++def test_refresh_once_health_transport_errors_fail_closed(monkeypatch, transport_error):
++    local_calls = []
++    monkeypatch.setattr(
++        dossier_cli,
++        "_open_loopback_json",
++        lambda _request, *, timeout: (_ for _ in ()).throw(transport_error),
++    )
++    monkeypatch.setattr(dossier_cli, "init_db", lambda: local_calls.append("init"))
++
++    result = CliRunner().invoke(dossier_cli.app, ["refresh-once"])
++
++    assert result.exit_code == 1
++    assert local_calls == []
++
++
++@pytest.mark.parametrize(
++    "transport_error",
++    [
++        URLError(ConnectionRefusedError("post listener disappeared")),
++        URLError(OSError("network unreachable")),
++        TimeoutError("timed out"),
++        HTTPError(dossier_cli.REFRESH_URL, 503, "unavailable", hdrs=None, fp=None),
++        json.JSONDecodeError("malformed", "", 0),
++    ],
++)
++def test_refresh_once_post_transport_errors_fail_closed(monkeypatch, transport_error):
++    calls = []
++    local_calls = []
++
++    def fake_loopback(_request, *, timeout):
++        calls.append(timeout)
++        if len(calls) == 1:
++            return 200, {"status": "ok"}
++        raise transport_error
++
++    monkeypatch.setattr(dossier_cli, "_open_loopback_json", fake_loopback)
++    monkeypatch.setattr(dossier_cli, "init_db", lambda: local_calls.append("init"))
++
++    result = CliRunner().invoke(dossier_cli.app, ["refresh-once"])
++
++    assert result.exit_code == 1
++    assert calls == [dossier_cli.HEALTH_TIMEOUT_SECONDS, dossier_cli.REFRESH_TIMEOUT_SECONDS]
++    assert local_calls == []
++
++
+ def test_auto_refresh_post_keeps_the_exact_nine_field_api_contract(monkeypatch):
+     expected = _valid_refresh_result()
+     monkeypatch.setattr(api.auto_refresh, "refresh_once", lambda: expected)
+-- 
+2.55.0.windows.3
+

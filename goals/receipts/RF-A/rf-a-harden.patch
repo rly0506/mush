@@ -1,0 +1,59 @@
+From 1d4eff0a047a848453318de6f13e28347f52452e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=E4=BB=BB=E9=94=82=E5=B8=85?= <1666488691@qq.com>
+Date: Sun, 26 Jul 2026 18:32:13 +0800
+Subject: [PATCH 2/4] fix(rm055): harden refresh observation diagnostics
+
+---
+ backend/cli.py                                |  2 +-
+ .../tests/test_coverage_observation_cli.py    | 22 +++++++++++++++++++
+ 2 files changed, 23 insertions(+), 1 deletion(-)
+
+diff --git a/backend/cli.py b/backend/cli.py
+index f3662c0..b133c49 100644
+--- a/backend/cli.py
++++ b/backend/cli.py
+@@ -38,7 +38,7 @@ app = typer.Typer(add_completion=False, help="个人专题情报追踪工具")
+ 
+ HEALTH_URL = "http://127.0.0.1:8000/api/health"
+ REFRESH_URL = "http://127.0.0.1:8000/api/auto-refresh/run"
+-HEALTH_TIMEOUT_SECONDS = 2
++HEALTH_TIMEOUT_SECONDS = 5
+ REFRESH_TIMEOUT_SECONDS = 30
+ AUTO_REFRESH_RESPONSE_KEYS = {
+     "enabled",
+diff --git a/backend/tests/test_coverage_observation_cli.py b/backend/tests/test_coverage_observation_cli.py
+index 2dbdfbf..b777d95 100644
+--- a/backend/tests/test_coverage_observation_cli.py
++++ b/backend/tests/test_coverage_observation_cli.py
+@@ -128,6 +128,28 @@ def test_refresh_once_uses_local_path_only_for_connection_refused(monkeypatch, t
+     assert json.loads(result.stdout) == _valid_refresh_result()
+ 
+ 
++def test_refresh_once_delayed_refusal_model_has_budget_to_reach_refused_fallback(monkeypatch):
++    delayed_refusal_seconds = 2.05
++    timeouts = []
++    local_calls = []
++
++    def delayed_refusal(_request, *, timeout):
++        timeouts.append(timeout)
++        if timeout <= delayed_refusal_seconds:
++            raise TimeoutError("timeout won the delayed-refusal race")
++        raise URLError(ConnectionRefusedError("listener eventually refused"))
++
++    monkeypatch.setattr(dossier_cli, "_open_loopback_json", delayed_refusal)
++    monkeypatch.setattr(dossier_cli, "_run_local_refresh_once", lambda: local_calls.append("refresh"))
++
++    result = CliRunner().invoke(dossier_cli.app, ["refresh-once"])
++
++    assert result.exit_code == 0
++    assert timeouts == [dossier_cli.HEALTH_TIMEOUT_SECONDS]
++    assert timeouts[0] > delayed_refusal_seconds
++    assert local_calls == ["refresh"]
++
++
+ def test_refresh_once_reachable_bad_health_fails_closed_without_local_fallback(monkeypatch):
+     local_calls = []
+     monkeypatch.setattr(
+-- 
+2.55.0.windows.3
+

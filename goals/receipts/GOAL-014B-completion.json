@@ -1,0 +1,37 @@
+{
+  "goal_id": "MUSH-GOAL-014",
+  "phase": "B (M1 flagship RM-055-RF-A)",
+  "rm": "RM-004 / M1 实战运营",
+  "packet": "rm004-m1a-deepseek-flagship",
+  "branch": "rf-a (意向项目仓)",
+  "worktree": "D:/意向项目 (意向项目仓内，非 mush worktree)",
+  "base_commit": "1e16039 (意向项目 master)",
+  "status": "MACHINE_ACCEPTED_PENDING_OWNER",
+  "semantics": "D15：机检验收规格全绿（50 RF-A 指定测试 passed），请求 AUTO_ACCEPTED；DONE 与否决权仍归 owner",
+  "executor": "deepseek-dsh (flagship)",
+  "completed_at_utc": "2026-08-18T08:00:00Z",
+  "delivery_nature": "验证+审计+patch 归档（非新实现）——RF-A 实现已存在于基线 1e16039（owner 2026-07-25 f596f7a 已引入 _open_loopback_json = build_opener(ProxyHandler({})) proxy-free seam，1d4eff0/19df248 加固，test_coverage_observation_cli.py 701 行已提交）",
+  "units_dod": {
+    "checkbox_1": "参数化 RED：环境代理不被两个固定回环请求使用 + connection-refused 恰好一次 local fallback —— 达成（test_refresh_once_uses_local_path_only_for_connection_refused + test_open_loopback_json_uses_explicit_proxy_free_opener_without_mutating_env）",
+    "checkbox_2": "timeout/bad health/malformed JSON/HTTP error/invalid POST/POST transport failure 永不 fallback —— 达成（test_refresh_once_timeout_fails_closed + test_refresh_once_malformed_health_json_fails_closed + test_refresh_once_non_200_or_transport_health_failure_never_falls_back + test_refresh_once_rejects_post_http_or_type_failure_without_a_second_run）",
+    "checkbox_3": "_open_loopback_json = build_opener(ProxyHandler({}))，不改 env 进程状态 —— 达成（patch 中明确 opener = build_opener(ProxyHandler({}))；测试断言 ProxyHandler 实例类型 + 不修改 HTTP_PROXY/HTTPS_PROXY/ALL_PROXY/NO_PROXY）",
+    "checkbox_4": "_run_local_refresh_once() 不变；collectors 继续 RSS_PROXY 优先/trust_env=True —— 达成"
+  },
+  "verification": {
+    "rf_a_tests": "50 passed（test_coverage_observation_cli.py 37 + test_rss_collector.py 13）",
+    "full_suite": "70 文件分文件逐跑，68 文件全绿；3 文件（quarantine_chain_validator/quarantine_script/database_isolation）在干净基线 1e16039 复现红/卡（genie-safe-delete 拦截 pytest 系统 TEMP 清理，环境噪音，与 RF-A 无关）",
+    "patch_applicability": "git apply --check 在 RF-A 前基线 4bae341 验证通过"
+  },
+  "red_lines": "未真实 refresh / 未联网 / 未 push 意向项目 / 未改 .agent-bridge / 未改 schema/Coverage/collectors/sources/API / 未改白名单外文件",
+  "evidence_paths_and_hashes": [
+    { "path": "goals/receipts/RF-A/rf-a-core.patch", "sha256": "A8BEFE21F6DD710C7A2B83EEE9FCA24A745E0D048CC8274FEB13B2888102DE90", "source_commit": "f596f7a (意向项目仓)" },
+    { "path": "goals/receipts/RF-A/rf-a-harden.patch", "sha256": "22370A6F90DC242155D27503F4202CAD719010BA4B2CE9FAB8EEA60A80062B6C", "source_commit": "1d4eff0 (意向项目仓)" },
+    { "path": "goals/receipts/RF-A/rf-a-combined.patch", "sha256": "157143ABA39DF6D46CD14C83BDAB57327203DD5644D30125C49D6DC79E5F83AE", "source": "cat 0001+0002" }
+  ],
+  "acceptance": {
+    "mode": "standing-default D15",
+    "machine_checks": "50 RF-A 指定测试 passed；patch apply --check 通过",
+    "awaiting": "owner 显式接受（回执由头犬代写，基于 deepseek-dsh 交付 + 头犬审核证据链）"
+  },
+  "notes": "回执由头犬 zcode 代写（deepseek-dsh 原始回执落入沙箱虚拟层丢失）。patch 文件从意向项目仓根目录复制。owner 应用 patch 到意向项目后 RM-004 M1 收官。"
+}

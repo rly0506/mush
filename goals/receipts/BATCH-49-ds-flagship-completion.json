@@ -1,0 +1,26 @@
+{
+  "batch_id": "BATCH-49-ds-flagship",
+  "goal_id": "MUSH-GOAL-014 / M1",
+  "executor": "deepseek-dsh (flagship)",
+  "worktree": "D:/意向项目 (意向项目仓内 rf-a 分支)",
+  "base_commit": "1e16039",
+  "status": "MACHINE_ACCEPTED_PENDING_OWNER",
+  "completed_at_utc": "2026-08-18T08:00:00Z",
+  "delivery_summary": "RF-A 验证+审计+patch 归档（实现已存在于基线 1e16039）",
+  "test_results": {
+    "rf_a_specified": "50 passed (test_coverage_observation_cli 37 + test_rss_collector 13)",
+    "full_suite": "70 files, 68 green, 3 env-noise (genie-safe-delete, baseline-reproducible)"
+  },
+  "patches": [
+    { "file": "goals/receipts/RF-A/rf-a-core.patch", "sha256": "A8BEFE21F6DD710C7A2B83EEE9FCA24A745E0D048CC8274FEB13B2888102DE90", "source": "f596f7a" },
+    { "file": "goals/receipts/RF-A/rf-a-harden.patch", "sha256": "22370A6F90DC242155D27503F4202CAD719010BA4B2CE9FAB8EEA60A80062B6C", "source": "1d4eff0" },
+    { "file": "goals/receipts/RF-A/rf-a-combined.patch", "sha256": "157143ABA39DF6D46CD14C83BDAB57327203DD5644D30125C49D6DC79E5F83AE" }
+  ],
+  "red_lines_held": [
+    "未真实 refresh / 未联网 / 未 push 意向项目",
+    "未改 .agent-bridge / 未改 schema/Coverage/collectors/sources/API",
+    "未改白名单外文件"
+  ],
+  "receipt_written_by": "头犬 zcode（代写，基于 deepseek-dsh 交付 + 审核证据链）",
+  "acceptance_semantics": "D15：机检全绿 + patch 可应用 → AUTO_ACCEPTED；DONE 与否决权归 owner"
+}
