@@ -264,6 +264,14 @@ export function renderBoardPage(): string {
   .thinking-dots i:nth-child(3) { animation-delay: .36s; }
   @keyframes think-dot { 0%, 100% { opacity: .25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
   .thinking-elapsed { color: var(--ink-dim); }
+  /* ---------- GOAL-021B：v1.9 异步聊天流式（阶段态/打字机/失败重试；雪原令牌沿用） ---------- */
+  .chat-stage { color: var(--ink-dim); }
+  .chat-row.head.chat-streaming .chat-stage { color: var(--accent); }
+  .chat-row.head.chat-failed .chat-stage { color: var(--danger); }
+  .chat-row.head.chat-streaming .bubble { border-color: var(--accent-deep); }
+  .typewriter-text::after { content: '▍'; color: var(--accent); animation: think-dot 1s ease-in-out infinite; }
+  .chat-row.head.chat-failed .bubble { background: #fbeae8; border-color: var(--danger); font-weight: 400; }
+  button.chat-retry { margin-top: 6px; padding: 3px 12px; font-size: 12px; }
   /* ---------- GOAL-012 + GOAL-013L：犬只标识（官方品牌 img 优先，手绘 SVG 兜底）与三态动效 ---------- */
   .dog-logo { display: inline-flex; vertical-align: middle; }
   .dog-logo svg, .dog-logo img { width: 22px; height: 22px; display: block; }
@@ -295,6 +303,7 @@ export function renderBoardPage(): string {
     .dog-logo.working svg, .dog-logo.working img { animation: logo-glow 1.4s ease-in-out infinite; }
     .dog-logo.terminal-flash svg, .dog-logo.terminal-flash img { animation: logo-glow 0.7s ease-out 1; }
     .badge.RUNNING::before, .toast, .thinking-dots i { animation: none; }
+    .typewriter-text::after { animation: none; } /* GOAL-021B：减弱动效时光标不闪 */
   }
 </style>
 </head>
@@ -1405,7 +1414,7 @@ export function renderBoardPage(): string {
     var row = document.createElement('div');
     row.className = 'chat-row head chat-thinking';
     row.innerHTML = '<span class="avatar">' + dogLogo('head-dog kimi moon', true) + '</span>' +
-      '<div><div class="who">头犬 · 思考中… <span class="mono thinking-elapsed">0s</span></div>' +
+      '<div><div class="who">头犬 · <span class="chat-stage">思考中</span> <span class="mono thinking-elapsed">0s</span></div>' +
       '<div class="bubble thinking-bubble"><span class="thinking-dots"><i></i><i></i><i></i></span></div></div>';
     chatStreamEl().appendChild(row);
     chatScrollBottom();
@@ -1425,14 +1434,233 @@ export function renderBoardPage(): string {
     }
   }
 
+  /* ---------- GOAL-021B：v1.9 异步聊天流式（SSE kind=chat 帧驱动阶段机） ----------
+     阶段机：pending 气泡（思考中）→ EXECUTE 增量（生成中，打字机渐显）→
+     REPORT（完成/失败 + 重试）。帧匹配键 = dispatch_id（202 ack 登记）；
+     ack 前早到帧按 session_id + chatPending 认领（SSE 可能快过 fetch 响应）。 */
+  var chatInflightId = null;   // 在途 chat dispatch_id
+  var chatStreamRow = null;    // 打字机气泡行（生成中）
+  var chatStreamBuf = '';      // 已到达回复增量全文
+  var chatStreamShown = 0;     // 打字机已显字符数
+  var chatStreamRaf = null;    // rAF 句柄
+  var chatStreamFinal = null;  // REPORT 到达后的终态 payload
+  var chatWatchdog = null;     // 前端超时看门狗
+  var chatLastMessage = '';    // 重试数据源（最后一条发送文本）
+  var chatReducedMotion = typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function chatSetStage(row, text) {
+    var el = row ? row.querySelector('.chat-stage') : null;
+    if (el) el.textContent = text;
+  }
+
+  function chatSetElapsed(row, ms) {
+    var el = row ? row.querySelector('.thinking-elapsed') : null;
+    if (el && typeof ms === 'number') el.textContent = Math.max(0, Math.round(ms / 1000)) + 's';
+  }
+
+  function armChatWatchdog() {
+    disarmChatWatchdog();
+    // 服务端超时 300s（REPORT FAIL 兜底）；前端看门狗 320s 防 SSE 静默丢帧卡死 pending。
+    chatWatchdog = setTimeout(function () {
+      if (!chatPending) return;
+      chatFinishFailure('等待头犬回复超时（前端看门狗 320s），可重试。');
+    }, 320000);
+  }
+
+  function disarmChatWatchdog() {
+    if (chatWatchdog !== null) { clearTimeout(chatWatchdog); chatWatchdog = null; }
+  }
+
+  // 打字机：rAF 节流渐显（每帧补 ~1/5 余量，末段收敛）；reduced-motion 降级直接全显。
+  function chatTypewriterTick() {
+    chatStreamRaf = null;
+    if (chatStreamRow === null) return;
+    if (chatReducedMotion) {
+      chatStreamShown = chatStreamBuf.length;
+    } else if (chatStreamShown < chatStreamBuf.length) {
+      chatStreamShown = Math.min(chatStreamBuf.length, chatStreamShown + Math.max(2, Math.ceil((chatStreamBuf.length - chatStreamShown) / 5)));
+    }
+    var el = chatStreamRow.querySelector('.typewriter-text');
+    if (el) el.textContent = chatStreamBuf.slice(0, chatStreamShown);
+    chatScrollBottom();
+    if (chatStreamShown < chatStreamBuf.length) {
+      chatStreamRaf = requestAnimationFrame(chatTypewriterTick);
+    } else if (chatStreamFinal !== null) {
+      chatFinalizeReport(); // 打字机播完后定版
+    }
+  }
+
+  function chatTypewriterKick() {
+    if (chatStreamRaf === null) chatStreamRaf = requestAnimationFrame(chatTypewriterTick);
+  }
+
+  // 首个 EXECUTE 增量到达：pending 气泡原位移形为生成中打字机气泡。
+  function ensureStreamRow() {
+    if (chatStreamRow !== null) return;
+    var row = thinkingRow;
+    if (row === null) {
+      // 占位已被移除的边界（如早到 EXECUTE）：直接建行。
+      row = document.createElement('div');
+      row.className = 'chat-row head chat-thinking';
+      row.innerHTML = '<span class="avatar">' + dogLogo('head-dog kimi moon', true) + '</span>' +
+        '<div><div class="who">头犬 · <span class="chat-stage">生成中</span> <span class="mono thinking-elapsed">0s</span></div>' +
+        '<div class="bubble thinking-bubble"></div></div>';
+      chatStreamEl().appendChild(row);
+    }
+    if (thinkingTimer !== null) { clearInterval(thinkingTimer); thinkingTimer = null; }
+    thinkingRow = null;
+    row.classList.remove('chat-thinking');
+    row.classList.add('chat-streaming');
+    chatSetStage(row, '生成中');
+    var bubble = row.querySelector('.bubble');
+    bubble.classList.remove('thinking-bubble');
+    bubble.innerHTML = '<span class="typewriter-text"></span>';
+    chatStreamRow = row;
+    chatScrollBottom();
+  }
+
+  function attachRetry(row) {
+    var retry = document.createElement('button');
+    retry.className = 'act reject chat-retry';
+    retry.type = 'button';
+    retry.textContent = '重试';
+    retry.addEventListener('click', retryChat);
+    row.querySelector('.bubble').parentNode.appendChild(retry);
+  }
+
+  function retryChat() {
+    if (chatPending || chatLastMessage === '') return;
+    document.getElementById('chat-input').value = chatLastMessage;
+    sendChat();
+  }
+
+  // REPORT：成功（打字机播完后定版全文）或失败（气泡态 + 重试按钮）。
+  function chatFinalizeReport() {
+    var p = chatStreamFinal || {};
+    chatStreamFinal = null;
+    disarmChatWatchdog();
+    if (chatStreamRaf !== null) { cancelAnimationFrame(chatStreamRaf); chatStreamRaf = null; }
+    var failed = p.error !== undefined || (p.status !== 'PASS' && p.status !== 'DRY_RUN');
+    var fullReply = typeof p.reply === 'string' && p.reply !== '' ? p.reply : chatStreamBuf;
+    var elapsedTxt = typeof p.elapsed_ms === 'number' ? Math.round(p.elapsed_ms / 1000) + 's' : '';
+    var row = chatStreamRow;
+    chatStreamRow = null;
+    if (row !== null) {
+      row.classList.remove('chat-streaming');
+      var textEl = row.querySelector('.typewriter-text');
+      if (failed) {
+        row.classList.add('chat-failed');
+        chatSetStage(row, '失败' + (elapsedTxt ? ' · ' + elapsedTxt : ''));
+        if (textEl) textEl.textContent = p.error !== undefined ? '头犬回复失败：' + p.error : (fullReply !== '' ? fullReply : '（无回复）');
+        attachRetry(row);
+      } else {
+        chatSetStage(row, '完成' + (elapsedTxt ? ' · ' + elapsedTxt : ''));
+        if (textEl) textEl.textContent = fullReply !== '' ? fullReply : '（空回复）';
+      }
+      if (textEl) textEl.classList.remove('typewriter-text');
+      chatTurnCount += 1;
+    } else if (failed) {
+      removeThinking();
+      appendChatFailure(p.error !== undefined ? '头犬回复失败：' + p.error : '（无回复）');
+    } else {
+      removeThinking();
+      appendChatRow('head', fullReply !== '' ? fullReply : '（空回复）', new Date().toISOString(), chatInflightId);
+    }
+    removeThinking(); // 防御：占位残留清理（幂等）
+    chatStreamBuf = '';
+    chatStreamShown = 0;
+    chatInflightId = null;
+    setChatPending(false);
+    chatScrollBottom();
+  }
+
+  // 超时/同步错误失败出口：有流行转失败态，无流行落失败气泡。
+  function chatFinishFailure(text) {
+    disarmChatWatchdog();
+    if (chatStreamRaf !== null) { cancelAnimationFrame(chatStreamRaf); chatStreamRaf = null; }
+    if (chatStreamRow !== null) {
+      var row = chatStreamRow;
+      chatStreamRow = null;
+      row.classList.remove('chat-streaming');
+      row.classList.add('chat-failed');
+      chatSetStage(row, '失败');
+      var textEl = row.querySelector('.typewriter-text');
+      if (textEl) { textEl.textContent = text; textEl.classList.remove('typewriter-text'); }
+      attachRetry(row);
+      chatTurnCount += 1;
+    } else {
+      removeThinking();
+      appendChatFailure(text);
+    }
+    chatStreamBuf = '';
+    chatStreamShown = 0;
+    chatStreamFinal = null;
+    chatInflightId = null;
+    setChatPending(false);
+    chatScrollBottom();
+  }
+
+  // 失败/超时气泡态（红边浅底 + 重试按钮；雪原体系 danger 令牌）。
+  function appendChatFailure(text) {
+    chatClearEmpty();
+    var row = document.createElement('div');
+    row.className = 'chat-row head chat-failed';
+    row.innerHTML = '<span class="avatar">' + dogLogo('head-dog kimi moon', false) + '</span>' +
+      '<div><div class="who">头犬 · <span class="chat-stage">失败</span> · ' + esc(fmtTime(new Date().toISOString())) + '</div>' +
+      '<div class="bubble">' + esc(text) + '</div></div>';
+    attachRetry(row);
+    chatStreamEl().appendChild(row);
+    chatTurnCount += 1;
+    chatScrollBottom();
+  }
+
+  // SSE chat 帧入口（kind=chat，契约 v1.9：ADMITTED → EXECUTE(增量) → HEARTBEAT(耗时) → REPORT）。
+  function chatHandleFrame(frame) {
+    if (!frame || frame.kind !== 'chat') return;
+    if (chatInflightId !== null && frame.dispatch_id !== chatInflightId) return; // 只消费在途帧
+    if (chatInflightId === null) {
+      if (!chatPending || frame.session_id !== chatSessionId) return; // 非本会话迟到帧忽略
+      chatInflightId = frame.dispatch_id; // ack 前早到帧认领
+    }
+    var p = frame.payload || {};
+    if (frame.phase === 'ADMITTED') {
+      chatSetStage(thinkingRow || chatStreamRow, '思考中');
+      return;
+    }
+    if (frame.phase === 'HEARTBEAT') {
+      chatSetElapsed(chatStreamRow || thinkingRow, p.elapsed_ms); // 心跳耗时实时显示
+      return;
+    }
+    if (frame.phase === 'EXECUTE') {
+      if (typeof p.stream_text === 'string' && p.stream_text !== '') {
+        chatStreamBuf += p.stream_text;
+        ensureStreamRow();
+        chatTypewriterKick();
+      }
+      return;
+    }
+    if (frame.phase === 'REPORT') {
+      chatStreamFinal = p;
+      if (typeof p.reply === 'string' && p.reply !== '') chatStreamBuf = p.reply; // 权威全文
+      if (chatStreamBuf !== '' && chatStreamRow === null && p.error === undefined) ensureStreamRow();
+      if (chatReducedMotion || chatStreamRow === null || chatStreamShown >= chatStreamBuf.length) {
+        chatFinalizeReport();
+      } else {
+        chatTypewriterKick(); // 渐显播完后由 tick 内 chatFinalizeReport 定版
+      }
+    }
+  }
+
   function sendChat() {
     var input = document.getElementById('chat-input');
     var message = input.value.trim();
     if (!message || chatPending) return;
     input.value = '';
-    appendChatRow('user', message, new Date().toISOString());
+    appendChatRow('user', message, new Date().toISOString()); // 发送即上屏
     setChatPending(true);
-    showThinking(); // D2：立即反馈，不等网络
+    showThinking(); // pending 气泡：思考中阶段占位
+    chatLastMessage = message; // 失败/超时重试数据源
     // D1/D2（GOAL-012B/017B）：头犬 harness + 模型变体 + effort 档位随消息提交
     // （v1.3.1 可选字段，缺省后端 head-dog/HIGH；变体 v1.5 model_id 透传）。
     var headSel = document.getElementById('chat-head-select');
@@ -1444,28 +1672,23 @@ export function renderBoardPage(): string {
     if (effortSel && effortSel.value) payload.effort = effortSel.value;
     postJson('/api/chat', payload).then(function (result) {
       var data = result.body || {};
-      if (result.status === 200 && data.ok) {
+      if (result.status === 202 && data.ok) {
+        // v1.9 异步受理：202 即返 ack；阶段推进由 SSE kind=chat 帧驱动（不再同步等 reply）。
         chatSessionId = data.session_id || chatSessionId;
+        chatInflightId = data.dispatch_id || chatInflightId;
         registerSessionId(chatSessionId); // GOAL-018B #3：会话注册表（选择器数据源）
         saveChatSession();
         renderSessionSelector();
         document.getElementById('chat-session-label').textContent = chatSessionId ? 'session ' + String(chatSessionId).slice(0, 8) : '';
-        // D3：v1.3.1 同步语义——响应体 reply 即头犬回复，替换占位气泡直渲。
-        removeThinking();
-        appendChatRow('head', typeof data.reply === 'string' && data.reply !== '' ? data.reply : '（空回复）', new Date().toISOString(), data.dispatch_id);
         if (data.dispatch_id) trackDispatch(data.dispatch_id, payload.adapter_id || 'head-dog', data.status || 'ADMITTED');
+        armChatWatchdog();
         refresh();
-      } else if (result.status === 404 || result.status === 400) {
-        removeThinking();
-        appendChatRow('head', '（消息未受理：' + esc(data.error || result.status) + '）', new Date().toISOString());
       } else {
-        removeThinking();
-        toast('发送失败：' + (data.error || result.status), false);
+        chatFinishFailure('（消息未受理：' + (data.error || result.status) + '）');
       }
     }).catch(function (error) {
-      removeThinking();
-      appendChatRow('head', '（聊天 API 暂不可达：' + esc(String(error)) + '）', new Date().toISOString());
-    }).then(function () { setChatPending(false); });
+      chatFinishFailure('（聊天 API 暂不可达：' + String(error) + '）');
+    });
   }
 
   // 头犬 dispatch 到达 REPORT/REVIEW 后，拉取会话历史补齐头犬回复（权威源 = runtime/chat/*.jsonl）。
@@ -2114,11 +2337,16 @@ export function renderBoardPage(): string {
     source.onmessage = function (msg) {
       var payload = null;
       try { payload = JSON.parse(msg.data); } catch (e) { payload = null; }
+      if (payload && payload.kind === 'chat') {
+        chatHandleFrame(payload); // GOAL-021B：聊天流式阶段机（事件驱动，不做全量 refresh）
+        return;
+      }
       if (payload && payload.kind === 'dispatch') {
         trackDispatch(payload.dispatch_id, payload.adapter_id, payload.status);
         loadBudget();
         // 头犬派发进入 REPORT/REVIEW 后，头犬回复已落盘 runtime/chat —— 拉历史补齐气泡。
-        if (payload.adapter_id === 'head-dog' && (payload.phase === 'REPORT' || payload.phase === 'REVIEW')) {
+        // GOAL-021B：在途 chat 派发已由 kind=chat 帧渲染，跳过避免覆盖打字机/失败态。
+        if (payload.adapter_id === 'head-dog' && (payload.phase === 'REPORT' || payload.phase === 'REVIEW') && payload.dispatch_id !== chatInflightId) {
           chatRefreshHistory();
         }
       }

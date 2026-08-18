@@ -1,0 +1,43 @@
+{
+  "batch": "BATCH-47-kimi",
+  "goal_id": "MUSH-GOAL-021",
+  "phase": "B (frontend chat streaming UX)",
+  "packet": "rm004-p20b-kimi-chat-streaming",
+  "branch": "g021b",
+  "worktree": "runtime/worktrees/kimi-g",
+  "base_commit": "b0eeb98",
+  "at_utc": "2026-08-18T06:45:00Z",
+  "executor": "kimi-k3 (frontend)",
+  "units": {
+    "U1_async_send_ux": "POST /api/chat 202 受理即返；发送即上屏 user 气泡 + pending 气泡（chat-stage 思考中）；SSE kind=chat 帧驱动阶段机（ADMITTED 思考中 → EXECUTE 生成中 → REPORT 完成/失败）；HEARTBEAT payload.elapsed_ms 实时上屏（thinking-elapsed 秒表）；ack 前早到帧按 session_id+chatPending 认领（SSE 快过 fetch 响应竞态防护）；前端看门狗 320s（服务端 300s 兜底之外防 SSE 静默丢帧卡死）。",
+    "U2_typewriter": "EXECUTE payload.stream_text 增量拼接入 chatStreamBuf；打字机 rAF 节流渐显（每帧补 ~1/5 余量收敛，typewriter-text 容器 + 光标符）；prefers-reduced-motion 降级直接全显；REPORT 以 payload.reply 权威全文定版（打字机播完后 finalize）。",
+    "U3_failure_retry": "失败/超时气泡态（chat-failed 红边浅底，雪原 danger 令牌）+ chat-retry 重试按钮（chatLastMessage 回填输入框重发）；REPORT status=FAIL/error 字段、HTTP 400/网络错误、看门狗超时统一走 chatFinishFailure；在途 chat 派发跳过 chatRefreshHistory 历史回补（payload.dispatch_id !== chatInflightId 守卫，打字机/失败态不被覆盖）；会话恢复/选择器语义不变（resume/registerSessionId/switchChatSession 零改动）。",
+    "U4_snowfield_system": "雪原设计体系沿用：对话正文 15px/1.7、头犬气泡 600 字重、28px 签名徽章、犬只 logo 三态均未动；新增样式全部走既有 CSS 令牌（--accent/--danger/--ink-dim）。"
+  },
+  "tests": {
+    "new": "tests/g021b-chat-streaming-ux.test.ts（7 用例：202 ack+pending 气泡+会话语义 / SSE chat 帧阶段机四阶段 / HEARTBEAT elapsed_ms / 打字机 rAF+reduced-motion / 失败气泡+重试+看门狗 / 在途跳过历史回补 / 雪原体系保留）。",
+    "full_run": "366 tests / 362 PASS / 4 FAIL（4 红 = GP-32 genie-safe-delete rmSync 拦截环境噪音，master b0eeb98 原样复现 355/359，基线一致零回归；新增 7 用例全绿）",
+    "baseline": "改动前 359 tests / 355 PASS / 同 4 红",
+    "output": "tests/g021b-test-output.txt",
+    "parse_gate": "web-page-parse（DEF-07 真解析回归）每批必过——本批通过"
+  },
+  "smoke": {
+    "script": "scripts/g021b-chat-streaming-smoke.cjs",
+    "result": "13/13 PASS（真实执行，非 mock：起板 fake runner 分 chunk 流式 → POST /api/chat 202 → SSE 收帧 ADMITTED,HEARTBEAT,EXECUTE,HEARTBEAT,EXECUTE,REPORT → 增量拼合=回复全文 → JSONL 双轮 → 失败路径 REPORT status=FAIL → 页面结构四项）",
+    "output": "tests/g021b-smoke-output.txt"
+  },
+  "updated_existing_tests": [
+    "tests/web-chat-ux-012b.test.ts：D3 断言按 v1.9 改写（202 受理 + SSE chat 帧；移除同步 200+reply 直渲断言与 202 排斥断言）——与 021A 后端契约对齐，语义升级非放松"
+  ],
+  "known_stale": "scripts/g012b-chat-ux-smoke.cjs 仍按 v1.3.1 同步 200 断言（021A 后端合并后即已过时，非本包范围；建议后续批清理）",
+  "red_lines": "零后端改动（chat.ts/server.ts/dispatch.ts/api-contract.md 未触）；审批段（GP-32/D30 面）未改；零框架/零构建/零外链；DEF-07 模板内无新增反斜杠正则；未 push 任何远端；密钥未入库；D:\\意向项目 只读未触；127.0.0.1 不变；path-limited commit（G21B-*）；批次号 47-kimi（避让 46-ds）。",
+  "evidence_paths_and_hashes": [
+    { "path": "src/web/page.ts", "sha256": "83089C13D701A1B417652AD55DAD889FE747B972293BA90BA73971B376A8E217" },
+    { "path": "tests/web-chat-ux-012b.test.ts", "sha256": "C7E5C1CA394BC402B8B92184AEEF0F7E20AC32D57C1F4DE9EE714857A28141B9" },
+    { "path": "tests/g021b-chat-streaming-ux.test.ts", "sha256": "CDCD0235701C41DD05968B0C42F9716D72D002A01B768B7DA19C6D8EA4F81713" },
+    { "path": "tests/g021b-test-output.txt", "sha256": "2537D0117131E7F3510A0F24F7FA3092C669CAF88981232A28097B0686EE6BDE" },
+    { "path": "tests/g021b-smoke-output.txt", "sha256": "4682E660DE1973813B8AA329302D452B869A66E0C3569754B268587B72BF2E74" },
+    { "path": "scripts/g021b-chat-streaming-smoke.cjs", "sha256": "630A828C535B712A397B0E7527783612B6DEF7B0D36EF3837EA8F50410A94F0C" }
+  ],
+  "acceptance": "D15：机检全绿（362/366，4 红为已记录环境噪音与基线一致），请求头犬审核 + owner 显式接受；DONE 与否决权归 owner"
+}

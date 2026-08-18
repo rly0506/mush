@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { renderBoardPage } from '../src/web/page.ts';
 
 // GOAL-012B（派发包 rm003-p12）聊天体验四缺陷修复 —— 前端结构断言（jsdom-free）。
-// D1 头犬/思维选择控件；D2 思考中占位+秒表+输入不锁；D3 reply 直渲气泡；D4 选字保护。
+// D1 头犬/思维选择控件；D2 思考中占位+秒表+输入不锁；D3 reply 渲染（GOAL-021B 起
+// 修订为 v1.9 异步语义：202 受理 + SSE chat 帧流式到达）；D4 选字保护。
 
 const html = renderBoardPage();
 
@@ -30,10 +31,11 @@ test('D2: input stays editable while pending (queue next message)', () => {
   assert.match(html, /发送中…/, 'pending 按钮文案反馈');
 });
 
-test('D3: reply renders into head bubble on 200 sync response (v1.3.1)', () => {
-  assert.match(html, /result\.status === 200 && data\.ok[\s\S]*data\.reply/, '200 响应体内消费 reply（聊天路径）');
-  assert.match(html, /appendChatRow\('head', typeof data\.reply/, 'reply 直渲头犬气泡');
-  assert.doesNotMatch(html, /postJson\('\/api\/chat'[\s\S]{0,800}?status === 202/, '聊天路径不再按 202 受理判定（dispatch 表单 202 语义保留）');
+test('D3 (GOAL-021B 修订): reply 经 v1.9 异步通道渲染（202 受理 + SSE chat 帧）', () => {
+  assert.match(html, /result\.status === 202 && data\.ok/, '202 异步受理判定（v1.9，取代 v1.3.1 同步 200）');
+  assert.match(html, /payload\.kind === 'chat'/, '回复经 SSE kind=chat 帧流式到达');
+  assert.match(html, /chatHandleFrame/, 'chat 帧处理器接线');
+  assert.doesNotMatch(html, /appendChatRow\('head', typeof data\.reply/, '同步 reply 直渲已移除（v1.9 异步语义）');
 });
 
 test('D4: text selection guard + detail selectable + collapse hot-zone narrowed', () => {
