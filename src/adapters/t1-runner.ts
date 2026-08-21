@@ -8,10 +8,32 @@
  */
 
 import { createHash } from 'node:crypto';
-import { spawn as nodeSpawn } from 'node:child_process';
+import { spawn as nodeSpawn, execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { AdapterContract } from './contract.ts';
+import { type TokenUsageTelemetry, calculateTokenCostAndSavings } from '../core/budget.ts';
+
+export function killProcessTree(pid?: number): void {
+  if (!pid) return;
+  if (process.platform === 'win32') {
+    try {
+      execSync(`taskkill /PID ${pid} /T /F`, { stdio: 'ignore' });
+    } catch {
+      try {
+        process.kill(pid, 'SIGKILL');
+      } catch {}
+    }
+  } else {
+    try {
+      process.kill(-pid, 'SIGKILL');
+    } catch {
+      try {
+        process.kill(pid, 'SIGKILL');
+      } catch {}
+    }
+  }
+}
 
 export interface ChildProcessLike {
   stdinWrite?(chunk: string): void;
@@ -51,7 +73,10 @@ export interface T1Receipt {
   stderr_sha256: string;
   /** DEF-02：spawn 失败（可执行不存在等）时的受控错误标记。 */
   spawn_error?: string;
+  /** GOAL-056：零开销本地提取的真实 Token 与费用回执（含 Prompt Cache 细分）。 */
+  telemetry?: TokenUsageTelemetry;
 }
+
 
 export interface T1RunResult {
   exitCode: number;
@@ -121,18 +146,97 @@ function defaultSpawn(executable: string, args: string[], opts: { cwd: string })
     shim !== null
       ? nodeSpawn(shim.node, [shim.entry, ...args], { cwd: opts.cwd, windowsHide: true })
       : nodeSpawn(executable, args, { cwd: opts.cwd, windowsHide: true });
+  // GOAL-065: 防御 EPIPE 崩溃——子进程提前退出时忽略写入管道错误
+  if (child.stdin !== null) {
+    child.stdin.on('error', () => {});
+  }
   return {
     stdinWrite: (chunk) => {
-      if (child.stdin !== null) child.stdin.write(chunk);
+      try {
+        if (child.stdin !== null && child.stdin.writable) child.stdin.write(chunk);
+      } catch {}
     },
     stdinEnd: () => {
-      if (child.stdin !== null) child.stdin.end();
+      try {
+        if (child.stdin !== null && child.stdin.writable) child.stdin.end();
+      } catch {}
     },
     onStdout: (listener) => child.stdout.on('data', listener),
     onStderr: (listener) => child.stderr.on('data', listener),
     onExit: (listener) => child.on('exit', listener),
     onError: (listener) => child.on('error', listener),
-    kill: () => child.kill(),
+    kill: () => killProcessTree(child.pid),
+  };
+}
+
+export function parseTokenTelemetry(stdout: string, stderr: string, modelId?: string): TokenUsageTelemetry | undefined {
+  const combined = stdout + '\n' + stderr;
+  let input = 0;
+  let output = 0;
+  let cacheCreation = 0;
+  let cacheRead = 0;
+  let found = false;
+
+  // 1. JSON-formatted usage (e.g. Claude stream-json, OpenAI/DeepSeek API output)
+  const jsonMatch = /"usage"\s*:\s*\{([^}]+)\}/i.exec(combined);
+  if (jsonMatch) {
+    try {
+      const block = JSON.parse(`{${jsonMatch[0]}}`);
+      const u = block.usage || {};
+      if (typeof u.input_tokens === 'number' || typeof u.prompt_tokens === 'number') {
+        input = u.input_tokens ?? u.prompt_tokens ?? 0;
+        output = u.output_tokens ?? u.completion_tokens ?? 0;
+        cacheCreation = u.cache_creation_input_tokens ?? u.prompt_cache_miss_tokens ?? 0;
+        cacheRead = u.cache_read_input_tokens ?? u.prompt_cache_hit_tokens ?? 0;
+        found = true;
+      }
+    } catch {}
+  }
+
+  // 2. Line-by-line CLI text patterns (e.g. "Tokens: 1,234 input, 567 output, 8,900 cached")
+  if (!found) {
+    const tokensLineMatch = /(?:tokens?|usage)[:：]\s*(\d+)\s*(?:input|prompt)?\s*[,，/]\s*(\d+)\s*(?:output|completion)?/i.exec(combined);
+    if (tokensLineMatch) {
+      input = parseInt(tokensLineMatch[1], 10) || 0;
+      output = parseInt(tokensLineMatch[2], 10) || 0;
+      const cacheMatch = /(?:(?:cache|cached)[:：\s]+(\d+)|(\d+)\s*(?:cached|cache))/i.exec(combined);
+      if (cacheMatch) cacheRead = parseInt(cacheMatch[1] || cacheMatch[2], 10) || 0;
+      found = true;
+    }
+
+  }
+
+  // 3. Comment pattern (e.g. <!-- token_usage: {"input":100,"output":50,"cache_read":500} -->)
+  if (!found) {
+    const commentMatch = /<!--\s*token_usage\s*:\s*(\{.+?\})\s*-->/i.exec(combined);
+    if (commentMatch) {
+      try {
+        const u = JSON.parse(commentMatch[1]);
+        input = u.input ?? u.input_tokens ?? 0;
+        output = u.output ?? u.output_tokens ?? 0;
+        cacheCreation = u.cache_creation ?? u.cache_creation_tokens ?? 0;
+        cacheRead = u.cache_read ?? u.cache_read_tokens ?? 0;
+        found = true;
+      } catch {}
+    }
+  }
+
+  if (!found) return undefined;
+
+  const cost = calculateTokenCostAndSavings({
+    input_tokens: input,
+    output_tokens: output,
+    cache_creation_tokens: cacheCreation,
+    cache_read_tokens: cacheRead,
+  }, modelId);
+
+  return {
+    input_tokens: input,
+    output_tokens: output,
+    cache_creation_tokens: cacheCreation,
+    cache_read_tokens: cacheRead,
+    total_cost_usd: cost.total_cost_usd,
+    cache_savings_usd: cost.cache_savings_usd,
   };
 }
 
@@ -142,6 +246,7 @@ function defaultSpawn(executable: string, args: string[], opts: { cwd: string })
  * 抛错即身份 fail-closed（回报仍落盘并标记）。
  */
 export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
+
   const contract = options.contract;
   if (contract.protocol !== 't1') {
     throw new Error(`T1 runner only accepts protocol 't1', got '${contract.protocol}'`);
@@ -244,6 +349,9 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
     }
   }
 
+  const telemetry = parseTokenTelemetry(stdout, stderr, contract.expected_model_id);
+
+
   const receipt: T1Receipt = {
     schema_version: 1,
     adapter_id: contract.adapter_id,
@@ -257,7 +365,9 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
     stderr_sha256: sha256Hex(stderr),
     // DEF-02：spawn 失败受控标记（ENOENT/EPERM 等），exit_code=127。
     ...(spawnError !== null ? { spawn_error: spawnError.message } : {}),
+    ...(telemetry ? { telemetry } : {}),
   };
+
   mkdirSync(path.dirname(path.resolve(options.receiptPath)), { recursive: true });
   writeFileSync(options.receiptPath, JSON.stringify(receipt) + '\n', 'utf8');
 

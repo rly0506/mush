@@ -18,8 +18,9 @@ import { buildKimiContract } from '../adapters/kimi.ts';
 import { buildOpencodeContract } from '../adapters/opencode.ts';
 import { buildZcodeContract } from '../adapters/zcode.ts';
 import { buildPiContract } from '../adapters/pi.ts';
+import { buildAgyContract } from '../adapters/agy.ts';
 
-export type AdapterTemplateId = 'dsh' | 'claude' | 'codex' | 'kimi' | 'opencode' | 'zcode' | 'pi';
+export type AdapterTemplateId = 'dsh' | 'claude' | 'codex' | 'kimi' | 'opencode' | 'zcode' | 'pi' | 'agy';
 
 export const ADAPTER_TEMPLATES: readonly AdapterTemplateId[] = [
   'dsh',
@@ -28,12 +29,14 @@ export const ADAPTER_TEMPLATES: readonly AdapterTemplateId[] = [
   'kimi',
   'opencode',
   'zcode',
+  'pi',
+  'agy',
 ];
 
 export interface UserAdapterParams {
   /** dsh 模板：默认 profile 名（替换 --profile 值）。 */
   profile?: string;
-  /** 带模型轴的模板：期望模型 id（如 claude-sonnet-5 / gpt-5-codex / kimi-k3）。 */
+  /** 带模型轴的模板：期望模型 id（如 claude-sonnet-5 / gpt-5-codex / kimi-k3 / gemini-3.7-flash-high）。 */
   model_id?: string;
 }
 
@@ -58,6 +61,8 @@ const ALLOWED_PARAMS: Record<AdapterTemplateId, readonly string[]> = {
   kimi: ['model_id'],
   opencode: ['model_id'],
   zcode: ['model_id'],
+  pi: ['model_id'],
+  agy: ['model_id'],
 };
 
 export function loadAdapterStore(storePath: string): UserAdapterRecord[] {
@@ -92,6 +97,10 @@ export function buildTemplateContract(template: AdapterTemplateId): AdapterContr
       return buildOpencodeContract();
     case 'zcode':
       return buildZcodeContract();
+    case 'pi':
+      return buildPiContract();
+    case 'agy':
+      return buildAgyContract();
   }
 }
 
@@ -101,6 +110,7 @@ export const VERIFIED_TEMPLATES: ReadonlySet<AdapterTemplateId> = new Set<Adapte
   'claude',
   'kimi',
   'zcode',
+  'agy',
 ]);
 
 export function applyUserAdapterParams(
@@ -189,6 +199,10 @@ export function inferTemplateForAdapterId(adapterId: string, adapters: UserAdapt
     'kimi-code': 'kimi',
     opencode: 'opencode',
     zcode: 'zcode',
+    pi: 'pi',
+    agy: 'agy',
+    'agy-cli': 'agy',
+    antigravity: 'agy',
   };
   return known[adapterId] ?? null;
 }

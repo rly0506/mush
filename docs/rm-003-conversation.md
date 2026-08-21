@@ -1,6 +1,6 @@
 # RM-003：对话化与体验（Conversation & Polish）
 
-状态：`ACTIVE`（2026-08-17 立项，D24；owner 选型 A+B 组合）
+状态：`DONE`（2026-08-19 owner 明确授权收官转正；基线 439 tests 全绿；D44）
 授权依据：DECISIONS.md D24 + D14 北极星。
 
 ## 目标

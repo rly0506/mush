@@ -19,7 +19,7 @@ import { spawn as nodeSpawn, type ChildProcess } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { resolveWindowsShim } from './t1-runner.ts';
+import { resolveWindowsShim, killProcessTree } from './t1-runner.ts';
 import { extractPiIdentity } from './pi.ts';
 import type { AdapterContract } from './contract.ts';
 
@@ -28,8 +28,7 @@ export interface PiRpcSpawnFn {
     stdin: { write: (chunk: string) => void; end: () => void };
     stdout: { on: (event: 'data', listener: (chunk: Buffer) => void) => void };
     stderr: { on: (event: 'data', listener: (chunk: Buffer) => void) => void };
-    on: (event: 'exit', listener: (code: number | null) => void) => void;
-    on: (event: 'error', listener: (error: Error) => void) => void;
+    on: (event: 'exit' | 'error', listener: (...args: any[]) => void) => void;
     kill: () => void;
   };
 }
@@ -64,7 +63,27 @@ function defaultSpawn(executable: string, args: string[], opts: { cwd: string })
   const child: ChildProcess = shim
     ? nodeSpawn(shim.node, [shim.entry, ...args], { cwd: opts.cwd, windowsHide: true })
     : nodeSpawn(executable, args, { cwd: opts.cwd, windowsHide: true });
-  return child as unknown as ReturnType<PiRpcSpawnFn>;
+  if (child.stdin !== null) {
+    child.stdin.on('error', () => {});
+  }
+  return {
+    stdin: {
+      write: (chunk: string) => {
+        try {
+          if (child.stdin !== null && child.stdin.writable) child.stdin.write(chunk);
+        } catch {}
+      },
+      end: () => {
+        try {
+          if (child.stdin !== null && child.stdin.writable) child.stdin.end();
+        } catch {}
+      },
+    },
+    stdout: { on: (event: 'data', listener: (chunk: Buffer) => void) => child.stdout?.on(event, listener) },
+    stderr: { on: (event: 'data', listener: (chunk: Buffer) => void) => child.stderr?.on(event, listener) },
+    on: (event: string, listener: any) => child.on(event, listener),
+    kill: () => killProcessTree(child.pid),
+  } as unknown as ReturnType<PiRpcSpawnFn>;
 }
 
 function lineOf(id: string, type: string, extra: Record<string, unknown> = {}): string {
@@ -154,9 +173,13 @@ export async function runPiRpc(contract: AdapterContract, prompt: string, option
     // 也要按时 settle-timeout fail-closed）。
     const checkPhases = () => {
       const now = Date.now();
-      if (!stateConfirmed && now > handshakeDeadline) finish('state-handshake-timeout', 1, true, true);
-      else if (stateConfirmed && !promptConfirmed && now > handshakeDeadline) finish('prompt-handshake-timeout', 1, true, true);
-      else if (promptConfirmed && !settled && now > settleDeadline) {
+      if (!stateConfirmed && now > handshakeDeadline) {
+        finish('state-handshake-timeout', 1, true, true);
+        child.kill();
+      } else if (stateConfirmed && !promptConfirmed && now > handshakeDeadline) {
+        finish('prompt-handshake-timeout', 1, true, true);
+        child.kill();
+      } else if (promptConfirmed && !settled && now > settleDeadline) {
         finish('agent-settle-timeout', 1, true, true);
         child.kill();
       } else if (settled && now > commitDeadline) {
@@ -180,10 +203,13 @@ export async function runPiRpc(contract: AdapterContract, prompt: string, option
 
     child.on('exit', (code: number | null) => {
       exited = true;
-      if (settled || code === 0) {
-        finish(result.failClosedReason, code ?? 0, false, false);
+      // GOAL-065: Fail-Closed 纠偏——只有当会话已完全 settled 且退出码为 0 时才判定为成功，
+      // 若未 settled（即使 exitCode=0）必须严格按 agent-exited-before-settled 判定失败。
+      if (settled && (code === 0 || code === null)) {
+        finish(result.failClosedReason, 0, false, false);
       } else if (!finished) {
-        finish(childError.message !== null ? 'spawn-error' : 'agent-exited-before-settled', code ?? 1, false, false);
+        const reason = !settled ? 'agent-exited-before-settled' : (childError.message !== null ? 'spawn-error' : `process-exit-${code}`);
+        finish(reason, (code === 0 || code === null) && !settled ? 1 : (code ?? 1), false, false);
       }
     });
 

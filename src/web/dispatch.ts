@@ -9,7 +9,7 @@
  */
 
 import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { UsdBudgetLedger, type UsdAdmissionEntry } from '../core/budget.ts';
@@ -21,9 +21,27 @@ import { buildPiContract } from '../adapters/pi.ts';
 import { buildCodexContract } from '../adapters/codex.ts';
 import { buildOpencodeContract } from '../adapters/opencode.ts';
 import { buildKimiContract } from '../adapters/kimi.ts';
+import { buildAgyContract } from '../adapters/agy.ts';
 import { buildHeadDogContract, extractSessionId } from '../adapters/head-dog.ts';
 import { runT1, type SpawnFn } from '../adapters/t1-runner.ts';
 import { runPiRpc } from '../adapters/pi-rpc-runner.ts';
+import {
+  loadLiveProbeCache,
+  saveLiveProbeCache,
+  probeAdapterLive,
+  recordModelReceipt,
+  classifyModelTier,
+  discoverHarnessGroupedModels,
+  getHarnessHierarchy,
+  type HarnessProviderInfo,
+  type LiveProbeRecord,
+  type LiveProbeStatus,
+  type ModelTier,
+} from '../adapters/live-probe.ts';
+
+
+import { runVerifier, type VerifierReport, type VerifierFacet, VerifierDecouplingError } from '../orchestration/verifier.ts';
+import { type TopologyMode, executePipelineSOP, executeCommitteeDebate } from '../orchestration/topology.ts';
 import type { BoardPersistence } from './persistence.ts';
 import {
   loadAdapterStore,
@@ -59,8 +77,13 @@ import {
   createTask,
   transitionTask,
   linkDispatchToTask,
+  advanceTaskToStatus,
+  reconcileTasksWithReceipts,
+  syncGoalsDirectoryToTasks,
   type Task,
+  type TaskStatus,
 } from './tasks.ts';
+
 import {
   loadCarveouts,
   appendCarveout,
@@ -112,6 +135,9 @@ export interface DispatchRequestSnapshot {
   goal_id?: string;
   resume_session?: string;
   task_id?: string;
+  /** GOAL-028：多组织拓扑与独立验证犬 */
+  topology_mode?: TopologyMode;
+  verifier_dog?: string;
   /** GOAL-014（M0）：carve-out 声明式写面——派发目标工作根与切片引用。 */
   cwd?: string;
   carveout_id?: string;
@@ -137,6 +163,9 @@ export interface DispatchRecord {
   stream_id?: string;
   /** GOAL-019 U3：任务池回链。 */
   task_id?: string;
+  /** GOAL-028：多组织拓扑与独立验证犬 */
+  topology_mode?: TopologyMode;
+  verifier_report?: VerifierReport;
   /** GOAL-014（M0）：关联的 ACTIVE carve-out 切片（写面声明式留痕）。 */
   carveout_id?: string;
   /** GP-10（契约 v1.4）：rerun 用的历史请求快照；旧记录缺省无此字段。 */
@@ -265,6 +294,8 @@ export interface DispatchPipelineOptions {
   carveoutsPath?: string;
   /** GOAL-014（M0）：owner 一次性 token 文件；缺省 <workspaceRoot>/.mush/carveout-token。 */
   carveoutTokenPath?: string;
+  /** GOAL-025（GP-35）：模型实测缓存文件路径；缺省 <workspaceRoot>/runtime/live-probes.json。 */
+  liveProbesPath?: string;
 }
 
 export interface WorkspaceInfo {
@@ -294,6 +325,7 @@ function baseContracts(): Record<string, AdapterContract> {
     opencode: buildOpencodeContract(),
     'kimi-code': buildKimiContract(),
     pi: buildPiContract(),
+    agy: buildAgyContract(),
     'head-dog': buildHeadDogContract(),
   };
 }
@@ -309,6 +341,7 @@ const VERIFIED_WHITELIST = new Set<string>([
   'kimi-code',
   'zcode',
   'head-dog',
+  'agy',
 ]);
 
 /** G010：静态合同 + cc-switch 注册表合成；GOAL-017A U1 再叠加用户注册表。
@@ -418,6 +451,10 @@ export class DispatchPipeline {
   /** GOAL-014（M0）：carve-out 记录路径与 owner token 文件路径。 */
   private readonly carveoutsPath: string;
   private readonly carveoutTokenPath: string;
+  /** GOAL-025（GP-35）：模型实测缓存与权威返回模型表 */
+  private readonly liveProbesPath: string;
+  private liveProbes: Record<string, LiveProbeRecord>;
+  private authoritativeModels = new Map<string, string>();
 
   constructor(options: DispatchPipelineOptions) {
     this.workspaceRoot = path.resolve(options.workspaceRoot);
@@ -479,6 +516,10 @@ export class DispatchPipeline {
     if (readCarveoutToken(this.carveoutTokenPath) === null) {
       rotateCarveoutToken(this.carveoutTokenPath, this.now);
     }
+    this.liveProbesPath = path.resolve(
+      options.liveProbesPath ?? path.join(this.workspaceRoot, 'runtime', 'live-probes.json'),
+    );
+    this.liveProbes = loadLiveProbeCache(this.liveProbesPath);
     this.baseAdapterIds = new Set(Object.keys(baseContracts()));
     // GP-03：重启回放——已落盘的派发记录重新入内存（recent() 跨重启可用）。
     // DEF-05 修复：header.status 只反映落盘瞬间，事件链才是权威——回放时
@@ -521,6 +562,8 @@ export class DispatchPipeline {
         if (!existsSync(requestFile)) this.createDispatchApprovalRequest(record, record.request.cap_usd);
       }
     }
+    // GOAL-064: 启动时全量重放并恢复 budget-ledger 历史台账与已花预算
+    this.rehydrateLedger();
     this.runAdapter =
       options.runAdapter ??
       (async (contract, prompt, opts) => {
@@ -638,6 +681,38 @@ export class DispatchPipeline {
     );
   }
 
+  /** GOAL-064: 启动时全量重放并恢复 budget-ledger 历史台账与已花预算 */
+  private rehydrateLedger(): void {
+    let lines: Array<Record<string, unknown>> = [];
+    if (this.persistence !== null) {
+      lines = this.persistence.loadLedgerLines();
+    } else if (existsSync(this.ledgerPath)) {
+      try {
+        lines = readFileSync(this.ledgerPath, 'utf8')
+          .split('\n')
+          .filter((l) => l.trim() !== '')
+          .map((l) => JSON.parse(l) as Record<string, unknown>);
+      } catch {}
+    }
+    if (lines.length > 0) {
+      const entries: UsdAdmissionEntry[] = lines.map((line) => {
+        return Object.freeze({
+          atUtc: String(line.at_utc ?? line.atUtc ?? ''),
+          actorId: String(line.actor_id ?? line.actorId ?? ''),
+          decision: (line.decision === 'DENIED' ? 'DENIED' : 'ADMITTED') as 'ADMITTED' | 'DENIED',
+          amountUsd: Number(line.amount_usd ?? line.amountUsd ?? 0),
+          capUsd: Number(line.cap_usd ?? line.capUsd ?? 0),
+          spentBeforeUsd: Number(line.spent_before_usd ?? line.spentBeforeUsd ?? 0),
+          remainingUsd: Number(line.remaining_usd ?? line.remainingUsd ?? 0),
+          meta: (line.meta && typeof line.meta === 'object' ? line.meta : {}) as Record<string, unknown>,
+          sha256: String(line.sha256 ?? ''),
+          previous_sha256: (line.previous_sha256 ?? line.previousSha256 ?? null) as string | null,
+        });
+      });
+      this.ledger.loadEntries(entries);
+    }
+  }
+
   /** GP-21：探测一次并缓存 ~/.dsh/profiles 下的目录名；缓存后不再反复读盘。 */
   private profileDirs(): Set<string> {
     if (this.profileDirsCache !== null) return this.profileDirsCache;
@@ -746,16 +821,23 @@ export class DispatchPipeline {
     }
     const prompt = typeof body.prompt === 'string' ? body.prompt : '';
     if (prompt.trim() === '' || prompt.length > 64000) throw new InputError('prompt must be 1..64000 chars');
-    // GP-22：effort 必须属于该合同声明的 effort_levels（缺省合同回退旧三档）。
+    // GP-22 / GOAL-059：effort 校验，兼容合同声明的 effort_levels 或动态 ThinkingSpec（数值预算/开关）
     const effortLevels = (effectiveContract.effort_levels ?? DEFAULT_EFFORT_LEVELS).map((level) => level.toUpperCase());
     const defaultEffort = effortLevels.includes('LOW') ? 'LOW' : effortLevels[0];
     const rawEffort = body.effort === undefined ? defaultEffort : String(body.effort);
     const effort = rawEffort.toUpperCase();
-    if (!effortLevels.includes(effort)) {
+    const isNumericEffort = /^\d+$/.test(rawEffort.trim());
+    const isToggleEffort = ['ON', 'OFF', 'TRUE', 'FALSE'].includes(effort);
+    if (!effortLevels.includes(effort) && !isNumericEffort && !isToggleEffort) {
       throw new InputError(`effort must be one of ${effortLevels.join('|')} for ${adapterId}`);
     }
-    const capUsd = body.cap_usd === undefined ? (this.budgetCaps[adapterId] ?? DEFAULT_BUDGET_CAP_USD) : Number(body.cap_usd);
-    if (!Number.isFinite(capUsd) || capUsd <= 0) throw new InputError('cap_usd must be > 0');
+    const serverCap = this.budgetCaps[adapterId] ?? DEFAULT_BUDGET_CAP_USD;
+    const requestedCap = body.cap_usd !== undefined ? Number(body.cap_usd) : serverCap;
+    if (!Number.isFinite(requestedCap) || requestedCap <= 0) throw new InputError('cap_usd must be > 0');
+    if (requestedCap > serverCap) {
+      throw new InputError(`cap_usd (${requestedCap}) cannot exceed server configured budget cap (${serverCap})`);
+    }
+    const capUsd = Math.min(requestedCap, serverCap);
     const amountUsd = body.amount_usd === undefined ? 0 : Number(body.amount_usd);
     if (!Number.isFinite(amountUsd) || amountUsd < 0) throw new InputError('amount_usd must be >= 0');
     // 超时可配（秒）：真实任务远超旧 120s 硬编码（dispatch 747c7040 教训：
@@ -801,6 +883,17 @@ export class DispatchPipeline {
       carveoutWhitelist = { paths: [...active.paths], expires_at: active.expires_at, task_ref: active.task_ref };
     }
 
+    const topologyMode: TopologyMode = (typeof body.topology_mode === 'string' && ['HIERARCHICAL', 'PIPELINE_SOP', 'COMMITTEE_DEBATE', 'BOUNTY_MARKET'].includes(body.topology_mode))
+      ? (body.topology_mode as TopologyMode)
+      : 'HIERARCHICAL';
+    const verifierDog: string | undefined = typeof body.verifier_dog === 'string' && body.verifier_dog.trim() !== ''
+      ? body.verifier_dog.trim()
+      : undefined;
+
+    if (verifierDog !== undefined && verifierDog === adapterId) {
+      throw new VerifierDecouplingError(`生成者与验证者不得为同一犬只 (${adapterId})，必须由独立异构犬只进行验证`);
+    }
+
     const dispatchId =
       internal?.dispatchId !== undefined && /^[0-9a-f]{32}$/.test(internal.dispatchId)
         ? internal.dispatchId
@@ -819,6 +912,8 @@ export class DispatchPipeline {
       ...(goalId !== undefined ? { goal_id: goalId } : {}),
       ...(typeof body.resume_session === 'string' && body.resume_session.trim() !== '' ? { resume_session: body.resume_session } : {}),
       ...(typeof body.task_id === 'string' && body.task_id.trim() !== '' ? { task_id: body.task_id.trim() } : {}),
+      ...(topologyMode !== 'HIERARCHICAL' ? { topology_mode: topologyMode } : {}),
+      ...(verifierDog !== undefined ? { verifier_dog: verifierDog } : {}),
       ...(carveoutId !== undefined && carveoutWhitelist !== undefined
         ? { cwd, carveout_id: carveoutId, carveout_whitelist: carveoutWhitelist }
         : {}),
@@ -836,6 +931,7 @@ export class DispatchPipeline {
       session_id: null,
       ...(resolvedStream !== null ? { stream_id: resolvedStream.stream_id } : {}),
       ...(typeof body.task_id === 'string' && body.task_id.trim() !== '' ? { task_id: body.task_id.trim() } : {}),
+      ...(topologyMode !== 'HIERARCHICAL' ? { topology_mode: topologyMode } : {}),
       ...(carveoutId !== undefined ? { carveout_id: carveoutId } : {}),
       request,
     };
@@ -868,15 +964,21 @@ export class DispatchPipeline {
 
     if (real && internal?.originOwner !== true) {
       // GP-32（D30 逐单审批）：只认本单（或审批重跑所继承的原单）令牌，
-      // 读即焚；无令牌则自动生成审批请求文件停卡。常设 .approved.json 自此
-      // 不再参与放行（D30 废除，standing-archived-D30 归档为证）。
-      // 例外：originOwner（仅 ChatService 内部调用可携带，公开 API 不接受）
-      // = owner 亲自发起的对话轮次，敲字即批准，不设卡。
+      // GOAL-065：原子 rename 读即焚消费，彻底杜绝高并发竞争双花 (TOCTOU)
       const tokenFor = internal?.approvedVia ?? dispatchId;
       const tokenPath = path.join(this.approvalTokensPath, `dispatch-${tokenFor}.token.json`);
-      if (!existsSync(tokenPath)) {
+      const consumedPath = path.join(this.approvalTokensPath, `dispatch-${tokenFor}.token.consumed.${randomUUID().replace(/-/g, '')}`);
+      let consumed = false;
+      try {
+        renameSync(tokenPath, consumedPath);
+        rmSync(consumedPath, { force: true });
+        consumed = true;
+      } catch {
+        consumed = false;
+      }
+      if (!consumed) {
         if (internal?.approvedVia !== undefined) {
-          throw new InputError(`approval token not found for dispatch ${tokenFor}`);
+          throw new InputError(`approval token not found or already consumed for dispatch ${tokenFor}`);
         }
         this.createDispatchApprovalRequest(record, capUsd);
         record.status = 'BLOCKED_WAITING_OWNER';
@@ -885,7 +987,6 @@ export class DispatchPipeline {
         this.emit(record, 'REVIEW', 'BLOCKED_WAITING_OWNER', { reason: record.error });
         return record;
       }
-      rmSync(tokenPath); // 单次消费：读即焚
     }
 
     const receiptDir = path.join(workspace, '.mush-receipts');
@@ -921,6 +1022,7 @@ export class DispatchPipeline {
     record.stdout_tail = tailOf(run.stdout, 2048);
     record.stderr_tail = tailOf(run.stderr, 256);
     record.session_id = extractSessionId(run.stdout);
+    const telemetry = run.receipt?.telemetry;
     const receipt = {
       schema_version: 1,
       dispatch_id: dispatchId,
@@ -935,15 +1037,83 @@ export class DispatchPipeline {
       stdout_sha256: sha256Hex(run.stdout),
       stderr_sha256: sha256Hex(run.stderr),
       finished_at_utc: this.now().toISOString(),
+      ...(telemetry ? { telemetry } : {}),
     };
     writeFileSync(receiptPath, JSON.stringify(receipt) + '\n', 'utf8');
+
+    // GOAL-064: 实际消耗真实回写 (Cost Feedback Loop)
+    if (telemetry && typeof telemetry.total_cost_usd === 'number' && telemetry.total_cost_usd > 0) {
+      const actualEntry = this.ledger.recordActualUsage({
+        actorId: adapterId,
+        capUsd,
+        actualCostUsd: telemetry.total_cost_usd,
+        meta: {
+          dispatch_id: dispatchId,
+          real,
+          telemetry,
+          cache_savings_usd: telemetry.cache_savings_usd ?? 0,
+          kind: 'ACTUAL_COST',
+        },
+      });
+      this.appendLedger(actualEntry);
+    }
+
     const pass = run.exitCode === 0 && !run.timedOut;
     record.status = pass ? (real ? 'PASS' : 'DRY_RUN') : run.timedOut ? 'TIMEOUT' : 'FAIL';
     record.error = pass ? null : run.stderr || `runner exit ${run.exitCode}`;
+
+    // GOAL-028: LLM-as-a-Verifier 独立审判验证
+    if (verifierDog !== undefined) {
+      try {
+        const vReport = await runVerifier({
+          generatorId: adapterId,
+          verifierId: verifierDog,
+          facet: 'SECURITY',
+          prompt,
+          artifactContent: run.stdout,
+          now: this.now,
+        });
+        record.verifier_report = vReport;
+        if (vReport.decision === 'FAIL') {
+          record.status = 'FAIL';
+          record.error = `Verifier rejected (${vReport.issues.join('; ')})`;
+        }
+      } catch (err) {
+        record.status = 'FAIL';
+        record.error = err instanceof Error ? err.message : String(err);
+      }
+    }
+
+    // GOAL-026: 顺风车记录模型真实可用性（PASS 升 T1_VERIFIED 权威实测）
+    const effectiveModel = record.model_id || contract.expected_model_id;
+    if (effectiveModel && effectiveModel !== 'UNKNOWN') {
+      recordModelReceipt(
+        this.liveProbesPath,
+        adapterId,
+        effectiveModel,
+        pass,
+        pass ? undefined : record.error || undefined,
+        this.now,
+      );
+      if (pass) {
+        this.authoritativeModels.set(adapterId, effectiveModel);
+        if (this.liveProbes[adapterId]) {
+          this.liveProbes[adapterId].actual_model_id = effectiveModel;
+          this.liveProbes[adapterId].model_tiers = this.liveProbes[adapterId].model_tiers || {};
+          this.liveProbes[adapterId].model_tiers[effectiveModel] = 'T1_VERIFIED';
+        }
+      }
+    }
+
     this.emit(record, 'REPORT', record.status, { receipt_path: receiptPath, exit_code: run.exitCode });
     this.emit(record, 'REVIEW', record.status, { verdict: pass ? 'PASS' : 'FAIL' });
     if (resolvedStream !== null) {
       this.recordStreamDispatch(resolvedStream, dispatchId, adapterId, record.session_id, prompt, run);
+    }
+    // GOAL-024: 自动将关联任务推进到完成池 (DONE) 或受阻池 (BLOCKED)
+    if (typeof record.task_id === 'string' && record.task_id !== '') {
+      const target = pass ? 'DONE' : 'BLOCKED';
+      this.autoAdvanceTask(record.task_id, target);
     }
     return record;
   }
@@ -1059,6 +1229,18 @@ export class DispatchPipeline {
   activeCarveout(): Carveout | null {
     this.reapExpiredCarveout();
     return this.resolveActive();
+  }
+
+  /** GOAL-034 (GP-24): 查询所有 carve-out 切片与当前 ACTIVE 状态。 */
+  listCarveouts(): { carveouts: Carveout[]; active: Carveout | null; current_token: string | null } {
+    this.reapExpiredCarveout();
+    const all = loadCarveouts(this.carveoutsPath);
+    const active = this.resolveActive();
+    return {
+      carveouts: all,
+      active,
+      current_token: this.currentCarveoutToken(),
+    };
   }
 
   /** owner 授权通道：校验一次性 token → 创建 ACTIVE 切片（同时刻最多 1 份）→ 旋转 token。 */
@@ -1210,8 +1392,11 @@ export class DispatchPipeline {
     const user = this.userAdapters.find((entry) => entry.adapter_id === adapterId && entry.removed !== true);
     if (user !== undefined) return VERIFIED_TEMPLATES.has(user.template);
     if (this.registryVerified.has(adapterId)) return true;
+    const probe = this.liveProbes[adapterId];
+    if (probe && probe.status === 'ONLINE' && probe.live_models && probe.live_models.length > 0) return true;
     return VERIFIED_WHITELIST.has(adapterId);
   }
+
 
   private rebuildContracts(): void {
     const registry = loadRegistry(this.registryPath);
@@ -1221,7 +1406,44 @@ export class DispatchPipeline {
     this.contracts = buildContracts(registry, this.userAdapters);
   }
 
-  /** G009：在册犬只名册（派发下拉/看板视图的取数源）——合同表投影，
+  /** GOAL-025（GP-35）：执行在线模型实测探测并持久化缓存。 */
+  async probeLiveModels(targetAdapterId?: string): Promise<Record<string, LiveProbeRecord>> {
+    const contractsToProbe = targetAdapterId
+      ? (this.contracts[targetAdapterId] ? [this.contracts[targetAdapterId]] : [])
+      : Object.values(this.contracts);
+
+    for (const contract of contractsToProbe) {
+      if (contract.adapter_id === 'fake-t1') continue;
+      try {
+        const record = await probeAdapterLive(
+          contract,
+          async (cmd, args) => {
+            const res = await this.runAdapter(contract, args.join(' '));
+            return { exitCode: res.exitCode, stdout: res.stdout, stderr: res.stderr };
+          },
+          this.now,
+          this.liveProbes[contract.adapter_id]?.verified_models,
+        );
+        this.liveProbes[contract.adapter_id] = record;
+      } catch (error) {
+        this.liveProbes[contract.adapter_id] = {
+          adapter_id: contract.adapter_id,
+          status: 'UNAVAILABLE',
+          live_models: [],
+          error_message: error instanceof Error ? error.message : String(error),
+          checked_at_utc: this.now().toISOString(),
+        };
+      }
+    }
+    saveLiveProbeCache(this.liveProbesPath, this.liveProbes);
+    return this.liveProbes;
+  }
+
+  getLiveProbes(): Record<string, LiveProbeRecord> {
+    return { ...this.liveProbes };
+  }
+
+  /** G009 & GOAL-025：在册犬只名册（派发下拉/看板视图的取数源）——合同表投影 + 实测状态回填。
    * 只含身份字段，不含 executable 路径等敏感细节。
    * 测试假犬（fake-t1）不进名册——owner 2026-08-17 反馈：生产下拉不应出现
    * 测试夹具；合同表保留（测试/开发冒烟仍可显式 dispatch）。 */
@@ -1236,22 +1458,62 @@ export class DispatchPipeline {
     effort_levels?: string[];
     effort_injection?: EffortInjection;
     verified: boolean;
+    grouped_models?: Record<string, string[]>;
+    live_models?: string[];
+    probe_status?: LiveProbeStatus;
+    actual_model_id?: string;
+    model_tiers?: Record<string, ModelTier>;
+    supports_model_flag?: boolean;
+    default_model_id?: string;
+    providers?: HarnessProviderInfo[];
   }> {
     return Object.values(this.contracts)
       .filter((contract) => contract.adapter_id !== 'fake-t1' || process.env.MUSH_INCLUDE_FAKE_ROSTER === '1')
-      .map((contract) => ({
-        adapter_id: contract.adapter_id,
-        protocol: contract.protocol,
-        expected_provider: contract.expected_provider,
-        expected_model_id: contract.expected_model_id,
-        role: contract.role ?? 'executor',
-        verified: this.isAdapterVerified(contract.adapter_id),
-        ...(contract.variants !== undefined ? { variants: [...contract.variants] } : {}),
-        ...(contract.model_flag !== undefined ? { model_flag: contract.model_flag } : {}),
-        ...(contract.effort_levels !== undefined ? { effort_levels: [...contract.effort_levels] } : {}),
-        ...(contract.effort_injection !== undefined ? { effort_injection: { ...contract.effort_injection } } : {}),
-      }));
+      .map((contract) => {
+        const probe = this.liveProbes[contract.adapter_id];
+        const actualModel = this.authoritativeModels.get(contract.adapter_id) || probe?.actual_model_id;
+        const supportsModelFlag =
+          Boolean(contract.model_flag) ||
+          contract.protocol === 'pi-rpc' ||
+          contract.adapter_id.startsWith('agy') ||
+          contract.adapter_id.includes('claude') ||
+          contract.adapter_id.includes('codex');
+        const computedTiers: Record<string, ModelTier> = { ...(probe?.model_tiers || {}) };
+        const discovered = discoverHarnessGroupedModels(contract);
+        const hierarchy = getHarnessHierarchy(contract);
+        const groupedModels = probe?.grouped_models || discovered.grouped;
+        const modelsList = probe?.live_models && probe.live_models.length > 0
+          ? probe.live_models
+          : discovered.models;
+        for (const m of modelsList) {
+          if (!computedTiers[m] && m && m !== 'UNKNOWN') {
+            computedTiers[m] = classifyModelTier(contract, m, probe?.verified_models, this.now);
+          }
+        }
+        return {
+          adapter_id: contract.adapter_id,
+          protocol: contract.protocol,
+          expected_provider: contract.expected_provider,
+          expected_model_id: contract.expected_model_id,
+          role: contract.role ?? 'executor',
+          verified: this.isAdapterVerified(contract.adapter_id),
+          supports_model_flag: supportsModelFlag,
+          default_model_id: discovered.defaultModel || contract.expected_model_id,
+          model_tiers: computedTiers,
+          grouped_models: groupedModels,
+          providers: hierarchy.providers,
+          ...(contract.variants !== undefined ? { variants: [...contract.variants] } : {}),
+          ...(contract.model_flag !== undefined ? { model_flag: contract.model_flag } : {}),
+          ...(contract.effort_levels !== undefined ? { effort_levels: [...contract.effort_levels] } : {}),
+          ...(contract.effort_injection !== undefined ? { effort_injection: { ...contract.effort_injection } } : {}),
+          ...(modelsList && modelsList.length > 0 ? { live_models: modelsList } : {}),
+          ...(probe?.status ? { probe_status: probe.status } : {}),
+          ...(actualModel ? { actual_model_id: actualModel } : {}),
+        };
+      });
   }
+
+
 
   /** G011 / DEF-10：默认工作区优先取 .mush/workspace.json 持久化选择。 */
   defaultWorkspace(): string {
@@ -1273,28 +1535,50 @@ export class DispatchPipeline {
     return [...this.records.values()].slice(-limit).reverse();
   }
 
-  /** GOAL-017A U3/U4：预算投影——cap 读持久化；spent 仅 real 且 amount>0；
-   * admission_count 含 dry-run（不含 CAP_CHANGE 留痕行）。 */
-  budgetProjection(): { actors: Array<{ actor_id: string; spent_usd: number; cap_usd: number; admission_count: number; entries: UsdAdmissionEntry[] }> } {
+  /** GOAL-017A & GOAL-056：预算投影——cap 读持久化；spent 仅 real 且 amount>0；
+   * admission_count 含 dry-run；返回 Prompt Cache 节省汇总。 */
+  budgetProjection(): {
+    total_spent_usd: number;
+    total_cache_savings_usd: number;
+    actors: Array<{
+      actor_id: string;
+      spent_usd: number;
+      cap_usd: number;
+      admission_count: number;
+      cache_savings_usd: number;
+      entries: UsdAdmissionEntry[];
+    }>;
+  } {
     const actorIds = new Set<string>([...this.contracts ? Object.keys(this.contracts) : [], ...this.ledger.allEntries().map((entry) => entry.actorId), ...Object.keys(this.budgetCaps)]);
+    let total_spent_usd = 0;
+    let total_cache_savings_usd = 0;
+    const actors = [...actorIds].map((actorId) => {
+      const allEntries = this.ledger.entries(actorId).filter((entry) => (entry.meta as Record<string, unknown>).kind !== 'CAP_CHANGE');
+      const admission_count = allEntries.length;
+      const spent_usd = allEntries
+        .filter((entry) => entry.decision === 'ADMITTED' && entry.amountUsd > 0 && (entry.meta.real === true || entry.meta.kind === 'ACTUAL_COST'))
+        .reduce((sum, entry) => Math.round((sum + entry.amountUsd) * 1_000_000) / 1_000_000, 0);
+      const cache_savings_usd = allEntries
+        .reduce((sum, entry) => sum + (Number((entry.meta as Record<string, unknown>)?.cache_savings_usd) || 0), 0);
+      total_spent_usd += spent_usd;
+      total_cache_savings_usd += cache_savings_usd;
+      const cap_usd = this.budgetCaps[actorId] ?? DEFAULT_BUDGET_CAP_USD;
+      return {
+        actor_id: actorId,
+        spent_usd,
+        cap_usd,
+        admission_count,
+        cache_savings_usd,
+        entries: allEntries as UsdAdmissionEntry[],
+      };
+    });
     return {
-      actors: [...actorIds].map((actorId) => {
-        const allEntries = this.ledger.entries(actorId).filter((entry) => (entry.meta as Record<string, unknown>).kind !== 'CAP_CHANGE');
-        const admission_count = allEntries.length;
-        const spent_usd = allEntries
-          .filter((entry) => entry.decision === 'ADMITTED' && entry.amountUsd > 0 && entry.meta.real === true)
-          .reduce((sum, entry) => sum + entry.amountUsd, 0);
-        const cap_usd = this.budgetCaps[actorId] ?? DEFAULT_BUDGET_CAP_USD;
-        return {
-          actor_id: actorId,
-          spent_usd,
-          cap_usd,
-          admission_count,
-          entries: allEntries as UsdAdmissionEntry[],
-        };
-      }),
+      total_spent_usd: Math.round(total_spent_usd * 1000) / 1000,
+      total_cache_savings_usd: Math.round(total_cache_savings_usd * 1000) / 1000,
+      actors,
     };
   }
+
 
   /** GOAL-017A U3：读取 per-actor caps（缺省 5 不落盘）。 */
   getBudgetCaps(): Record<string, number> {
@@ -1443,10 +1727,13 @@ export class DispatchPipeline {
   }
 
 
-  /** GOAL-019 U2：任务列表（读侧折叠最新快照）。 */
+  /** GOAL-019 U2 & GOAL-024 & D67：任务列表（自动扫描 goals/ 新文档并与验收回执对账，折叠最新快照）。 */
   listTasks(): Task[] {
-    return loadTasks(this.tasksPath);
+    const receiptsDir = path.join(this.workspaceRoot, 'goals', 'receipts');
+    const goalsDir = path.join(this.workspaceRoot, 'goals');
+    return syncGoalsDirectoryToTasks(this.tasksPath, goalsDir, receiptsDir, this.now);
   }
+
 
   /** GOAL-019 U2：创建任务（append-only 写新行）。 */
   createTask(input: unknown): Task {
@@ -1470,13 +1757,32 @@ export class DispatchPipeline {
     return next;
   }
 
-  /** GOAL-019 U3：派发回链——ADMITTED 后把 dispatch_id 追加进任务记录。 */
+  /** GOAL-019 U3 & GOAL-024：派发回链——ADMITTED 后把 dispatch_id 追加进任务记录并跃迁至 IN_FLIGHT。 */
   private linkTaskDispatch(taskId: string, dispatchId: string): void {
     const tasks = loadTasks(this.tasksPath);
     const task = tasks.find((entry) => entry.task_id === taskId);
     if (task === undefined) throw new InputError(`task not found: ${taskId}`);
-    const next = linkDispatchToTask(task, dispatchId, this.now);
+    let next = linkDispatchToTask(task, dispatchId, this.now);
+    next = advanceTaskToStatus(next, 'IN_FLIGHT', this.now);
     appendTask(this.tasksPath, next);
+  }
+
+  /** GOAL-024：自动将关联任务推进至目标状态（如 DONE 或 BLOCKED），安全幂等。 */
+  autoAdvanceTask(taskId: string, targetStatus: TaskStatus): Task | null {
+    try {
+      const tasks = loadTasks(this.tasksPath);
+      const task = tasks.find((entry) => entry.task_id === taskId);
+      if (!task) return null;
+      if (task.status === targetStatus || task.status === 'DONE' || task.status === 'CANCELLED') {
+        return task;
+      }
+      const next = advanceTaskToStatus(task, targetStatus, this.now);
+      appendTask(this.tasksPath, next);
+      return next;
+    } catch (err) {
+      console.warn(`[tasks] auto-advance failed for task ${taskId}:`, err);
+      return null;
+    }
   }
 
 
@@ -1510,6 +1816,9 @@ export class DispatchPipeline {
 
   selectWorkspace(target: string): string {
     const resolved = path.resolve(target);
+    if (resolved.toLowerCase().includes('意向项目') || resolved.toLowerCase().includes('.agent-bridge')) {
+      throw new InputError(`Cannot select frozen golden reference zone as workspace: ${resolved}`);
+    }
     if (!existsSync(resolved)) throw new InputError(`workspace does not exist: ${resolved}`);
     if (!statSync(resolved).isDirectory()) throw new InputError(`not a directory: ${resolved}`);
     this.selectedWorkspace = resolved;
@@ -1544,6 +1853,9 @@ export class DispatchPipeline {
     if (typeof target !== 'string' || target.trim() === '') throw new InputError("field 'path' is required");
     if (!path.isAbsolute(target)) throw new InputError(`workspace path must be absolute: ${target}`);
     const resolved = path.resolve(target);
+    if (resolved.toLowerCase().includes('意向项目') || resolved.toLowerCase().includes('.agent-bridge')) {
+      throw new InputError(`Cannot create workspace in frozen golden reference zone: ${resolved}`);
+    }
     if (existsSync(resolved)) throw new InputError(`workspace already exists: ${resolved}`);
     mkdirSync(resolved, { recursive: true });
     this.rememberWorkspace(resolved);

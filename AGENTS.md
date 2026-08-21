@@ -17,7 +17,22 @@ mush 是个人跨 harness 多 agent 编排工具（雪橇队）。你在本仓�
 - 花钱超 per-actor cap 前必须停下弹审批（CONSTITUTION.md §1）;
 - 永久删除、权限/范围扩张、身份变更同样先停。
 
+## 治理与执行体系（三重架构 + 双轨引擎 D67/D68）
+
+1. **三重事实架构（Single Source of Truth）**：
+   - **规划层（Spec）**：`spec/`（系统蓝图、宪法边界、研发验收总则）；
+   - **路线图（Roadmap）**：`docs/roadmaps/`（RM-001 ~ RM-007 阶段演进）；
+   - **执行目标（Goal/RFC）**：`goals/GOAL-*.md`（单一合法任务实体，标准模板见 `goals/TEMPLATE.md`）。全库废除旧 `GP-xx` 杂糅命名。
+2. **双轨自适应编排引擎（Dual-Track Orchestration）**：
+   - **Goal 轨（持久化宏观目标）**：跨文件修改、多工序协同或新功能迭代，头犬必须先在对话中与 owner 确认大纲，自动生成 `goals/GOAL-xxx.md` 落盘后入池派发；
+   - **Tasklet 轨（瞬态即时微任务）**：局部微调、探索问答、即时探针，头犬直接生成提示词向工犬派发，无需写独立文档；
+   - **工犬直调感知**：owner 直接手操工犬修改代码时，头犬保持只读感知并在下次对话时主动对账与审查。
+3. **工作区 Goal 文档全自动入池（D67）**：
+   - 无论是人类还是 AI 在 `goals/` 创建 `GOAL-*.md`，任务池与思维导图 8 秒内自动解析标题、元数据与「目标与价值」简报并入池；
+   - 任务卡一键直通派发（`data-task-dispatch`）自动携带目标规格。
+
 ## 工作约定
+
 
 - **Windows 转义铁律（DEF-07/08 教训，人犬一律遵守）**：复杂逻辑（多行 JS、
   含反斜杠/引号/CJK 的参数、PowerShell）**必须先写脚本文件再执行**
@@ -49,10 +64,24 @@ mush 是个人跨 harness 多 agent 编排工具（雪橇队）。你在本仓�
 
 ## 当前状态
 
-**RM-001/002/003 均已达成收官条件（RM-003 待 owner 一句话转正）。** RM-004「实战与流式」ACTIVE（D25）：M4 调度自由 ✅（AD-32）；
-M5 会话连续性 v2 ✅（AD-37）；M3 任务池 ✅（后端 AD-40 + 前端融合 GOAL-020 AD-41，雪原营地主题上线）。
-基线 **349 tests** 全绿；pi 通用 harness 已接入（GP-29/AD-44，pi-rpc 通道绕开 DEF-13）；看板 127.0.0.1:4790（雪原白昼主题，单屏指挥台+右侧犬队栏+审批内联收编）；
-六犬在册（deepseek/claude/kimi/zcode/codex/opencode + head-dog 角色；codex 因 F-50 禁任头犬）。
-余项：M0 carve-out（GP-24）、M1 旗舰（待 owner 授权）、M2 聊天流式；GP-29 pi 复活（DEF-13 正路，优先级待 owner）。
+**RM-001 ~ RM-007 全部 7 大路线图 / 55 个 Goal 经 owner 明确授权已全部正式大圆满收官（D65）。**
+- **RM-001：犬队基建与机检验收** ✅（GOAL-001 ~ GOAL-012）；
+- **RM-002：看板与工作流治理** ✅（GOAL-013 ~ GOAL-023）；
+- **RM-003：会话流式与零成本梯队** ✅（GOAL-024 ~ GOAL-027）；
+- **RM-004：多拓扑与实战闭环** ✅（GOAL-028 ~ GOAL-034）；
+- **Phase C：视觉审查与记忆图谱** ✅（GOAL-035 ~ GOAL-042）；
+- **RM-005：社会化 Agent 合作框架与自适应工作台** ✅（GOAL-043 ~ GOAL-047，圆桌辩论/流水线/红蓝攻防/悬赏撮合）；
+- **RM-006：跨犬技能联邦与时空状态内核** ✅（GOAL-048 ~ GOAL-051，跨 Harness 技能双向转译/平行时间旅行/共享黑板/液态小队）；
+- **RM-007：自演进评测天梯与雪橇伴侣** ✅（GOAL-052 ~ GOAL-055，战绩 ELO 天梯/路由自进化/托盘伴侣浮窗/全景能效战报）；
+- **RM-008：效能经济学与上下文生命周期工程** ✅（GOAL-056 ~ GOAL-057，用量后验对账/Prompt Cache 细分/300行安全门禁/结构化不变式压缩）；
+- **RM-009：通用挂载、动态思维链、工犬直连与智能 Resume** ✅（GOAL-058 ~ GOAL-062，自由工作区挂载/多厂商思维链动态Spec/头像直连抽屉/Child Auto-Resume/DoD收官工具/多Provider动态发现与犬队医生 D76~D77）；
+- **RM-010：商业化就绪、零信任安全加固与 MVP 发版** ✅（GOAL-063 ~ GOAL-066，Caller-Token 零信任鉴权闭环/CSRF与沙箱白名单/服务端权威预算与台账持久化/EPIPE与进程树杀/Fail-Closed纠偏/Apache-2.0与EULA/桌面便携打包 D79）。
+
+**基线 557 tests 100% 全绿（24 suites, 0 fail）**；版本升级至 `v0.1.0-pilot`；奠基决议落地至 `D79`。
+犬队在册（deepseek/claude/kimi/zcode/codex/opencode/pi/agy；codex 因 F-50 故障禁任头犬；pi-rpc 通道实测贯通以绕开 DEF-13 上游挂起）。
 findings 默认裁决：docs/auto-decisions-log.md（D16）。
 GitHub 私有远端同步为常规动作（D19）；无人值守调度器仍默认关（D8）。
+
+
+
+

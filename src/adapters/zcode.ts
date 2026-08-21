@@ -21,16 +21,16 @@ export function buildZcodeContract(): AdapterContract {
     prompt_transport: 'argument',
     expected_provider: 'z.ai',
     expected_model_id: 'UNKNOWN',
-    // GP-22：zcode --help（2026-08-17 本机抓取）未见 effort/thinking 档位；
-    // 真实档位 UNKNOWN。为避免破坏既有派发，暂沿用旧通用三档占位，通道接入前
-    // 不做注入承诺。
-    effort_levels: ['LOW', 'HIGH', 'XHIGH'],
+    variants: ['glm-5.3', 'glm-5.2', 'glm-5-turbo'],
+    effort_levels: ['LOW', 'HIGH', 'MAX'],
     effort_injection: { kind: 'none' },
     // GOAL-018 U2/U3：zcode 支持 --resume <sessionId>；自带自动压缩。
     resume_flag: '--resume',
     context_management: 'auto-compact',
   });
 }
+
+
 
 export interface ZcodeIdentity {
   provider: string;

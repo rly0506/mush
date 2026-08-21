@@ -267,3 +267,164 @@ export function readProjectBrief(workspaceRoot: string, maxChars = 4000): string
     return '';
   }
 }
+
+// ---------------------------------------------------------------------------
+// GOAL-033（GP-31）：会话工作流生命周期控制面与结构化交接编辑器
+// ---------------------------------------------------------------------------
+
+export type WorkstreamStatus = 'ACTIVE' | 'PAUSED' | 'ARCHIVED' | 'MERGED';
+
+export interface StructuredHandoff {
+  decisions_made: string[];
+  files_touched: string[];
+  next_actions: string[];
+  handoff_markdown: string;
+  updated_at_utc: string;
+}
+
+export interface WorkstreamRecord {
+  stream_id: string;
+  title: string;
+  description: string;
+  status: WorkstreamStatus;
+  parent_stream_id: string | null;
+  created_at_utc: string;
+  updated_at_utc: string;
+  handoff_block: StructuredHandoff | null;
+}
+
+export class WorkstreamStore {
+  private readonly storagePath: string;
+
+  constructor(storagePath: string) {
+    this.storagePath = path.resolve(storagePath);
+  }
+
+  private loadAll(): Map<string, WorkstreamRecord> {
+    const map = new Map<string, WorkstreamRecord>();
+    if (!existsSync(this.storagePath)) return map;
+
+    try {
+      const content = readFileSync(this.storagePath, 'utf8');
+      const lines = content.split('\n').filter((l) => l.trim() !== '');
+      for (const line of lines) {
+        try {
+          const rec = JSON.parse(line) as WorkstreamRecord;
+          if (rec && typeof rec.stream_id === 'string') {
+            map.set(rec.stream_id, rec);
+          }
+        } catch {
+          // 忽略单行损坏，保证 fail-open
+        }
+      }
+    } catch {
+      // 忽略读取异常
+    }
+    return map;
+  }
+
+  private append(record: WorkstreamRecord): void {
+    mkdirSync(path.dirname(this.storagePath), { recursive: true });
+    appendFileSync(this.storagePath, JSON.stringify(record) + '\n', 'utf8');
+  }
+
+  list(): WorkstreamRecord[] {
+    const map = this.loadAll();
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.updated_at_utc).getTime() - new Date(a.updated_at_utc).getTime(),
+    );
+  }
+
+  get(streamId: string): WorkstreamRecord | null {
+    const map = this.loadAll();
+    return map.get(streamId) ?? null;
+  }
+
+  create(options: {
+    title: string;
+    description?: string;
+    parent_stream_id?: string;
+    handoff_block?: StructuredHandoff;
+  }): WorkstreamRecord {
+    const title = (options.title || '').trim();
+    if (!title) throw new Error('title must be non-empty');
+
+    const now = new Date().toISOString();
+    const record: WorkstreamRecord = {
+      stream_id: randomUUID().replace(/-/g, '').slice(0, 16),
+      title,
+      description: (options.description || '').trim(),
+      status: 'ACTIVE',
+      parent_stream_id: options.parent_stream_id ?? null,
+      created_at_utc: now,
+      updated_at_utc: now,
+      handoff_block: options.handoff_block ?? null,
+    };
+
+    this.append(record);
+    return record;
+  }
+
+  update(
+    streamId: string,
+    updates: {
+      title?: string;
+      description?: string;
+      status?: WorkstreamStatus;
+      handoff_block?: Partial<StructuredHandoff>;
+    },
+  ): WorkstreamRecord {
+    const existing = this.get(streamId);
+    if (!existing) throw new Error(`workstream not found: ${streamId}`);
+
+    const now = new Date().toISOString();
+    const updated: WorkstreamRecord = {
+      ...existing,
+      title: updates.title !== undefined ? updates.title.trim() : existing.title,
+      description: updates.description !== undefined ? updates.description.trim() : existing.description,
+      status: updates.status ?? existing.status,
+      updated_at_utc: now,
+      handoff_block:
+        updates.handoff_block !== undefined
+          ? {
+              decisions_made: updates.handoff_block.decisions_made ?? existing.handoff_block?.decisions_made ?? [],
+              files_touched: updates.handoff_block.files_touched ?? existing.handoff_block?.files_touched ?? [],
+              next_actions: updates.handoff_block.next_actions ?? existing.handoff_block?.next_actions ?? [],
+              handoff_markdown:
+                updates.handoff_block.handoff_markdown ?? existing.handoff_block?.handoff_markdown ?? '',
+              updated_at_utc: now,
+            }
+          : existing.handoff_block,
+    };
+
+    this.append(updated);
+    return updated;
+  }
+
+  fork(
+    parentStreamId: string,
+    options: {
+      title: string;
+      description?: string;
+    },
+  ): WorkstreamRecord {
+    const parent = this.get(parentStreamId);
+    if (!parent) throw new Error(`parent workstream not found: ${parentStreamId}`);
+
+    // 继承父流的 handoff_block 作为初始交接上下文
+    const inheritedHandoff: StructuredHandoff | undefined = parent.handoff_block
+      ? {
+          ...parent.handoff_block,
+          updated_at_utc: new Date().toISOString(),
+        }
+      : undefined;
+
+    return this.create({
+      title: options.title,
+      description: options.description ?? `Forked from stream ${parent.title} (${parentStreamId})`,
+      parent_stream_id: parentStreamId,
+      handoff_block: inheritedHandoff,
+    });
+  }
+}
+

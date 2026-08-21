@@ -6,6 +6,7 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { UsdBudgetLedger } from './core/budget.ts';
 import { validateAdapterContract, type AdapterContract } from './adapters/contract.ts';
@@ -90,6 +91,7 @@ export async function runCli(argv: string[]): Promise<CliResult> {
     const port = typeof flags.port === 'string' ? Number(flags.port) : 0;
     if (!Number.isInteger(port) || port < 0 || port > 65535) return fail('--port must be an integer 0-65535', 64);
     const host = '127.0.0.1'; // 硬绑定 loopback；不设 --host 开关（门 4）
+    const callerToken = randomUUID().replace(/-/g, '');
     const server = await startBoardServer({
       approvalRoot,
       runId: `board-${workspace === process.cwd() ? 'mush' : path.basename(workspace)}`,
@@ -97,6 +99,8 @@ export async function runCli(argv: string[]): Promise<CliResult> {
       host,
       port,
       runtimeRoot: path.join(workspace, 'runtime'),
+      callerToken,
+      enforceCallerToken: true,
     }).catch((error) => {
       if (error instanceof LockError) {
         return { exitCode: 3, stdout: jsonLine({ ok: false, error: error.message, hint: 'another board instance is running' }) } as unknown as Awaited<ReturnType<typeof startBoardServer>>;
@@ -122,8 +126,13 @@ export async function runCli(argv: string[]): Promise<CliResult> {
     }
     process.stdout.write(`mush 看板已启动：${url}\n审批目录：${approvalRoot}\nCtrl+C 停止。\n`);
     await new Promise<void>((resolve) => {
-      process.on('SIGINT', () => resolve());
-      process.on('SIGTERM', () => resolve());
+      const onSig = () => {
+        process.removeListener('SIGINT', onSig);
+        process.removeListener('SIGTERM', onSig);
+        resolve();
+      };
+      process.on('SIGINT', onSig);
+      process.on('SIGTERM', onSig);
     });
     await server.close();
     return { exitCode: 0, stdout: jsonLine({ ...payload, stopped: true }) };

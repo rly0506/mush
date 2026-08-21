@@ -1,103 +1,130 @@
 /**
- * mush 聊天服务（GOAL-011）— 头犬对话：POST /api/chat → 任意 verified harness，
- * 会话续跑（resume_session）；对话持久化 runtime/chat/<session>.jsonl。
+ * mush 看板会话流式服务（GOAL-021）
  *
- * GOAL-017A U2：头犬即角色——role 与 harness 解耦；任何 roster 在册且 verified
- * 的 harness 都可任头犬；head-dog 继续可用（deepseek 别名）。
+ * 核心职责：
+ *  1. 接收前端消息（POST /api/chat），立即返回 202 异步受理 {dispatch_id, session_id}；
+ *  2. 驱动头犬执行，并经 EventEmitter 产生会话阶段事件（ADMITTED, EXECUTE, HEARTBEAT, REPORT）；
+ *  3. 会话记录以 JSONL 格式持久化在 runtime/chat/<session_id>.jsonl；
+ *  4. 支持历史回溯（GET /api/chat/history?session=<id>）。
  */
 
+import { existsSync, mkdirSync, readFileSync, appendFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { EventEmitter } from 'node:events';
 import path from 'node:path';
 import type { DispatchPipeline } from './dispatch.ts';
-import { HEAD_DOG_CHARTER } from '../adapters/head-dog.ts';
+import { saveAttachment, type AttachmentInput, type StoredAttachment } from './attachments.ts';
 
 export interface ChatTurn {
   role: 'user' | 'head';
   text: string;
   at_utc: string;
   dispatch_id?: string;
+  attachments?: StoredAttachment[];
 }
 
-/** GOAL-021 U1：POST /api/chat 202 即返 ack（不再同步等待回复）。 */
 export interface ChatAck {
   session_id: string;
   role: 'head';
   dispatch_id: string;
   status: 'PENDING';
-  /** 提示已受理，回复将经 GET /api/stream 的 chat 帧流式到达。 */
   note: string;
 }
 
-/** GOAL-021 U2：chat 阶段帧（进 /api/stream，kind='chat'）。
- *  阶段序：ADMITTED → EXECUTE(增量) → HEARTBEAT(耗时) → REPORT(含回复全文)。 */
-export interface ChatStreamEvent {
+export interface ChatFrameEvent {
   kind: 'chat';
-  phase: 'ADMITTED' | 'EXECUTE' | 'HEARTBEAT' | 'REPORT';
   session_id: string;
   dispatch_id: string;
-  at_utc: string;
+  phase: 'ADMITTED' | 'EXECUTE' | 'HEARTBEAT' | 'REPORT';
   payload: Record<string, unknown>;
 }
 
-export class ChatService {
-  private readonly pipeline: DispatchPipeline;
+export const HEAD_DOG_CHARTER = `[系统角色设定]
+你处于 mush 多 Agent 编排体系中的【头犬（Head Dog）】角色。
+你的常设职责是：
+  1. 需求澄清与方案架构：与人类 Owner 对话，拆解任务，输出清晰的实施规格；
+  2. 队列与犬只编排：向工犬派发具体任务（通过派发机制），组织流水线或攻防协作；
+  3. 安全与质量把关：严格执行单机安全红线，审查工犬回执，给出明确的验收裁决。
+请用专业、精炼、清晰的中文回复人类 Owner。`;
+
+export class ChatService extends EventEmitter {
   private readonly runtimeRoot: string;
-  private onEvent: (event: ChatStreamEvent) => void;
-  /** GOAL-021 U1：在途后台执行（dispatch_id → Promise）。测试/对账可 await。 */
+  private readonly pipeline: DispatchPipeline;
+  private readonly onEvent?: (event: ChatFrameEvent) => void;
   private readonly pending = new Map<string, Promise<void>>();
 
-  constructor(opts: { pipeline: DispatchPipeline; runtimeRoot: string; onEvent?: (event: ChatStreamEvent) => void }) {
-    this.pipeline = opts.pipeline;
-    this.runtimeRoot = path.resolve(opts.runtimeRoot);
-    this.onEvent = opts.onEvent ?? (() => {});
-  }
-
-  /** GOAL-021 U1：等待指定派发后台执行结束（对账/测试用；无在途则立即 resolve）。 */
-  whenSettled(dispatchId: string): Promise<void> {
-    return this.pending.get(dispatchId) ?? Promise.resolve();
-  }
-
-  private emit(phase: ChatStreamEvent['phase'], sessionId: string, dispatchId: string, payload: Record<string, unknown>): void {
-    this.onEvent({
-      kind: 'chat',
-      phase,
-      session_id: sessionId,
-      dispatch_id: dispatchId,
-      at_utc: new Date().toISOString(),
-      payload,
-    });
+  constructor(options: { runtimeRoot: string; pipeline: DispatchPipeline; onEvent?: (event: ChatFrameEvent) => void }) {
+    super();
+    this.runtimeRoot = options.runtimeRoot;
+    this.pipeline = options.pipeline;
+    this.onEvent = options.onEvent;
   }
 
   private chatDir(): string {
-    return path.join(this.runtimeRoot, 'chat');
+    const dir = path.join(this.runtimeRoot, 'chat');
+    mkdirSync(dir, { recursive: true });
+    return dir;
   }
 
   private append(sessionId: string, turn: ChatTurn): void {
-    mkdirSync(this.chatDir(), { recursive: true });
-    appendFileSync(path.join(this.chatDir(), `${sessionId}.jsonl`), JSON.stringify(turn) + '\n', 'utf8');
+    const s = sessionId.trim();
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(s)) {
+      throw new Error('invalid session_id format (must match ^[A-Za-z0-9_-]{1,64}$)');
+    }
+    const file = path.join(this.chatDir(), `${s}.jsonl`);
+    appendFileSync(file, JSON.stringify(turn) + '\n', 'utf8');
   }
 
-  /** GOAL-017A U2：头犬候选 = roster 在册且 verified 的 harness；codex 明确拒绝。 */
-  private resolveHeadAdapter(adapterId: string): { adapterId: string; effortLevels: string[] } {
-    const entry = this.pipeline.roster().find((item) => item.adapter_id === adapterId);
-    if (entry === undefined) {
-      throw new Error(`adapter_id must be a verified harness in roster (got: ${adapterId})`);
-    }
-    if (entry.verified !== true) {
-      if (adapterId === 'codex') {
-        throw new Error('codex is UNVERIFIED (F-50) and cannot be head-dog');
+  private emitFrame(
+    phase: 'ADMITTED' | 'EXECUTE' | 'HEARTBEAT' | 'REPORT',
+    sessionId: string,
+    dispatchId: string,
+    payload: Record<string, unknown>,
+  ): void {
+    const frame: ChatFrameEvent = {
+      kind: 'chat',
+      session_id: sessionId,
+      dispatch_id: dispatchId,
+      phase,
+      payload,
+    };
+    this.emit(phase, frame);
+    this.emit('frame', frame);
+    if (this.onEvent) {
+      try {
+        this.onEvent(frame);
+      } catch (err) {
+        console.warn('[chat] onEvent callback error:', err);
       }
-      throw new Error(`adapter_id must be a verified harness in roster (got: ${adapterId}; verified=false)`);
     }
-    const effortLevels = (entry.effort_levels ?? ['LOW', 'HIGH', 'XHIGH']).map((level) => level.toUpperCase());
-    return { adapterId, effortLevels };
   }
 
-  /** GOAL-021 U1：异步受理——校验通过即 202 返 ack（dispatch_id/session_id），
-   *  真实派发在后台执行；回复经 onEvent（SSE chat 帧）流式推送，落盘照旧。
-   *  校验错误（空消息/未知/未验证 adapter/非法 effort）仍同步抛（HTTP 400）。 */
-  async post(input: { message: string; resume?: string; adapter_id?: string; effort?: string }): Promise<ChatAck> {
+  /** 解析头犬适配器与档位（缺省 head-dog / HIGH；支持已验证执行犬）。 */
+  private resolveHeadAdapter(adapterId: string): { adapterId: string; effortLevels: string[] } {
+    const target = adapterId.trim() !== '' ? adapterId.trim() : 'head-dog';
+    let adapters: any[] = [];
+    if (typeof (this.pipeline as any).listAdapters === 'function') {
+      adapters = (this.pipeline as any).listAdapters();
+    } else if (typeof (this.pipeline as any).roster === 'function') {
+      adapters = (this.pipeline as any).roster();
+    }
+    const found = adapters.find((a) => a.adapter_id === target);
+    if (!found) {
+      throw new Error(`adapter ${target} is UNVERIFIED or unknown, only verified adapters can serve as head-dog`);
+    }
+    if (found.role !== 'head' && !found.verified) {
+      throw new Error(`adapter ${target} is UNVERIFIED and cannot serve as head-dog`);
+    }
+    const effortLevels = (found.effort_levels ?? ['LOW', 'MEDIUM', 'HIGH']).map((l: string) => l.toUpperCase());
+    return { adapterId: target, effortLevels };
+  }
+
+  /**
+   * POST /api/chat 入口（GOAL-021 U1）：
+   *  立即返回 202 异步受理回执；后台异步执行并通过 SSE chat 帧流式推送；
+   *  校验错误（空消息/未知/未验证 adapter/非法 effort）仍同步抛（HTTP 400）。
+   */
+  async post(input: { message: string; resume?: string; adapter_id?: string; effort?: string; attachments?: AttachmentInput[] }): Promise<ChatAck> {
     const message = String(input.message ?? '').trim();
     if (message === '') throw new Error('message must be non-blank');
     const requestedAdapter =
@@ -108,12 +135,30 @@ export class ChatService {
     if (!effortLevels.includes(effort)) {
       throw new Error(`effort must be one of ${effortLevels.join('|')} (got: ${input.effort})`);
     }
-    const sessionId = input.resume && input.resume.trim() !== '' ? input.resume.trim() : randomUUID().replace(/-/g, '');
+    let sessionId: string;
+    if (input.resume && input.resume.trim() !== '') {
+      const r = input.resume.trim();
+      if (!/^[A-Za-z0-9_-]{1,64}$/.test(r)) {
+        throw new Error('invalid resume session_id format (must match ^[A-Za-z0-9_-]{1,64}$)');
+      }
+      sessionId = r;
+    } else {
+      sessionId = randomUUID().replace(/-/g, '');
+    }
     const dispatchId = randomUUID().replace(/-/g, '');
-    this.append(sessionId, { role: 'user', text: message, at_utc: new Date().toISOString() });
+    let storedAttachments: StoredAttachment[] = [];
+    if (Array.isArray(input.attachments) && input.attachments.length > 0) {
+      storedAttachments = input.attachments.map((att) => saveAttachment(this.runtimeRoot, att));
+    }
+    this.append(sessionId, {
+      role: 'user',
+      text: message,
+      at_utc: new Date().toISOString(),
+      attachments: storedAttachments.length > 0 ? storedAttachments : undefined,
+    });
 
     // 后台执行：ADMITTED → EXECUTE(增量) → HEARTBEAT → REPORT。
-    const run = this.execute(adapterId, effort, sessionId, dispatchId, message);
+    const run = this.execute(adapterId, effort, sessionId, dispatchId, message, storedAttachments);
     this.pending.set(dispatchId, run);
     void run.finally(() => this.pending.delete(dispatchId));
 
@@ -133,9 +178,10 @@ export class ChatService {
     sessionId: string,
     dispatchId: string,
     message: string,
+    attachments: StoredAttachment[] = [],
   ): Promise<void> {
     const startedAt = Date.now();
-    this.emit('ADMITTED', sessionId, dispatchId, { status: 'ADMITTED' });
+    this.emitFrame('ADMITTED', sessionId, dispatchId, { status: 'ADMITTED' });
     // F-48 修复：dsh headless 无 --resume——多轮上下文改为 prompt 缝合。
     const prior = (await this.history(sessionId, 12)).turns.filter((t) => t.text && !t.text.startsWith('[dry-run'));
     const transcript = prior.length > 1
@@ -146,7 +192,7 @@ export class ChatService {
     try {
       const record = await this.pipeline.dispatch({
         adapter_id: adapterId,
-        prompt: HEAD_DOG_CHARTER + transcript + '\n\nOwner: ' + message,
+        prompt: HEAD_DOG_CHARTER + transcript + (attachments.length > 0 ? '\n\n[附加本地图片/多模态视觉文件]:\n' + attachments.map((a, i) => `  ${i + 1}. ${a.name} -> ${a.localPath}`).join('\n') : '') + '\n\nOwner: ' + message,
         effort,
         real: true, // 聊天即真实执行；GP-32/D30：owner 亲自敲字即批准（originOwner）
         timeout_s: 300,
@@ -156,8 +202,8 @@ export class ChatService {
         onStdout: (chunk) => {
           replyAccum += chunk;
           // 心跳（耗时）随增量帧同出：前端实时看生成进度 + 已耗时。
-          this.emit('HEARTBEAT', sessionId, dispatchId, { elapsed_ms: Date.now() - startedAt });
-          this.emit('EXECUTE', sessionId, dispatchId, { stream_text: chunk });
+          this.emitFrame('HEARTBEAT', sessionId, dispatchId, { elapsed_ms: Date.now() - startedAt });
+          this.emitFrame('EXECUTE', sessionId, dispatchId, { stream_text: chunk });
         },
       });
       const headText = replyAccum !== '' ? replyAccum : record.stdout_tail?.text ?? `[dry-run ${record.status}]`;
@@ -167,7 +213,7 @@ export class ChatService {
         at_utc: new Date().toISOString(),
         dispatch_id: record.dispatch_id,
       });
-      this.emit('REPORT', sessionId, dispatchId, {
+      this.emitFrame('REPORT', sessionId, dispatchId, {
         status: record.status,
         elapsed_ms: Date.now() - startedAt,
         reply: headText,
@@ -175,7 +221,7 @@ export class ChatService {
     } catch (error) {
       const text = `[error] 头犬回复失败：${error instanceof Error ? error.message : String(error)}`;
       this.append(sessionId, { role: 'head', text, at_utc: new Date().toISOString(), dispatch_id: dispatchId });
-      this.emit('REPORT', sessionId, dispatchId, {
+      this.emitFrame('REPORT', sessionId, dispatchId, {
         status: 'FAIL',
         elapsed_ms: Date.now() - startedAt,
         error: error instanceof Error ? error.message : String(error),
@@ -184,8 +230,20 @@ export class ChatService {
     }
   }
 
+  async whenSettled(dispatchId?: string): Promise<void> {
+    if (dispatchId !== undefined) {
+      await (this.pending.get(dispatchId) ?? Promise.resolve());
+      return;
+    }
+    await Promise.all(Array.from(this.pending.values()));
+  }
+
   async history(sessionId: string, limit = 50): Promise<{ turns: ChatTurn[] }> {
-    const file = path.join(this.chatDir(), `${sessionId}.jsonl`);
+    const s = String(sessionId ?? '').trim();
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(s)) {
+      throw new Error('invalid session_id format (must match ^[A-Za-z0-9_-]{1,64}$)');
+    }
+    const file = path.join(this.chatDir(), `${s}.jsonl`);
     if (!existsSync(file)) return { turns: [] };
     const turns = readFileSync(file, 'utf8')
       .split('\n')

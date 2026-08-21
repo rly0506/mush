@@ -21,6 +21,8 @@ export interface ApprovalRequest {
   path: string;
 }
 
+let seqCounter = 0;
+
 export function writeApprovalRequest(
   root: string,
   actorId: string,
@@ -29,7 +31,8 @@ export function writeApprovalRequest(
   reason: string,
 ): ApprovalRequest {
   const now = new Date().toISOString().replace(/[:.]/g, '-');
-  const fileName = `budget-gate-${actorId}-${now}.json`;
+  const seq = (++seqCounter).toString(36);
+  const fileName = `budget-gate-${actorId}-${now}-${seq}.json`;
   const filePath = path.join(root, fileName);
   const request = {
     schema_version: 1,

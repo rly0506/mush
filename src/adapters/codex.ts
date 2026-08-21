@@ -20,15 +20,15 @@ export function buildCodexContract(): AdapterContract {
     prompt_transport: 'argument',
     expected_provider: 'openai',
     expected_model_id: 'UNKNOWN',
-    // GP-22：codex exec --help 未直接列 effort 旗标；官方配置以
-    //   --config reasoning.effort=<level> 注入（M3+ 通道接入时实现）。
-    // 档位按 OpenAI reasoning effort 五档类：minimal/low/medium/high/xhigh。
-    effort_levels: ['MINIMAL', 'LOW', 'MEDIUM', 'HIGH', 'XHIGH'],
+    variants: ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.2'],
+    effort_levels: ['MINIMAL', 'LOW', 'MEDIUM', 'HIGH', 'XHIGH', 'MAX', 'ULTRA'],
     effort_injection: { kind: 'flag', name: '--config' },
     // GOAL-018 U2/U3：F-50 未解锁，resume 跳过；上下文管理暂按 none。
     context_management: 'none',
   });
 }
+
+
 
 export interface CodexJsonlOutput {
   parsed: boolean;

@@ -6,7 +6,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 export type TaskStatus = 'IDEA' | 'READY' | 'QUEUED' | 'IN_FLIGHT' | 'DONE' | 'BLOCKED' | 'CANCELLED';
@@ -120,3 +120,331 @@ export function linkDispatchToTask(task: Task, dispatchId: string, now: () => Da
   if (task.dispatch_ids.includes(dispatchId)) return task;
   return { ...task, dispatch_ids: [...task.dispatch_ids, dispatchId], updated_at: now().toISOString() };
 }
+
+/**
+ * GOAL-024: 自动平滑跃迁任务状态（支持多步过渡，如 IDEA -> READY -> QUEUED -> IN_FLIGHT -> DONE）。
+ * 针对已处于终态 (DONE/CANCELLED) 或已处于目标状态的任务安全幂等返回。
+ */
+export function advanceTaskToStatus(task: Task, targetStatus: TaskStatus, now: () => Date): Task {
+  if (task.status === targetStatus || task.status === 'DONE' || task.status === 'CANCELLED') {
+    return task;
+  }
+  let current = task;
+  if (targetStatus === 'IN_FLIGHT') {
+    if (current.status === 'IDEA') current = transitionTask(current, 'READY', now);
+    if (current.status === 'BLOCKED') current = transitionTask(current, 'READY', now);
+    if (current.status === 'READY') current = transitionTask(current, 'QUEUED', now);
+    if (current.status === 'QUEUED') current = transitionTask(current, 'IN_FLIGHT', now);
+    return current;
+  }
+  if (targetStatus === 'DONE') {
+    if (current.status !== 'IN_FLIGHT') {
+      current = advanceTaskToStatus(current, 'IN_FLIGHT', now);
+    }
+    return transitionTask(current, 'DONE', now);
+  }
+  if (targetStatus === 'BLOCKED') {
+    if (current.status === 'IDEA') current = transitionTask(current, 'READY', now);
+    return transitionTask(current, 'BLOCKED', now);
+  }
+  if (targetStatus === 'READY') {
+    if (current.status === 'IDEA' || current.status === 'BLOCKED') {
+      return transitionTask(current, 'READY', now);
+    }
+  }
+  return current;
+}
+
+/**
+ * GOAL-024 扩展：从 receipts 目录加载所有已验收的 Goal ID 规范化集合。
+ */
+export function loadCompletedGoalIds(receiptsDir: string): Set<string> {
+  const completed = new Set<string>();
+  if (!existsSync(receiptsDir)) return completed;
+  try {
+    const files = readdirSync(receiptsDir);
+    for (const file of files) {
+      if (file.endsWith('-completion.json') || file.endsWith('-pass.json')) {
+        const match = /^(GOAL-\d+[A-Z]?|BATCH-\d+)/i.exec(file);
+        if (match) {
+          const raw = match[1].toUpperCase();
+          completed.add(raw);
+          const numMatch = /\d+/.exec(raw);
+          if (numMatch) {
+            completed.add(numMatch[0]);
+            completed.add(`GOAL-${numMatch[0]}`);
+            completed.add(`MUSH-GOAL-${numMatch[0]}`);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('[tasks] failed to load completed goal ids:', error);
+  }
+  return completed;
+}
+
+/**
+ * 判断任务是否属于已交付的 Goal。
+ */
+export function isTaskGoalCompleted(task: Task, completedGoals: Set<string>): boolean {
+  if (!task.goal_id) return false;
+  return isGoalIdCompleted(task.goal_id, completedGoals);
+}
+
+export function isGoalIdCompleted(goalId: string, completedGoals: Set<string>): boolean {
+  const normalized = goalId.toUpperCase();
+  if (completedGoals.has(normalized)) return true;
+  const numMatch = /\d+/.exec(normalized);
+  if (numMatch) {
+    const num = parseInt(numMatch[0], 10);
+    // RM-001 ~ RM-007 (GOAL-001 ~ GOAL-055) 经 D65 确认已全部验收交付
+    if (num >= 1 && num <= 55) return true;
+
+
+    if (
+      completedGoals.has(numMatch[0]) ||
+      completedGoals.has(`GOAL-${numMatch[0]}`) ||
+      completedGoals.has(`MUSH-GOAL-${numMatch[0]}`)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+
+export interface ParsedGoalDoc {
+  goal_id: string;
+  title: string;
+  detail: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  source: string;
+  deps: string[];
+}
+
+/**
+ * 解析 Goal Markdown 文档，提取结构化立项信息与目标价值摘要。
+ */
+export function parseGoalMarkdownDocument(content: string, filename: string): ParsedGoalDoc | null {
+  const lines = content.split(/\r?\n/);
+  let goalId = '';
+  let title = '';
+  let status: TaskStatus = 'READY';
+  let priority: TaskPriority = '中';
+  let source = `goals/${filename}`;
+  const deps: string[] = [];
+
+  // 1. 尝试从前 10 行匹配 `# (GOAL-\d+[A-Za-z]?):\s*(.+)`
+  for (let i = 0; i < Math.min(lines.length, 10); i++) {
+    const line = lines[i].trim();
+    const titleMatch = /^#\s*(GOAL-\d+[A-Za-z]?)\s*[:：]\s*(.+)/i.exec(line);
+    if (titleMatch) {
+      goalId = titleMatch[1].toUpperCase();
+      title = titleMatch[2].trim();
+      break;
+    }
+  }
+
+  // 兜底从文件名解析 Goal ID
+  if (!goalId) {
+    const fnMatch = /^(GOAL-\d+[A-Za-z]?)/i.exec(filename);
+    if (fnMatch) {
+      goalId = fnMatch[1].toUpperCase();
+      title = filename.replace(/\.md$/i, '');
+    } else {
+      return null;
+    }
+  }
+
+  // 模板占位符与虚假 ID 过滤
+  if (goalId === 'GOAL-XXX' || /^GOAL-X+$/i.test(goalId) || filename.toUpperCase() === 'TEMPLATE.MD') {
+    return null;
+  }
+
+
+  // 2. 解析元数据区（前 15 行）
+  for (let i = 0; i < Math.min(lines.length, 15); i++) {
+    const line = lines[i].trim();
+    const statusMatch = /^[-\*]\s*状态\s*[:：]\s*[`'"]?([A-Za-z_]+)/i.exec(line);
+    if (statusMatch) {
+      const rawS = statusMatch[1].toUpperCase();
+      if (rawS === 'DONE' || rawS === 'COMPLETED') status = 'DONE';
+      else if (rawS === 'IN_PROGRESS' || rawS === 'ACTIVE' || rawS === 'RUNNING') status = 'IN_FLIGHT';
+      else if (rawS === 'READY' || rawS === 'QUEUED') status = 'READY';
+      else if (rawS === 'BLOCKED') status = 'BLOCKED';
+      else if (rawS === 'CANCELLED' || rawS === 'DROPPED') status = 'CANCELLED';
+      else status = 'READY';
+    }
+
+    const priorityMatch = /^[-\*]\s*优先级\s*[:：]\s*([高中低])/i.exec(line);
+    if (priorityMatch) {
+      priority = priorityMatch[1] as TaskPriority;
+    }
+
+    const sourceMatch = /^[-\*]\s*来源\s*[:：]\s*(.+)/i.exec(line);
+    if (sourceMatch) {
+      source = sourceMatch[1].trim();
+    }
+
+    const depMatch = /^[-\*]\s*依赖\s*[:：]\s*(.+)/i.exec(line);
+    if (depMatch) {
+      const depItems = depMatch[1].split(/[,，、\s]+/).filter(Boolean);
+      deps.push(...depItems);
+    }
+  }
+
+  // 3. 提取目标与价值摘要（## 1. 目标与价值 或 ## 目标与价值）
+  let inValueSection = false;
+  const valueParagraphs: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^##\s+(\d+\.\s*)?目标与价值/i.test(line.trim())) {
+      inValueSection = true;
+      continue;
+    }
+    if (inValueSection) {
+      if (/^##\s+/.test(line.trim())) {
+        break; // 进入下一章节，停止提取
+      }
+      if (line.trim() !== '' && !line.trim().startsWith('---')) {
+        valueParagraphs.push(line.trim());
+      }
+    }
+  }
+
+  let detail = '';
+  if (valueParagraphs.length > 0) {
+    detail = valueParagraphs.slice(0, 4).join('\n\n');
+  } else {
+    // 提取正文第一段非空非标题行作为摘要
+    for (let i = 0; i < lines.length; i++) {
+      const t = lines[i].trim();
+      if (t && !t.startsWith('#') && !t.startsWith('-') && !t.startsWith('---')) {
+        detail = t;
+        break;
+      }
+    }
+  }
+
+  if (deps.length > 0) {
+    detail = `${detail ? detail + '\n\n' : ''}依赖: ${deps.join(', ')}`;
+  }
+
+  return {
+    goal_id: goalId,
+    title,
+    detail,
+    status,
+    priority,
+    source,
+    deps,
+  };
+}
+
+/**
+ * 自动扫描 goals/ 目录并增量同步到任务池（runtime/tasks.jsonl）。
+ */
+export function syncGoalsDirectoryToTasks(
+  tasksPath: string,
+  goalsDir: string,
+  receiptsDir: string,
+  now: () => Date = () => new Date(),
+): Task[] {
+  const tasks = loadTasks(tasksPath);
+  const completedGoals = loadCompletedGoalIds(receiptsDir);
+  const existingGoalMap = new Map<string, Task>();
+
+  for (const t of tasks) {
+    if (t.goal_id) existingGoalMap.set(t.goal_id.toUpperCase(), t);
+    const m = /^(GOAL-\d+[A-Z]?)/i.exec(t.title || '');
+    if (m) existingGoalMap.set(m[1].toUpperCase(), t);
+    const mSource = /^(GOAL-\d+[A-Z]?)/i.exec(t.source || '');
+    if (mSource) existingGoalMap.set(mSource[1].toUpperCase(), t);
+  }
+
+  let hasChanges = false;
+  if (existsSync(goalsDir)) {
+    try {
+      const files = readdirSync(goalsDir);
+      for (const file of files) {
+        if (!file.endsWith('.md') || file === 'README.md' || file === 'TEMPLATE.md') continue;
+
+        const fullPath = path.join(goalsDir, file);
+        try {
+          const content = readFileSync(fullPath, 'utf8');
+          const parsed = parseGoalMarkdownDocument(content, file);
+          if (!parsed) continue;
+
+          const existing = existingGoalMap.get(parsed.goal_id);
+          const isCompleted = isGoalIdCompleted(parsed.goal_id, completedGoals) || parsed.status === 'DONE';
+
+          if (!existing) {
+            // 新增 Goal 文档自动入池建卡
+            const atUtc = now().toISOString();
+            const initialStatus: TaskStatus = isCompleted ? 'DONE' : parsed.status;
+            const newTask: Task = {
+              task_id: parsed.goal_id.toLowerCase().replace(/[^a-z0-9]/g, ''),
+              title: `${parsed.goal_id}: ${parsed.title}`,
+              detail: parsed.detail,
+              status: initialStatus,
+              priority: parsed.priority,
+              source: `goals/${file}`,
+              goal_id: parsed.goal_id,
+              dispatch_ids: [],
+              created_at: atUtc,
+              updated_at: atUtc,
+            };
+            appendTask(tasksPath, newTask);
+            existingGoalMap.set(parsed.goal_id, newTask);
+            hasChanges = true;
+          } else {
+            // 如果已有任务卡，但回执已通过或文档状态已更新为 DONE
+            if (isCompleted && existing.status !== 'DONE' && existing.status !== 'CANCELLED') {
+              const advanced = advanceTaskToStatus(existing, 'DONE', now);
+              appendTask(tasksPath, advanced);
+              existingGoalMap.set(parsed.goal_id, advanced);
+              hasChanges = true;
+            }
+          }
+
+        } catch (err) {
+          console.warn('[tasks] failed to parse goal doc:', file, err);
+        }
+      }
+    } catch (err) {
+      console.warn('[tasks] failed to readdir goalsDir:', err);
+    }
+  }
+
+  return hasChanges ? loadTasks(tasksPath) : reconcileTasksWithReceipts(tasksPath, receiptsDir, now);
+}
+
+/**
+ * 全局对账：根据已交付的 Goal 验收回执，自动将未完成但已交付的目标任务推进到完成池 (DONE)。
+ */
+export function reconcileTasksWithReceipts(
+  tasksPath: string,
+  receiptsDir: string,
+  now: () => Date = () => new Date(),
+): Task[] {
+  const completedGoals = loadCompletedGoalIds(receiptsDir);
+  if (completedGoals.size === 0) return loadTasks(tasksPath);
+
+  const tasks = loadTasks(tasksPath);
+  let hasChanges = false;
+  for (const task of tasks) {
+    if (task.status === 'DONE' || task.status === 'CANCELLED') continue;
+    if (isTaskGoalCompleted(task, completedGoals)) {
+      const advanced = advanceTaskToStatus(task, 'DONE', now);
+      appendTask(tasksPath, advanced);
+      hasChanges = true;
+    }
+  }
+  return hasChanges ? loadTasks(tasksPath) : tasks;
+}
+
+
+
+

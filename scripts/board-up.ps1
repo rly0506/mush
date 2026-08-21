@@ -1,6 +1,6 @@
 # mush board one-click launcher (AD-36 fix): exactly ONE browser window in both cases.
 # ASCII-only per AGENTS.md iron rule.
-$root = 'D:\mush'
+$root = if ($PSScriptRoot) { Split-Path -Parent $PSScriptRoot } else { (Get-Location).Path }
 $lockPath = Join-Path $root 'runtime\board.lock'
 $defaultPort = 4790
 

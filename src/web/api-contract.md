@@ -1,10 +1,225 @@
 # mush Board API 契约 v1
 
-- 状态：`v1.10`（2026-08-17 定稿 v1；v1.1 GOAL-007B；v1.2 GP-02；v1.3 GOAL-011 聊天节；v1.3.1 GOAL-012B chat 参数化+reply；v1.4 GOAL-013 profile/effort 合同/rerun **及** GOAL-013L 静态品牌资产路由；v1.5 GOAL-017A 适配器 CRUD/头犬解耦/budget caps/计数；v1.6 GOAL-018 work-stream/真续跑/换窗/HANDOFF/流 API；v1.7 GOAL-019 任务池；v1.8 GP-32 逐单审批；v1.9 GOAL-021 聊天流式；v1.10 GOAL-014 carve-out——本文件为权威源）
+- 状态：`v1.42`（2026-08-21 定稿 v1.42；v1.42 本机工作区系统原生与目录树双模选择器、多模态附件读取、工犬直连终端；v1.41 跨 Harness 多第三方 Provider 动态探测与生态医生诊断；v1.40 RM-009 M5 代码库模块化解耦与 DoD 一键收官工具；v1.39 RM-009 M1~M4 通用工作区自由挂载、动态思维链规格、头像直连交互与子级 Auto-Resume；本文件为权威源）
 - 宿主：`src/web/`（node:http，零依赖）；默认只绑 `127.0.0.1`（对外暴露 = 触发门 4，不实现）
 - 序列化：JSON（UTF-8，LF 结尾）；SSE 用 `text/event-stream`，帧格式 `data: <json>\n\n`
 - 错误约定：失败响应一律 `{ "ok": false, "error": "<human-readable>" }`
 - 版本演进：v1 字段**只能向后兼容新增**；删除/改义/改型 = 破坏性变更，需头犬批准并同步 GOAL-007
+
+### v1.42 向后兼容扩展（2026-08-21；本机工作区系统原生与目录树选择器、多模态发图附件、工犬直连会话）
+
+- **`POST /api/workspaces/browse-native`**：唤起 Windows 本机系统原生 `FolderBrowserDialog` 文件夹选择器弹窗，用户选定目录后自动注册工作区并设置为当前激活工作区（Caller Token 鉴权）；
+- **`GET /api/workspaces/fs-tree?path=...`**：网页可视化目录树选择器，无参数时返回本机物理磁盘盘符列表（如 `C:\`, `D:\`），带参数时返回当前目录下合法子文件夹列表并自动过滤系统保留与敏感目录；
+- **`GET /api/attachments/:id`**：本地多模态图片文件安全静态流式读取端点，支持文件名合法性校验与路径穿越隔离；
+- **`POST /api/child-sessions/chat`**：工犬 1-on-1 独立抽屉终端直连指令发送，记录轮次并触发专属独立切流（Caller Token 鉴权）；
+
+### v1.41 向后兼容扩展（D76/D77，2026-08-20；跨 Harness 多 Provider 动态探测与生态医生诊断）
+
+- **`GET /api/harness/doctor`**：获取系统中 8 大 Harness（`claude`, `codex`, `dsh`, `opencode`, `pi`, `kimi`, `zcode`, `agy`）的实测就绪状态、CLI 路径校验、当前激活 Provider 及一键安装/更新指令列表；
+
+
+
+### v1.38 向后兼容扩展（RM-007 M4 / GOAL-055，2026-08-19；多犬协作全景战报与研发能效大屏）
+
+- **`GET /api/velocity/metrics`**：获取基于 DORA/SPACE 模型的全景研发效能矩阵指标（吞吐量、响应前置周期、拦截率、ROI 能效比）；
+- **`POST /api/velocity/report`**：生成并导出周期内多犬协作全景 Markdown 复盘战报（Caller Token 鉴权）；
+
+### v1.37 向后兼容扩展（RM-007 M3 / GOAL-054，2026-08-19；极简系统托盘常驻伴侣与全局热键雪橇浮窗）
+
+- **`GET /companion/spotlight`**：获取独立 Spotlight 极简雪橇浮窗 HTML 界面；
+- **`POST /api/companion/quick-action`**：桌面浮窗一键发起辩论/流水线/审查/单测速派（Caller Token 鉴权）；
+
+### v1.36 向后兼容扩展（RM-007 M2 / GOAL-053，2026-08-19；战绩反馈闭环与自适应路由权重自进化）
+
+- **`GET /api/routing/weights`**：获取当前全领域自进化权重分布矩阵与样本统计；
+- **`POST /api/routing/feedback`**：提交人类审批与测试实战结果进行在线闭环打标与权重微调（Caller Token 鉴权）；
+- **`GET /api/routing/recommend`**：基于指定领域与预算上限（`domain`, `cap_usd`）求解帕累托最优推荐犬；
+
+### v1.35 向后兼容扩展（RM-007 M1 / GOAL-052，2026-08-19；影子评测与实战战绩 ELO 天梯榜引擎）
+
+- **`GET /api/elo/rankings`**：获取在册犬 ELO 天梯排行榜（按积分降序，含段位、胜率与战绩）；
+- **`GET /api/elo/profiles/:dog`**：获取指定犬的 ELO 画像与历史对决战报；
+- **`POST /api/elo/match`**：手动或按实战结果登记 ELO 对决并更新双方积分与段位（Caller Token 鉴权）；
+- **`POST /api/elo/auto-eval`**：提交 Pass@1/成本/延迟/安全 4 维指标自动判决胜负并更新 ELO（Caller Token 鉴权）；
+
+### v1.34 向后兼容扩展（RM-006 M4 / GOAL-051，2026-08-19；液态战时攻关小队与指挥犬选举）
+
+- **`POST /api/squads`**：动态组建液态攻关小队，自动基于任务特征选举指挥犬（Caller Token 鉴权）；
+- **`GET /api/squads`**：查询所有小队列表（支持 `status=ACTIVE|DISBANDED` 过滤）；
+- **`GET /api/squads/:id`**：获取指定小队的详情与成员编制；
+- **`POST /api/squads/:id/disband`**：解散攻坚小队并将成果沉淀至符号记忆图谱（Caller Token 鉴权）；
+
+### v1.33 向后兼容扩展（RM-006 M3 / GOAL-050，2026-08-19；跨犬共享黑板协作空间与 ACL 白名单仲裁）
+
+- **`GET /api/blackboard`**：获取共享黑板全量 4 分区数据（`artifacts`、`issues`、`hypotheses`、`decisions`）；
+- **`GET /api/blackboard/:section`**：获取指定分区的条目列表；
+- **`GET /api/blackboard/items/:id`**：获取指定条目的详情与版本历史；
+- **`POST /api/blackboard`**：向黑板发布或更新条目（Caller Token 鉴权 + 犬只 ACL 权限仲裁）；
+
+### v1.32 向后兼容扩展（RM-006 M2 / GOAL-049，2026-08-19；时空状态树与因果时间旅行快照）
+
+- **`GET /api/time-travel/tree`**：获取全量时空快照节点与分支因果拓扑图；
+- **`GET /api/time-travel/nodes/:id`**：获取指定快照节点的元数据与文件列表；
+- **`POST /api/time-travel/snapshot`**：手动或按工序自动创建微快照（Caller Token 鉴权）；
+- **`POST /api/time-travel/fork`**：从历史任意节点派生平行实验分支（Caller Token 鉴权）；
+- **`POST /api/time-travel/revert`**：执行时空倒流恢复，瞬时还原代码与会话状态（Caller Token 鉴权）；
+
+### v1.31 向后兼容扩展（RM-006 M1 / GOAL-048，2026-08-19；跨 Harness 技能双向转译与热挂载）
+
+- **`GET /api/skills`**：查询所有已挂载技能与已加载目录列表；
+- **`GET /api/skills/:name`**：获取指定技能的统一 AST 与安全合规详情；
+- **`GET /api/skills/:name/transpile`**：按目标生态（`target=agy/claude/codex/dsh`）无损双向转译；
+- **`POST /api/skills/mount`**：热挂载外部技能目录（Caller Token 鉴权）；
+- **`POST /api/skills/unmount`**：热卸载外部技能目录（Caller Token 鉴权）；
+
+### v1.30 向后兼容扩展（RM-005 M4 / GOAL-047，2026-08-19；Contract Net 悬赏招投标市场与动态撮合池）
+
+- **`POST /api/bounties`**：创建并发布公开悬赏标的（Caller Token 鉴权）；
+- **`GET /api/bounties`**：查询所有悬赏标的列表（支持 `status` 过滤）；
+- **`GET /api/bounties/:id`**：获取指定悬赏详情、竞标列表与授标信息；
+- **`POST /api/bounties/:id/bids`**：犬只自主提交竞标出价单（Caller Token 鉴权）；
+- **`POST /api/bounties/:id/auto-bid`**：触发在册犬全员多因子竞争性竞标（Caller Token 鉴权）；
+- **`POST /api/bounties/:id/award`**：执行多因子最高性价比撮合并授标（Caller Token 鉴权）；
+- **`POST /api/bounties/:id/settle`**：履约交付结算（Caller Token 鉴权）；
+
+### v1.29 向后兼容扩展（RM-005 M3 / GOAL-046，2026-08-19；红蓝对抗验证室与闭环自动打回流）
+
+- **`POST /api/verify/red-blue`**：创建红蓝对抗验证会话（强制 Generator !== Verifier，Caller Token 鉴权）；
+- **`GET /api/verify/red-blue`**：查询所有红蓝对抗会话列表；
+- **`GET /api/verify/red-blue/:id`**：获取指定对抗详情、轮次历史与爆破点报告；
+- **`POST /api/verify/red-blue/:id/attack`**：提交红方破坏性测试用例与断言结果（Caller Token 鉴权）；
+- **`POST /api/verify/red-blue/:id/correct`**：提交蓝方打回重写修正代码（Caller Token 鉴权）；
+
+### v1.28 向后兼容扩展（RM-005 M2 / GOAL-045，2026-08-19；SOP 工序流水线与工件接力工作台）
+
+- **`POST /api/pipelines`**：创建标准 5 阶段工程流水线会话（Caller Token 鉴权）；
+- **`GET /api/pipelines`**：查询所有工序流水线列表；
+- **`GET /api/pipelines/:id`**：获取指定流水线详情、5 阶段状态与工件树；
+- **`POST /api/pipelines/:id/stage/:stage_id/complete`**：完成阶段并自动将工件传递至下一阶段（Caller Token 鉴权）；
+- **`POST /api/pipelines/:id/stage/:stage_id/approve`**：阶段质量门禁人工/头犬放行（Caller Token 鉴权）；
+
+### v1.27 向后兼容扩展（RM-005 M1 / GOAL-043 & GOAL-044，2026-08-19；协作总线与圆桌辩论对席工作台）
+
+- **`POST /api/collaboration/recommend-pair`**：根据议题自动推荐最佳正反协同犬阵容；
+- **`POST /api/collaboration/dispatch`**：下发协作派发请求（Caller Token 鉴权）；
+- **`POST /api/debates`**：创建圆桌辩论会话（Caller Token 鉴权）；
+- **`GET /api/debates`**：查询所有辩论会话列表；
+- **`GET /api/debates/:id`**：获取指定辩论详情、回合记录、提纯共识与争议点；
+- **`POST /api/debates/:id/turn`**：记录辩论立论/质询回合（Caller Token 鉴权）；
+- **`POST /api/debates/:id/arbitrate`**：人类终审仲裁拍板并归档（Caller Token 鉴权）；
+
+### v1.26 向后兼容扩展（GOAL-042，2026-08-19；Phase C 符号化记忆图谱与跨犬直连协作协议）
+
+- **`GET /api/memory/graph`**：查询符号化记忆图谱全量节点与边拓扑；
+- **`GET /api/memory/search`**：按 tag 或 file 路径多维检索记忆节点；
+- **`POST /api/memory/nodes`**：创建结构化记忆节点；
+- **`POST /api/memory/edges`**：建立记忆节点语义关系边（depends_on/supersedes/caused_by/relates_to）；
+- **`POST /api/collaboration/messages`**：跨犬直接点对点投递结构化消息；
+- **`GET /api/collaboration/mailbox/:adapter_id`**：查询指定犬只信箱；
+- **`POST /api/collaboration/plan`**：声明跨犬协作流水线 DAG；
+- **`POST /api/collaboration/advance`**：阶段完成并推进 DAG 自动触发下游；
+- **`GET /api/collaboration/:task_id/status`**：查看协作 DAG 运行状态；
+
+### v1.25 向后兼容扩展（GOAL-041，2026-08-19；GP-15 看板审计日志归档导出）
+
+- **`POST /api/audit/export`**：一键生成全量审计与证据链 Markdown 归档报告；
+- **`GET /api/audit/exports`**：查询已生成的归档报告列表；
+- **`GET /api/audit/exports/:filename`**：获取指定归档报告的 Markdown 内容；
+
+### v1.24 向后兼容扩展（GOAL-040，2026-08-19；GP-01 跨 Harness 影子分流评测台）
+
+- **`GET /api/evaluations`**：查询所有影子分流评测记录；
+- **`GET /api/evaluations/:id`**：获取单次影子评测详情与多犬横向交叉比对报告；
+- **`POST /api/evaluations`**：创建新的影子分流评测并生成对比报告；
+
+### v1.23 向后兼容扩展（GOAL-039，2026-08-19；GP-07 异构犬能力感知智能路由）
+
+- **`POST /api/route/recommend`**：任务特征自动提取与犬只智能匹配推荐：
+  - 请求：`POST /api/route/recommend { "prompt": string, "files"?: string[] }`
+  - 响应：`200 { "ok": true, "task_profile": { "primary_dimension": string, "estimated_complexity": string, ... }, "recommendations": [{ "adapter_id": string, "score": number, "tier": string, "reason": string }] }`
+
+### v1.22 向后兼容扩展（GOAL-038，2026-08-19；GP-04 多轮长上下文滚动蒸馏与持久记忆）
+
+- **`GET /api/context/pressure`**：查询当前上下文 Token 占用率与三级预警等级（70%/85%/95%）；
+- **`GET /api/memories`**：列出所有会话蒸馏记忆；
+- **`GET /api/memory/:session_id`**：查询指定会话的蒸馏记忆；
+- **`POST /api/memory/distill`**：执行多轮会话提纯蒸馏并持久化；
+
+### v1.21 向后兼容扩展（GOAL-037，2026-08-19；D37 犬只直连会话控制台）
+
+- **`GET /api/dogs/:adapter_id/sessions`**：查询指定犬只的直连会话列表；
+- **`POST /api/dogs/:adapter_id/sessions`**：创建新的直连会话；
+- **`POST /api/dogs/:adapter_id/sessions/:id/messages`**：向直连会话发送消息；
+- **`POST /api/dogs/:adapter_id/sessions/:id/resume`**：续接中断会话；
+- **`GET /api/dogs/:adapter_id/transcript`**：查询该犬的历史 Transcript 日志；
+
+### v1.20 向后兼容扩展（GOAL-036，2026-08-19；D38-L2 派发 Trace 步骤树与耗时瀑布图）
+
+- **`GET /api/traces`**：查询所有已记录的派发 Trace 列表；
+- **`GET /api/dispatch/:id/trace`**：查询单次派发的完整阶段步骤树、耗时瀑布甘特数据与 Token 膨胀曲线；
+
+### v1.19 向后兼容扩展（GOAL-035，2026-08-19；GP-11 看板 Git Diff 视觉审查器与单文件回滚）
+
+- **`GET /api/diff`**：查询当前工作区全量代码差异（FileDiff 数组、增删统计、敏感文件高亮标记）；
+- **`GET /api/dispatch/:id/diff`**：查询指定派发对应的代码变更集；
+- **`POST /api/dispatch/:id/revert`**：单文件安全回滚（Caller Token 鉴权 + 路径穿越与冻结区防御）：
+  - 请求：`POST /api/dispatch/:id/revert { "file": string }`
+  - 响应：`200 { "ok": true, "message": string }`
+
+### v1.18 向后兼容扩展（GOAL-034，2026-08-19；GP-24 看板 Carve-out 声明式写面可视化工作台）
+
+- **`GET /api/carveouts`**：查询所有切片历史、当前 ACTIVE 授权切片与时效：
+  - 响应：`200 { "ok": true, "carveouts": [...], "active": { "carveout_id": string, "path_roots": string[], "expires_at_utc": string, ... } | null, "current_token": string | null }`
+
+### v1.17 向后兼容扩展（GOAL-033，2026-08-19；GP-31 会话工作流生命周期控制面与交接编辑器）
+
+- **`POST /api/streams`**：创建命名工作流：
+  - 请求：`POST /api/streams { "title": string, "description"?: string, "parent_stream_id"?: string }`
+  - 响应：`201 { "ok": true, "stream": { "stream_id": string, "title": string, "status": "ACTIVE", ... } }`
+- **`PATCH /api/streams/:id`**：更新工作流状态（ACTIVE/PAUSED/ARCHIVED/MERGED）或编辑交接上下文块（Handoff Block）：
+  - 请求：`PATCH /api/streams/:id { "title"?: string, "description"?: string, "status"?: string, "handoff_block"?: { "decisions_made"?: string[], "files_touched"?: string[], "next_actions"?: string[], "handoff_markdown"?: string } }`
+  - 响应：`200 { "ok": true, "stream": { ... } }`
+- **`POST /api/streams/:id/fork`**：派生子工作流（自动继承父流交接上下文）：
+  - 请求：`POST /api/streams/:id/fork { "title": string, "description"?: string }`
+  - 响应：`201 { "ok": true, "stream": { "stream_id": string, "parent_stream_id": string, "handoff_block": { ... } } }`
+
+### v1.16 向后兼容扩展（GOAL-032，2026-08-19；GP-19 智能代码上下文自动装配器）
+
+- **`POST /api/context/assemble`**：输入目标文件列表与 Token 预算，自动提取 AST 依赖拓扑、关联类型声明与关联测试用例，组装结构化上下文包：
+  - 请求：`POST /api/context/assemble { "workspace"?: string, "files": string[], "max_tokens"?: number, "include_tests"?: boolean, "max_depth"?: number }`
+  - 响应：`200 { "ok": true, "context": { "target_files": [...], "dependencies": [...], "associated_tests": [...], "prompt_block": string, "estimated_tokens": number } }`
+
+### v1.15 向后兼容扩展（GOAL-030，2026-08-19；GP-40 / GP-32② 看板调用者身份鉴别与握手保护）
+
+- **`GET /api/session/token`**：获取会话级 Caller Token（严格 loopback 保护）：
+  - 响应：`200 { "ok": true, "caller_token": string }`
+- **状态变更请求头**：
+  - 在启用鉴权模式下，所有状态变更请求（`POST` / `PATCH` / `PUT` / `DELETE`）需携带 `X-Mush-Caller-Token: <token>` 或 Query 参数 `?caller_token=<token>`；
+  - 校验失败返回 `401 { "ok": false, "error": "Unauthorized: missing or invalid X-Mush-Caller-Token" }`。
+
+### v1.14 向后兼容扩展（GOAL-028，2026-08-19；GP-38 多组织拓扑与 LLM Verifier 矩阵）
+
+- **`POST /api/dispatch` 扩充字段**：
+  - `topology_mode?: 'HIERARCHICAL' | 'PIPELINE_SOP' | 'COMMITTEE_DEBATE' | 'BOUNTY_MARKET'`（默认 `HIERARCHICAL`）；
+  - `verifier_dog?: string`（必须与 `adapter_id` 异构，严格遵守 `Generator !== Verifier`）；
+- **`GET /api/dispatch/:id` 扩充字段**：
+  - `topology_mode?: string`；
+  - `verifier_report?: { facet: string, generator_adapter_id: string, verifier_adapter_id: string, decision: 'PASS'|'WARN'|'FAIL', issues: string[], verified_at_utc: string }`。
+
+### v1.13 向后兼容扩展（GOAL-027，2026-08-19；GP-33 本地会话用量与花费监控）
+
+- **`GET /api/usage`**：返回本地多 Harness 会话（Claude/Pi/mush receipts）用量与费用全景投影：
+  - 响应：`200 { "ok": true, "usage": { "today_cost_usd", "total_cost_usd", "total_tokens", "total_input_tokens", "total_output_tokens", "total_cache_read_tokens", "cache_savings_usd", "per_harness_usage", "per_model_usage", "daily_trends" } }`
+
+### v1.12 向后兼容扩展（GOAL-025，2026-08-18；GP-35 模型实测选择与名册回填）
+
+- **`GET /api/models/probe`**：返回在册 Harness 实测可用模型列表与探针状态缓存：
+  - 响应：`200 { "ok": true, "probes": { "<adapter_id>": { "adapter_id", "status": "ONLINE"|"QUOTA_EXHAUSTED"|"UNAVAILABLE"|"UNKNOWN", "live_models": string[], "checked_at_utc": string } } }`
+- **`POST /api/models/probe`**：触发在线实测探测（可选 body `{ "adapter_id": "<id>" }` 针对单犬）：
+  - 响应：`200 { "ok": true, "probes": { ... } }`
+- **`GET /api/roster` 扩充字段**：
+  - 每个犬只条目新增可选 `live_models: string[]`、`probe_status: string`、`actual_model_id: string`、`model_tiers: Record<string, ModelTier>`、`supports_model_flag: boolean`。
+
 
 
 ### v1.10 向后兼容扩展（GOAL-014，2026-08-18；M0 carve-out 安全底座）
@@ -69,7 +284,13 @@
   即批准，不设卡）；公开 `POST /api/dispatch` 不接受该语义，代理发起的
   real 派发一律停卡。
 
-### v1.9 向后兼容扩展（GOAL-021，2026-08-17；聊天流式）
+### v1.11 向后兼容扩展（GOAL-023，2026-08-18；活动时间线与三透镜）
+
+- 新增活动时间线持久化：`runtime/activity.jsonl`（append-only，fail-open）；
+- 将派发生命周期、任务创建/状态变迁、审批响应、工作流换窗转译为人话条目；
+- 新增活动查询接口：`GET /api/activity?task_id=<id>&goal_id=<id>&limit=<n>`；
+
+### v1.10 向后兼容扩展（GOAL-014，2026-08-18；M0 carve-out 安全底座）
 
 - **chat 异步化（破坏性语义变更，取代 v1.3.1 同步 200）**：`POST /api/chat` 改 `202`
   即返 `{ ok, session_id, role:"head", dispatch_id, status:"PENDING", note }`，不再同步
@@ -92,13 +313,13 @@
 
 - 新增适配器注册表 CRUD：
   - `GET /api/adapters`：合并视图（base + 用户覆盖 + origin 标记 + verified）；
-  - `POST /api/adapters`：基于基础模板（dsh/claude/codex/kimi/opencode/zcode）
+  - `POST /api/adapters`：基于基础模板（dsh/claude/codex/kimi/opencode/zcode/pi/agy）
     创建或覆盖用户适配器；模板外字段 fail-closed；
   - `DELETE /api/adapters/:id`：软删（`removed:true`，roster 隐藏，历史派发不受影响）。
 - roster / knownContracts 读合并层；roster 条目新增 `verified: boolean`。
 - 头犬解耦：`POST /api/chat` 的 `adapter_id` 放开为**任意 roster 在册且
   verified 的 harness**（registry `verified:true` 或合同白名单
-  deepseek-dsh/claude-code/kimi-code/zcode/head-dog）；codex 因 F-50 保持
+  deepseek-dsh/claude-code/kimi-code/zcode/agy/head-dog）；codex 因 F-50 保持
   UNVERIFIED，接口层拒绝并返回原因；`head-dog` 继续可用（deepseek 别名）。
 - 新增 `runtime/budget-caps.json`：per-actor cap（初始默认 5）；
   `GET /api/budget/caps`、`PUT /api/budget/caps/:actor`；改动追加台账一行
@@ -185,6 +406,7 @@
 | `GET /api/tasks` | **新**：任务池列表 | v1.7 |
 | `POST /api/tasks` | **新**：创建任务 | v1.7 |
 | `POST /api/tasks/:id/transition` | **新**：任务状态迁移 | v1.7 |
+| `GET /api/activity` | **新**：活动时间线（支持 task_id, goal_id, limit） | v1.11 |
 | `GET /api/carveout/active` | **新**：当前 ACTIVE carve-out（或 null） | v1.10 |
 | `POST /api/carveout/grant` | **新**：owner 授权通道（token 握手 + 旋转） | v1.10 |
 | `POST /api/carveout/revoke` | **新**：收回 carve-out（置 REVOKED） | v1.10 |
@@ -196,7 +418,7 @@
 
 ```json
 {
-  "adapter_id": "fake-t1 | deepseek-dsh | claude-code | zcode | codex | opencode | kimi-code | <user-adapter>",
+  "adapter_id": "fake-t1 | deepseek-dsh | claude-code | zcode | codex | opencode | kimi-code | pi | agy | <user-adapter>",
   "prompt": "string (1..64000)",
   "workspace": "string? (缺省=已选 workspace 或服务 cwd)",
   "effort": "string?（缺省 LOW；必须属于所选合同 effort_levels；未声明合同回退 LOW|HIGH|XHIGH）",
@@ -271,6 +493,33 @@
 请求 `{ "status": "READY|QUEUED|IN_FLIGHT|DONE|BLOCKED|CANCELLED" }`
 - 合法迁移白名单校验；非法迁移 `400` 带原因；任务不存在 `404`。
 
+## GET /api/activity（v1.11）
+
+`GET /api/activity?task_id=&goal_id=&limit=`
+
+响应：
+```json
+{
+  "ok": true,
+  "activities": [
+    {
+      "activity_id": "act-xxx",
+      "task_id": "task-xxx",
+      "goal_id": "MUSH-GOAL-xxx",
+      "dispatch_id": "<32hex>",
+      "actor": "deepseek-dsh | agy | owner",
+      "kind": "dispatch_start | dispatch_pass | dispatch_fail | task_create | task_transition | approval_response | stream_handoff",
+      "text_zh": "agy 开始执行任务",
+      "at_utc": "2026-08-18T15:00:00.000Z",
+      "amount_usd": 0.02,
+      "source_event": { "dispatch_id": "...", "status": "PASS" }
+    }
+  ]
+}
+```
+- 返回按时间倒序排列的活动条目；支持按 `task_id`、`goal_id` 过滤，支持 `limit` 限制条数；
+- 空活动返回 `{ "ok": true, "activities": [] }`。
+
 ## GET /api/carveout/active（v1.10）
 
 `{ "ok": true, "active": Carveout | null }`
@@ -326,11 +575,11 @@
 
 ```json
 {
-  "template": "dsh | claude | codex | kimi | opencode | zcode",
+  "template": "dsh | claude | codex | kimi | opencode | zcode | pi | agy",
   "adapter_id": "string (^[A-Za-z0-9._-]+$)",
   "params": {
     "profile": "string?（仅 dsh）",
-    "model_id": "string?（claude/codex/kimi/opencode/zcode）"
+    "model_id": "string?（claude/codex/kimi/opencode/zcode/pi/agy）"
   }
 }
 ```
@@ -456,7 +705,7 @@ roster 条目新增 `effort_levels?: string[]` 与 `effort_injection?:
   （`^[A-Za-z0-9_-]+\.svg$` 之外，含 `..`/子路径/非 .svg 后缀一律拒绝）、
   `path.resolve` 前缀复核逃逸白名单目录；
 - 前端消费约定（page.ts）：映射表 `deepseek-dsh→deepseek / claude-code→claude /
-  kimi→kimi / opencode→opencode / head-dog→deepseek`；`<img>` `onerror` 静默回退
+  kimi→kimi / opencode→opencode / agy→agy / head-dog→deepseek`；`<img>` `onerror` 静默回退
   手绘内联 SVG（codex/zcode 直接手绘）；资产内 `fill=currentColor`，容器 `color`
   继承实现主题化。
 

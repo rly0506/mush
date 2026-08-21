@@ -78,12 +78,94 @@ export interface UsdAdmissionEntry {
   readonly previous_sha256: string | null;
 }
 
+export interface TokenUsageTelemetry {
+  readonly input_tokens: number;
+  readonly output_tokens: number;
+  readonly cache_creation_tokens: number;
+  readonly cache_read_tokens: number;
+  readonly total_cost_usd: number;
+  readonly cache_savings_usd: number;
+}
+
+export interface ModelPricingRate {
+  readonly input_per_m: number;
+  readonly output_per_m: number;
+  readonly cache_read_per_m: number;
+  readonly cache_creation_per_m: number;
+}
+
+export const DEFAULT_PRICING_MATRIX: Record<string, ModelPricingRate> = {
+  'claude-3-5-sonnet': { input_per_m: 3.00, output_per_m: 15.00, cache_read_per_m: 0.30, cache_creation_per_m: 3.75 },
+  'claude-3-7-sonnet': { input_per_m: 3.00, output_per_m: 15.00, cache_read_per_m: 0.30, cache_creation_per_m: 3.75 },
+  'claude-3-5-haiku': { input_per_m: 0.80, output_per_m: 4.00, cache_read_per_m: 0.08, cache_creation_per_m: 1.00 },
+  'deepseek-chat': { input_per_m: 0.14, output_per_m: 0.28, cache_read_per_m: 0.014, cache_creation_per_m: 0.14 },
+  'deepseek-reasoner': { input_per_m: 0.55, output_per_m: 2.19, cache_read_per_m: 0.14, cache_creation_per_m: 0.55 },
+  'gemini-2.5-pro': { input_per_m: 1.25, output_per_m: 5.00, cache_read_per_m: 0.30, cache_creation_per_m: 1.25 },
+  'gemini-2.5-flash': { input_per_m: 0.075, output_per_m: 0.30, cache_read_per_m: 0.01875, cache_creation_per_m: 0.075 },
+  'default': { input_per_m: 2.00, output_per_m: 10.00, cache_read_per_m: 0.20, cache_creation_per_m: 2.00 },
+};
+
+export function calculateTokenCostAndSavings(
+  tokens: { input_tokens: number; output_tokens: number; cache_creation_tokens?: number; cache_read_tokens?: number },
+  modelId?: string
+): { total_cost_usd: number; cache_savings_usd: number } {
+  const mid = (modelId || 'default').toLowerCase();
+  let rate = DEFAULT_PRICING_MATRIX['default'];
+  for (const [key, val] of Object.entries(DEFAULT_PRICING_MATRIX)) {
+    if (mid.includes(key)) {
+      rate = val;
+      break;
+    }
+  }
+  const input = tokens.input_tokens || 0;
+  const output = tokens.output_tokens || 0;
+  const cacheCreation = tokens.cache_creation_tokens || 0;
+  const cacheRead = tokens.cache_read_tokens || 0;
+
+  const actualInputCost = (input * rate.input_per_m + cacheCreation * rate.cache_creation_per_m + cacheRead * rate.cache_read_per_m) / 1_000_000;
+  const outputCost = (output * rate.output_per_m) / 1_000_000;
+  const total_cost_usd = Math.round((actualInputCost + outputCost) * 1_000_000) / 1_000_000;
+
+  const nominalInputCost = ((input + cacheCreation + cacheRead) * rate.input_per_m + output * rate.output_per_m) / 1_000_000;
+  const cache_savings_usd = Math.max(0, Math.round((nominalInputCost - total_cost_usd) * 1_000_000) / 1_000_000);
+
+  return { total_cost_usd, cache_savings_usd };
+}
+
+export function roundMicroUsd(amount: number): number {
+  return Math.round(amount * 1_000_000) / 1_000_000;
+}
+
 /**
  * per-actor USD cap + admission 门：每次 admit 无论通过与否都作为哈希链事件
  * 记账（非阻断、可审计）；超 cap 的消费被拒且不改变余额。
  */
 export class UsdBudgetLedger {
+
   private readonly ledgers = new Map<string, UsdAdmissionEntry[]>();
+
+  loadEntries(entries: UsdAdmissionEntry[]): void {
+    this.ledgers.clear();
+    for (const entry of entries) {
+      const list = this.ledgers.get(entry.actorId) ?? [];
+      this.ledgers.set(entry.actorId, [...list, entry]);
+    }
+  }
+
+  recordActualUsage(opts: {
+    actorId: string;
+    capUsd: number;
+    actualCostUsd: number;
+    meta: Record<string, unknown>;
+  }): UsdAdmissionEntry {
+    const cost = roundMicroUsd(Math.max(0, opts.actualCostUsd));
+    return this.admit({
+      actorId: opts.actorId,
+      capUsd: opts.capUsd,
+      amountUsd: cost,
+      meta: { ...opts.meta, kind: 'ACTUAL_COST' },
+    });
+  }
 
   admit(opts: {
     actorId: string;
@@ -92,22 +174,27 @@ export class UsdBudgetLedger {
     meta: Record<string, unknown>;
   }): UsdAdmissionEntry {
     if (!(opts.amountUsd >= 0)) throw new Error('admission amountUsd must be >= 0');
+    const amountUsd = roundMicroUsd(opts.amountUsd);
+    const capUsd = roundMicroUsd(opts.capUsd);
     const entries = this.ledgers.get(opts.actorId) ?? [];
-    const spentBefore = entries
-      .filter((entry) => entry.decision === 'ADMITTED')
-      .reduce((sum, entry) => sum + entry.amountUsd, 0);
-    const allowed = spentBefore + opts.amountUsd <= opts.capUsd;
+    const spentBefore = roundMicroUsd(
+      entries
+        .filter((entry) => entry.decision === 'ADMITTED')
+        .reduce((sum, entry) => sum + entry.amountUsd, 0)
+    );
+    const allowed = roundMicroUsd(spentBefore + amountUsd) <= capUsd;
     const decision = allowed ? 'ADMITTED' : 'DENIED';
     const previous = entries[entries.length - 1]?.sha256 ?? null;
     const atUtc = new Date().toISOString();
+    const remainingUsd = roundMicroUsd(capUsd - spentBefore - (allowed ? amountUsd : 0));
     const body = {
       at_utc: atUtc,
       actor_id: opts.actorId,
       decision,
-      amount_usd: opts.amountUsd,
-      cap_usd: opts.capUsd,
+      amount_usd: amountUsd,
+      cap_usd: capUsd,
       spent_before_usd: spentBefore,
-      remaining_usd: opts.capUsd - spentBefore - (allowed ? opts.amountUsd : 0),
+      remaining_usd: remainingUsd,
       meta: opts.meta,
       previous_sha256: previous,
     };
@@ -115,10 +202,10 @@ export class UsdBudgetLedger {
       atUtc,
       actorId: opts.actorId,
       decision,
-      amountUsd: opts.amountUsd,
-      capUsd: opts.capUsd,
+      amountUsd,
+      capUsd,
       spentBeforeUsd: spentBefore,
-      remainingUsd: body.remaining_usd,
+      remainingUsd,
       meta: { ...opts.meta },
       sha256: sha256Hex(canonicalJson(body)),
       previous_sha256: previous,
@@ -128,13 +215,16 @@ export class UsdBudgetLedger {
   }
 
   spentUsd(actorId: string): number {
-    return (this.ledgers.get(actorId) ?? [])
-      .filter((entry) => entry.decision === 'ADMITTED')
-      .reduce((sum, entry) => sum + entry.amountUsd, 0);
+    const list = this.ledgers.get(actorId) ?? [];
+    return roundMicroUsd(
+      list
+        .filter((entry) => entry.decision === 'ADMITTED')
+        .reduce((sum, entry) => sum + entry.amountUsd, 0)
+    );
   }
 
   remainingUsd(actorId: string, capUsd: number): number {
-    return capUsd - this.spentUsd(actorId);
+    return roundMicroUsd(roundMicroUsd(capUsd) - this.spentUsd(actorId));
   }
 
   entries(actorId: string): readonly UsdAdmissionEntry[] {

@@ -1,8 +1,7 @@
 # RM-004：实战与流式（Real Work & Streaming）
 
-状态：`QUEUED`（2026-08-17 立项 D25；**启动前置 = RM-003 收官**：
-p12/p13/p14 合并 + owner 复验聊天 + 一次真实弹审批应答）
-授权依据：DECISIONS.md D25（owner 选型 A+B 流式组合）。
+状态：`DONE`（2026-08-19 owner 明确授权收官；M0~M7 子里程碑全部交付，基线 439 tests 全绿；D44）
+授权依据：DECISIONS.md D25（owner 选型 A+B 流式组合）与 D39~D44 决议。
 
 ## 目标
 

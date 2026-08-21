@@ -39,11 +39,13 @@ function parseGoalPool() {
   const lines = fs.readFileSync(POOL, 'utf8').split(/\r?\n/);
   const tasks = [];
   for (const line of lines) {
-    const match = /^\|\s*(GP-\d+)\s*\|/.exec(line);
+    const match = /^\|\s*(\*?\*?(?:(?:GP|GOAL|RM\d+)[-\s\w/]+))\*?\*\s*\|/i.exec(line);
     if (!match) continue;
-    const cells = line.split('|').slice(1, -1).map((cell) => cell.trim());
+    const cells = line.split('|').slice(1, -1).map((cell) => cell.trim().replace(/\*\*/g, ''));
     if (cells.length < 5) continue;
-    const id = cells[0];
+    const rawId = cells[0];
+    const goalMatch = /(GOAL-\d+[A-Z]?)/i.exec(rawId);
+    const id = goalMatch ? goalMatch[1].toUpperCase() : rawId;
     const title = cells[1] || '';
     const source = cells[2] || 'manual';
     const priorityRaw = cells[3] || '中';
@@ -54,12 +56,13 @@ function parseGoalPool() {
     const detail = [deps ? `依赖: ${deps}` : '', notes ? `备注: ${notes}` : ''].filter(Boolean).join('\n');
     const now = new Date().toISOString();
     tasks.push({
-      task_id: id,
+      task_id: id.toLowerCase().replace(/[^a-z0-9]/g, ''),
       title,
       detail,
       status,
       priority,
       source,
+      ...(goalMatch ? { goal_id: goalMatch[1].toUpperCase() } : {}),
       dispatch_ids: [],
       created_at: now,
       updated_at: now,
@@ -67,6 +70,7 @@ function parseGoalPool() {
   }
   return tasks;
 }
+
 
 function main() {
   const write = process.argv.includes('--write');

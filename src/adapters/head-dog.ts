@@ -36,11 +36,11 @@ export function buildHeadDogContract(): AdapterContract {
 
 /** 从犬输出中解析 session id（dsh --resume / claude --continue 回传形态）。 */
 export function extractSessionId(stdout: string): string | null {
-  // 优先结构化/常见形态：session_id、session id、kimi -r session_xxx、claude -r session_xxx。
+  // 优先结构化/常见形态：session_id、session id、kimi -r session_xxx、dsh-tui --resume xxx。
   const patterns = [
     /session[_ ]?id["'\s]*[:=]["'\s]*([A-Za-z0-9_-]+)/gi,
-    /\b(?:kimi|claude|zcode)\s+(?:-r|--resume)\s+(session_[A-Za-z0-9_-]+)/gi,
-    /\b(session_[A-Za-z0-9_-]+)\b/gi,
+    /\b(?:kimi|claude|zcode|dsh-tui|dsh)\s+(?:-r|--resume)\s+([A-Za-z0-9_-]+)/gi,
+    /\b(session[-_][A-Za-z0-9_-]+)\b/gi,
   ];
   for (const pattern of patterns) {
     const matches = [...stdout.matchAll(pattern)];

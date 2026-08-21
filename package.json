@@ -1,16 +1,19 @@
 {
   "name": "mush",
-  "version": "0.0.0",
+  "version": "0.1.0-pilot",
   "private": true,
-  "description": "个人跨 harness 多 agent 编排工具（雪橇队）",
+  "description": "个人跨 harness 原生多 Agent 协同工作台（雪橇队）",
+  "license": "Apache-2.0",
   "type": "module",
   "engines": {
     "node": ">=24"
   },
   "scripts": {
+    "start": "node bin/mush board --open",
     "test": "node --test --test-isolation=none tests/*.test.ts",
     "test:isolated": "node --test tests/*.test.ts",
-    "mush": "node bin/mush"
+    "mush": "node bin/mush",
+    "build:desktop": "powershell -NoProfile -File scripts/build-desktop.ps1"
   },
   "bin": {
     "mush": "bin/mush"

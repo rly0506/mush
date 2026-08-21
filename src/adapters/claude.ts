@@ -11,7 +11,7 @@ import { spawn as nodeSpawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { validateAdapterContract, type AdapterContract } from './contract.ts';
-import type { ChildProcessLike, SpawnFn } from './t1-runner.ts';
+import { type ChildProcessLike, type SpawnFn, killProcessTree } from './t1-runner.ts';
 import { makeNonce, parseNonceResponse, type NonceMaterial } from './deepseek.ts';
 
 export function buildClaudeContract(expectedModelId: string): AdapterContract {
@@ -150,17 +150,24 @@ export async function runClaudeStreamNonceProbe(
     ((executable, args, opts) => {
       // 与 T1 相同的默认 spawn 语义；真实调用受沙箱/确认门约束。
       const child = nodeSpawn(executable, args, { cwd: opts.cwd, windowsHide: true });
+      if (child.stdin !== null) {
+        child.stdin.on('error', () => {});
+      }
       return {
         stdinWrite: (chunk: string) => {
-          if (child.stdin !== null) child.stdin.write(chunk);
+          try {
+            if (child.stdin !== null && child.stdin.writable) child.stdin.write(chunk);
+          } catch {}
         },
         stdinEnd: () => {
-          if (child.stdin !== null) child.stdin.end();
+          try {
+            if (child.stdin !== null && child.stdin.writable) child.stdin.end();
+          } catch {}
         },
         onStdout: (listener) => child.stdout.on('data', listener),
         onStderr: (listener) => child.stderr.on('data', listener),
         onExit: (listener) => child.on('exit', listener),
-        kill: () => child.kill(),
+        kill: () => killProcessTree(child.pid),
       } as ChildProcessLike;
     });
   const args =

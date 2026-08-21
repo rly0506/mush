@@ -17,15 +17,14 @@ export function buildOpencodeContract(): AdapterContract {
     prompt_transport: 'argument',
     expected_provider: 'opencode',
     expected_model_id: 'UNKNOWN',
-    // GP-22：opencode run --help（2026-08-17 本机抓取）有
-    //   --variant <level>  model variant (provider-specific reasoning effort,
-    //   e.g., high, max, minimal)
     effort_levels: ['MINIMAL', 'LOW', 'MEDIUM', 'HIGH', 'MAX'],
     effort_injection: { kind: 'flag', name: '--variant' },
     // GOAL-018 U3：未列入本批自动压缩/续跑主路径，暂按 none。
     context_management: 'none',
   });
 }
+
+
 
 export interface OpencodeOutput {
   parsed: boolean;

@@ -104,10 +104,11 @@ export function parseGrantCarveoutInput(input: unknown): GrantCarveoutInput {
   const body = input as Record<string, unknown>;
   const taskRef = typeof body.task_ref === 'string' ? body.task_ref.trim() : '';
   if (taskRef === '') throw new Error('task_ref must be non-blank');
-  if (!Array.isArray(body.paths) || body.paths.length === 0) {
+  const inputPaths = Array.isArray(body.paths) ? body.paths : (Array.isArray(body.path_roots) ? body.path_roots : null);
+  if (!Array.isArray(inputPaths) || inputPaths.length === 0) {
     throw new Error('paths must be a non-empty array');
   }
-  const rawPaths = body.paths.filter((entry): entry is string => typeof entry === 'string' && entry.trim() !== '');
+  const rawPaths = inputPaths.filter((entry): entry is string => typeof entry === 'string' && entry.trim() !== '');
   if (rawPaths.length === 0) throw new Error('paths must be a non-empty array of absolute path strings');
   const paths = rawPaths.map((entry) => path.resolve(entry));
   for (const entry of paths) {
