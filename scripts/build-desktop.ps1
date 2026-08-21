@@ -32,4 +32,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\board-up.ps1"
 "@
 Set-Content -Path (Join-Path $dist 'mush-start.cmd') -Value $cmdContent -Encoding ASCII
 
+# Automatically compress to zip for distribution
+$zipPath = Join-Path (Join-Path $root 'dist') 'mush-v0.1.0-pilot-windows-x64.zip'
+if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+Write-Output "==> Packaging zip file: $zipPath"
+Compress-Archive -Path "$dist\*" -DestinationPath $zipPath -Force
+
 Write-Output "==> mush pilot desktop package successfully created at: $dist"
+Write-Output "==> Distributable ZIP archive ready: $zipPath"
