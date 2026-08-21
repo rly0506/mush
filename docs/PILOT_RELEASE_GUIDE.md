@@ -8,11 +8,12 @@
 ## 一、 为什么选择 mush？
 
 不同厂商的模型在自己的**原生 Harness（原厂战衣）**中才能发挥 100% 战力：
-- **Claude 3.7 Sonnet / Claude 3.5 Sonnet 跑在 Claude Code 里**：独享原厂 Terminal 全局 Agentic 架构、子命令执行与多文件精准重构；
-- **DeepSeek-R1 / DeepSeek-V3 跑在 dsh 里**：原生流式 Thinking 思考链透出、代码极速生成与万 Token 厘级极致性价比；
-- **Gemini 2.5 Pro / 2.0 Flash 跑在 agy 里**：超大 200万+ 上下文吞吐、原生多模态视觉审计与深度推理；
-- **OpenAI o1 / o3-mini 跑在 Codex 里**：高阶算法演变与复杂状态机数学逻辑验证；
-- **Kimi k1.5 跑在 kimi-code 里**：超长代码上下文精准检索与长文档对账。
+- **Claude Opus 5 / Sonnet 5 / Fable 5 跑在 Claude Code 里**：独享原厂自适应思考（Adaptive Thinking）、全局 Agentic 代码重构与多文件精准重构；
+- **DeepSeek-V4 / DeepSeek-R2 跑在 dsh 里**：原生流式 Thinking 思考链透出、万 Token 厘级极致性价比与极速工程落地；
+- **Gemini 3.7 / 3 Pro 跑在 agy 里**：超大 200万+ 全图谱上下文吞吐、原生多模态视觉审计与深度推理；
+- **OpenAI GPT-5.6 / o3 跑在 Codex 里**：高阶数学推理、复杂状态机验证与算法演变；
+- **Kimi K3 / k3.5 跑在 kimi-code 里**：百万级超长代码库精准检索与长文档对账；
+- **GLM-5.3 / Grok 4.5**：跨拓扑灵活接入，支持辩论竞技场与红蓝攻防对抗。
 
 mush 不把大模型抹平成均码的裸 API，而是作为**本地总线编排原厂战衣**，提供统一白板、流水线协同、红蓝对抗与权威安全预算闸门。
 
