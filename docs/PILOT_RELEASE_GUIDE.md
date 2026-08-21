@@ -8,12 +8,12 @@
 ## 一、 为什么选择 mush？
 
 不同厂商的模型在自己的**原生 Harness（原厂战衣）**中才能发挥 100% 战力：
-- **Claude 3.7 Sonnet / Claude 3.5 Sonnet 跑在 Claude Code 里**：独享原厂自适应/扩展思考（Hybrid Reasoning）、全局 Agentic 代码重构与多文件精准重构；
-- **DeepSeek-R1 / DeepSeek-V3 跑在 dsh 里**：原生流式 Thinking 思考链透出、万 Token 厘级极致性价比与极速工程落地；
-- **Gemini 2.5 Pro / 2.5 Flash 跑在 agy 里**：超大 200万+ 全图谱上下文吞吐、原生多模态视觉审计与深度推理；
-- **OpenAI o3-mini / o1 / GPT-4.5 跑在 Codex 里**：高阶数学推理、复杂状态机验证与严谨算法演变；
-- **Kimi k1.5 / moonshot-v1 跑在 kimi-code 里**：长程代码库精准检索与长文档技术对账；
-- **GLM-4-Plus / Grok-2**：跨拓扑灵活接入，支持辩论竞技场与红蓝攻防对抗。
+- **Claude Opus 5 / Sonnet 5 / Fable 5 跑在 Claude Code 里**：独享原厂自适应思考（Adaptive Thinking）、100万 Token 上下文与复杂长程 Agentic 架构重构；
+- **DeepSeek-V4-Pro / DeepSeek-V4 / V3.2 跑在 dsh 里**：原生流式 Thinking 思考链透出、万 Token 厘级极致性价比与全自动工程落地；
+- **Gemini 3.7 Flash / 3.1 Pro 跑在 agy 里**：专为 Agentic 编码优化、原生多模态视觉审查与超大图谱全量吞吐；
+- **OpenAI GPT-5.6 (Sol / Terra) / GPT-5.5 跑在 Codex 里**：高阶数学演绎、复杂状态机严谨验证与跨语言算法演变；
+- **Kimi K3 (2.8T MoE) 跑在 kimi-code 里**：百万级长程代码库精准检索与长文档技术对账；
+- **GLM-5.3 (智谱) / Grok 4.6 (xAI)**：跨拓扑灵活接入，支持辩论竞技场与红蓝攻防对抗。
 
 mush 不把大模型抹平成均码的裸 API，而是作为**本地总线编排原厂战衣**，提供统一白板、流水线协同、红蓝对抗与权威安全预算闸门。
 
