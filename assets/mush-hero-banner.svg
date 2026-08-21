@@ -1,0 +1,193 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#090d16" />
+      <stop offset="40%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#050811" />
+    </linearGradient>
+    
+    <linearGradient id="cyanGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00f2fe" />
+      <stop offset="100%" stop-color="#4facfe" />
+    </linearGradient>
+
+    <linearGradient id="purpleGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8a2be2" />
+      <stop offset="100%" stop-color="#ec4899" />
+    </linearGradient>
+
+    <linearGradient id="goldGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#10b981" />
+    </linearGradient>
+    
+    <linearGradient id="badgeBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="rgba(0, 242, 254, 0.6)" />
+      <stop offset="100%" stop-color="rgba(138, 43, 226, 0.2)" />
+    </linearGradient>
+
+    <!-- Glow Filters -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <filter id="intenseGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="16" result="blur1" />
+      <feGaussianBlur stdDeviation="30" result="blur2" />
+      <feMerge>
+        <feMergeNode in="blur2" />
+        <feMergeNode in="blur1" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- Grid Pattern -->
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255, 255, 255, 0.04)" stroke-width="1" />
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bgGrad)" />
+  <rect width="1200" height="630" fill="url(#grid)" />
+
+  <!-- Ambient Light Orbs -->
+  <circle cx="200" cy="150" r="180" fill="#00f2fe" opacity="0.12" filter="url(#intenseGlow)" />
+  <circle cx="1000" cy="450" r="220" fill="#8a2be2" opacity="0.15" filter="url(#intenseGlow)" />
+  <circle cx="600" cy="300" r="250" fill="#3b82f6" opacity="0.08" filter="url(#intenseGlow)" />
+
+  <!-- Cybernetic Perspective Lines (Sled Track) -->
+  <g stroke="rgba(0, 242, 254, 0.15)" stroke-width="1.5">
+    <line x1="600" y1="280" x2="0" y2="630" />
+    <line x1="600" y1="280" x2="200" y2="630" />
+    <line x1="600" y1="280" x2="400" y2="630" />
+    <line x1="600" y1="280" x2="800" y2="630" />
+    <line x1="600" y1="280" x2="1000" y2="630" />
+    <line x1="600" y1="280" x2="1200" y2="630" />
+  </g>
+
+  <!-- Central Brand & Title Section -->
+  <g transform="translate(600, 160)" text-anchor="middle">
+    <!-- Top Pill Badge -->
+    <rect x="-180" y="-80" width="360" height="36" rx="18" fill="rgba(15, 23, 42, 0.8)" stroke="url(#badgeBorder)" stroke-width="1.5" />
+    <circle cx="-150" cy="-62" r="5" fill="#10b981" filter="url(#glow)" />
+    <text x="-135" y="-57" fill="#38bdf8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="start">NATIVE HARNESS FEDERATION</text>
+
+    <!-- Main Title Logo -->
+    <text x="0" y="30" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="88" font-weight="900" letter-spacing="4" filter="url(#glow)">
+      mush<tspan fill="url(#cyanGlow)">.</tspan>
+    </text>
+    
+    <!-- Subtitle -->
+    <text x="0" y="75" fill="#94a3b8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="500" letter-spacing="1">
+      跨厂商大模型「原厂战衣联邦」· 本地多 Agent 协同工作台
+    </text>
+  </g>
+
+  <!-- Left HUD Card: Multi-Agent Sled Team -->
+  <g transform="translate(100, 310)">
+    <rect width="280" height="240" rx="16" fill="rgba(15, 23, 42, 0.75)" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
+    <rect x="0" y="0" width="280" height="36" rx="16" fill="rgba(30, 41, 59, 0.5)" />
+    <text x="16" y="24" fill="#38bdf8" font-family="sans-serif" font-size="12" font-weight="700" letter-spacing="1">🐺 SLED ROSTER (原厂战衣)</text>
+    
+    <!-- Dog Item 1 -->
+    <g transform="translate(16, 55)">
+      <rect width="248" height="34" rx="8" fill="rgba(255,255,255,0.03)" stroke="rgba(0, 242, 254, 0.2)" />
+      <circle cx="16" cy="17" r="4" fill="#00f2fe" />
+      <text x="30" y="21" fill="#f8fafc" font-family="sans-serif" font-size="12" font-weight="600">Claude Code</text>
+      <text x="235" y="21" fill="#94a3b8" font-family="sans-serif" font-size="10" text-anchor="end">Opus 5 / Sonnet 5</text>
+    </g>
+
+    <!-- Dog Item 2 -->
+    <g transform="translate(16, 98)">
+      <rect width="248" height="34" rx="8" fill="rgba(255,255,255,0.03)" stroke="rgba(138, 43, 226, 0.2)" />
+      <circle cx="16" cy="17" r="4" fill="#8a2be2" />
+      <text x="30" y="21" fill="#f8fafc" font-family="sans-serif" font-size="12" font-weight="600">DeepSeek dsh</text>
+      <text x="235" y="21" fill="#94a3b8" font-family="sans-serif" font-size="10" text-anchor="end">V4-Pro / V3.2</text>
+    </g>
+
+    <!-- Dog Item 3 -->
+    <g transform="translate(16, 141)">
+      <rect width="248" height="34" rx="8" fill="rgba(255,255,255,0.03)" stroke="rgba(16, 185, 129, 0.2)" />
+      <circle cx="16" cy="17" r="4" fill="#10b981" />
+      <text x="30" y="21" fill="#f8fafc" font-family="sans-serif" font-size="12" font-weight="600">Google agy</text>
+      <text x="235" y="21" fill="#94a3b8" font-family="sans-serif" font-size="10" text-anchor="end">Gemini 3.7 / 3.1</text>
+    </g>
+
+    <!-- Dog Item 4 -->
+    <g transform="translate(16, 184)">
+      <rect width="248" height="34" rx="8" fill="rgba(255,255,255,0.03)" stroke="rgba(245, 158, 11, 0.2)" />
+      <circle cx="16" cy="17" r="4" fill="#f59e0b" />
+      <text x="30" y="21" fill="#f8fafc" font-family="sans-serif" font-size="12" font-weight="600">OpenAI Codex</text>
+      <text x="235" y="21" fill="#94a3b8" font-family="sans-serif" font-size="10" text-anchor="end">GPT-5.6 / o3</text>
+    </g>
+  </g>
+
+  <!-- Center HUD: Workflow DAG Nodes -->
+  <g transform="translate(420, 310)">
+    <rect width="360" height="240" rx="16" fill="rgba(15, 23, 42, 0.85)" stroke="url(#badgeBorder)" stroke-width="1.5" />
+    <rect x="0" y="0" width="360" height="36" rx="16" fill="rgba(30, 41, 59, 0.5)" />
+    <text x="16" y="24" fill="#38bdf8" font-family="sans-serif" font-size="12" font-weight="700" letter-spacing="1">⚡ COLLABORATION BUS &amp; GATES</text>
+
+    <!-- Workflow Nodes Graphic -->
+    <g transform="translate(30, 65)">
+      <!-- Node 1: Spec -->
+      <rect x="0" y="30" width="80" height="44" rx="8" fill="rgba(59, 130, 246, 0.15)" stroke="#3b82f6" stroke-width="1.5" />
+      <text x="40" y="52" fill="#93c5fd" font-family="sans-serif" font-size="10" font-weight="700" text-anchor="middle">Claude</text>
+      <text x="40" y="66" fill="#cbd5e1" font-family="sans-serif" font-size="9" text-anchor="middle">架构规划</text>
+
+      <!-- Arrow 1 -->
+      <line x1="85" y1="52" x2="115" y2="52" stroke="#00f2fe" stroke-width="2" stroke-dasharray="3,3" />
+
+      <!-- Node 2: Gate (Approval) -->
+      <polygon points="150,30 185,52 150,74 115,52" fill="rgba(245, 158, 11, 0.15)" stroke="#f59e0b" stroke-width="1.5" />
+      <text x="150" y="56" fill="#fcd34d" font-family="sans-serif" font-size="9" font-weight="700" text-anchor="middle">审批闸门</text>
+
+      <!-- Arrow 2 -->
+      <line x1="185" y1="52" x2="215" y2="52" stroke="#00f2fe" stroke-width="2" stroke-dasharray="3,3" />
+
+      <!-- Node 3: Execution -->
+      <rect x="220" y="30" width="80" height="44" rx="8" fill="rgba(16, 185, 129, 0.15)" stroke="#10b981" stroke-width="1.5" />
+      <text x="260" y="52" fill="#6ee7b7" font-family="sans-serif" font-size="10" font-weight="700" text-anchor="middle">DeepSeek</text>
+      <text x="260" y="66" fill="#cbd5e1" font-family="sans-serif" font-size="9" text-anchor="middle">极速落地</text>
+    </g>
+
+    <!-- Bottom Status Metrics -->
+    <g transform="translate(20, 160)">
+      <rect width="320" height="55" rx="8" fill="rgba(0,0,0,0.3)" />
+      <text x="20" y="24" fill="#94a3b8" font-family="sans-serif" font-size="11">零信任鉴权: <tspan fill="#10b981" font-weight="700">100% 本地闭环</tspan></text>
+      <text x="20" y="44" fill="#94a3b8" font-family="sans-serif" font-size="11">预算锁精度: <tspan fill="#38bdf8" font-weight="700">Micro-USD 台账</tspan></text>
+      <text x="200" y="34" fill="#e2e8f0" font-family="sans-serif" font-size="13" font-weight="800">557 Tests 全绿</text>
+    </g>
+  </g>
+
+  <!-- Right HUD Card: Zero Trust & Local Security Shield -->
+  <g transform="translate(820, 310)">
+    <rect width="280" height="240" rx="16" fill="rgba(15, 23, 42, 0.75)" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
+    <rect x="0" y="0" width="280" height="36" rx="16" fill="rgba(30, 41, 59, 0.5)" />
+    <text x="16" y="24" fill="#10b981" font-family="sans-serif" font-size="12" font-weight="700" letter-spacing="1">🛡️ SECURITY &amp; PRIVACY</text>
+
+    <g transform="translate(20, 60)">
+      <!-- Shield Icon -->
+      <path d="M 120 10 L 170 30 L 170 80 Q 120 120 120 120 Q 70 80 70 80 L 70 30 Z" fill="rgba(16, 185, 129, 0.1)" stroke="#10b981" stroke-width="2" filter="url(#glow)" />
+      <path d="M 105 65 L 115 75 L 140 50" fill="none" stroke="#34d399" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+    </g>
+
+    <g transform="translate(20, 175)" text-anchor="middle">
+      <text x="120" y="15" fill="#f8fafc" font-family="sans-serif" font-size="14" font-weight="700">代码 100% 不出本机</text>
+      <text x="120" y="35" fill="#64748b" font-family="sans-serif" font-size="11">BYOK 自带战衣 · 零云端遥测</text>
+    </g>
+  </g>
+
+  <!-- Bottom Brand Footer -->
+  <g transform="translate(600, 595)" text-anchor="middle">
+    <text fill="rgba(148, 163, 184, 0.5)" font-family="sans-serif" font-size="12" letter-spacing="3">
+      MUSH v0.1.0-PILOT · APACHE-2.0 LICENSED · LOCAL-FIRST ORCHESTRATION
+    </text>
+  </g>
+</svg>
