@@ -13,7 +13,7 @@ import {
   createThrottledStream,
   type RunAdapterFn,
 } from '../src/web/dispatch.ts';
-import { ChatService, type ChatStreamEvent } from '../src/web/chat.ts';
+import { ChatService, type ChatFrameEvent } from '../src/web/chat.ts';
 
 // GOAL-021（派发包 rm004-p20a）后端聊天流式——U1 异步 202 ack、U2 SSE chat 帧、
 // U3 t1 增量 stdout 透传 + 节流合帧。测试即验收规格（342± → 必须全绿）。
@@ -159,7 +159,7 @@ test('GOAL-021 U2/U3: chat frames stream ADMITTED→EXECUTE→HEARTBEAT→REPORT
     ledgerPath: path.join(root, 'ledger.jsonl'),
     runAdapter,
   });
-  const frames: ChatStreamEvent[] = [];
+  const frames: ChatFrameEvent[] = [];
   const chat = new ChatService({
     pipeline,
     runtimeRoot: path.join(root, 'runtime'),

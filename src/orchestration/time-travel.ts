@@ -5,6 +5,7 @@
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { resolveInsideWorkspace } from '../core/path-guard.ts';
 
 export interface StateFileSnapshot {
   relative_path: string;
@@ -86,7 +87,10 @@ export class TimeTravelKernel {
 
     for (const rel of trackedRelFiles) {
       const normRel = rel.replace(/\\/g, '/').replace(/^\/+/, '');
-      const fullPath = path.join(this.workspaceRoot, normRel);
+      // GOAL-067（P1-7）：读侧边界——拒绝 ../ 与绝对路径逃逸，任意文件不得
+      // 被吸入快照（写侧早有防线，读侧此前完全开放）。
+      const fullPath = resolveInsideWorkspace(this.workspaceRoot, normRel);
+      if (fullPath === null) continue;
       if (existsSync(fullPath)) {
         try {
           const content = readFileSync(fullPath, 'utf-8');
@@ -172,10 +176,10 @@ export class TimeTravelKernel {
     let restoredCount = 0;
 
     for (const f of targetNode.files) {
-      const fullPath = path.resolve(this.workspaceRoot, f.relative_path);
-
-      // 安全防线：禁止路径穿越与意向项目写入
-      if (!fullPath.startsWith(this.workspaceRoot) || fullPath.includes('意向项目')) {
+      // 安全防线（F-AUD-03 标准，GOAL-067 统一走 path-guard）：禁止路径穿越
+      // （含兄弟目录前缀绕过）与意向项目写入。
+      const fullPath = resolveInsideWorkspace(this.workspaceRoot, f.relative_path);
+      if (fullPath === null || fullPath.includes('意向项目')) {
         continue;
       }
 

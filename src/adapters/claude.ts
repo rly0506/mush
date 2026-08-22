@@ -11,7 +11,7 @@ import { spawn as nodeSpawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { validateAdapterContract, type AdapterContract } from './contract.ts';
-import { type ChildProcessLike, type SpawnFn, killProcessTree } from './t1-runner.ts';
+import { type ChildProcessLike, type SpawnFn, killProcessTree, resolveWindowsShim } from './t1-runner.ts';
 import { makeNonce, parseNonceResponse, type NonceMaterial } from './deepseek.ts';
 
 export function buildClaudeContract(expectedModelId: string): AdapterContract {
@@ -148,8 +148,14 @@ export async function runClaudeStreamNonceProbe(
   const spawn: SpawnFn =
     options.spawn ??
     ((executable, args, opts) => {
-      // 与 T1 相同的默认 spawn 语义；真实调用受沙箱/确认门约束。
-      const child = nodeSpawn(executable, args, { cwd: opts.cwd, windowsHide: true });
+      // GOAL-067（P0-4）：与 t1-runner defaultSpawn 完全同语义——此前副本丢失了
+      // Windows shim 解析与 onError 桥接：claude 为 .cmd 垫片时 nodeSpawn 直 spawn
+      // 会 ENOENT，且 error 事件无监听 → exit 永不到来、Promise 永久挂起。
+      const shim = resolveWindowsShim(executable);
+      const child =
+        shim !== null
+          ? nodeSpawn(shim.node, [shim.entry, ...args], { cwd: opts.cwd, windowsHide: true })
+          : nodeSpawn(executable, args, { cwd: opts.cwd, windowsHide: true });
       if (child.stdin !== null) {
         child.stdin.on('error', () => {});
       }
@@ -167,6 +173,7 @@ export async function runClaudeStreamNonceProbe(
         onStdout: (listener) => child.stdout.on('data', listener),
         onStderr: (listener) => child.stderr.on('data', listener),
         onExit: (listener) => child.on('exit', listener),
+        onError: (listener) => child.on('error', listener),
         kill: () => killProcessTree(child.pid),
       } as ChildProcessLike;
     });

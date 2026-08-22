@@ -195,17 +195,19 @@ export function isTaskGoalCompleted(task: Task, completedGoals: Set<string>): bo
 export function isGoalIdCompleted(goalId: string, completedGoals: Set<string>): boolean {
   const normalized = goalId.toUpperCase();
   if (completedGoals.has(normalized)) return true;
-  const numMatch = /\d+/.exec(normalized);
-  if (numMatch) {
-    const num = parseInt(numMatch[0], 10);
+  // GOAL-067（P2-16，owner 裁决 B7）：严格 GOAL- 前缀匹配——旧 /\d+/ 会把
+  // EPIC-7、BATCH-30 等任意编号 id 的首段数字 ≤55 误判为已交付 Goal。
+  const goalMatch = /^GOAL-(\d+)$/.exec(normalized);
+  if (goalMatch) {
+    const num = parseInt(goalMatch[1], 10);
     // RM-001 ~ RM-007 (GOAL-001 ~ GOAL-055) 经 D65 确认已全部验收交付
     if (num >= 1 && num <= 55) return true;
 
 
     if (
-      completedGoals.has(numMatch[0]) ||
-      completedGoals.has(`GOAL-${numMatch[0]}`) ||
-      completedGoals.has(`MUSH-GOAL-${numMatch[0]}`)
+      completedGoals.has(goalMatch[1]) ||
+      completedGoals.has(`GOAL-${goalMatch[1]}`) ||
+      completedGoals.has(`MUSH-GOAL-${goalMatch[1]}`)
     ) {
       return true;
     }

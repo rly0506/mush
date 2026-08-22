@@ -58,6 +58,9 @@ export class VelocityMatrixEngine {
 
     const md = `# ${title}
 
+> **[基准推演参考]** 本报告指标基于 RM-001~RM-007 收官基线（D65）推演生成，
+> 非当前实时遥测实测值；引用时请注明口径（GOAL-067 证据纪律标注，D80）。
+
 - 生成时间：\`${now}\`
 - 交付范围：**RM-001 ~ RM-007 全部 7 大路线图 / 55 个 Goal 全量达成**
 - 测试基线：**${metrics.tests_delivered}+ 自动化测试 100% PASS**

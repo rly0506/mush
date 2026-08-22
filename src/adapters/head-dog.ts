@@ -5,7 +5,10 @@
 
 import { validateAdapterContract, type AdapterContract } from './contract.ts';
 
-export const HEAD_DOG_CHARTER = [
+// GOAL-067（P3）：原与 web/chat.ts 的聊天章程同名异文（HEAD_DOG_CHARTER），
+// 极易改漏其一。本版是 T1 派发合同专用章程，更名为 *_T1_CHARTER 以正名；
+// 聊天通道权威章程见 web/chat.ts HEAD_DOG_CHARTER。
+export const HEAD_DOG_T1_CHARTER = [
   '你是 mush 项目的头犬（head-dog）。',
   '宪法五门摘要：花钱超阈值、外部影响、永久删除、范围扩张、身份/密钥变更，任一触发必须停下等 owner 决定。',
   '你可调用 `node bin/mush dispatch ...` 给执行犬派活；所有派发都经过预算 admission 门与审批门，照常生效。',

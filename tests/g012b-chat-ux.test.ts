@@ -26,7 +26,7 @@ const fakeOk: RunAdapterFn = async () => ({
   childKilled: false,
 });
 
-function makeChat(root: string, captured?: { adapter_id?: string; effort?: string }, onEvent?: (event: import('../src/web/chat.ts').ChatStreamEvent) => void): ChatService {
+function makeChat(root: string, captured?: { adapter_id?: string; effort?: string }, onEvent?: (event: import('../src/web/chat.ts').ChatFrameEvent) => void): ChatService {
   const spyRunner: RunAdapterFn = async (args, opts) => {
     void args;
     void opts;

@@ -47,16 +47,18 @@ export function renderDebateArenaHtml(): string {
     </div>
   </div>
 
-  <!-- 底部共识提纯与终审仲裁卡 -->
-  <div class="debate-arbitration-panel" id="debate-arbitration-panel">
-    <div class="arbitration-grid">
-      <!-- 共识清单 -->
-      <div class="consensus-box">
-        <div class="box-title">✅ 提纯达成共识（Consensus）</div>
-        <ul id="debate-consensus-list" class="distill-list">
-          <li>暂无提纯共识</li>
-        </ul>
-      </div>
+    <!-- 底部共识提纯与终审仲裁卡 -->
+    <div class="debate-arbitration-panel" id="debate-arbitration-panel">
+      <!-- GOAL-067（P2-14，F3 裁决）：共识/分歧由 DebateEngine.distillConsensusAndDisputes
+           从真实陈词提炼；无陈词时为空态，不展示模板话术。 -->
+      <div class="arbitration-grid">
+        <!-- 共识清单 -->
+        <div class="consensus-box">
+          <div class="box-title">✅ 提纯达成共识（Consensus）</div>
+          <ul id="debate-consensus-list" class="distill-list">
+            <li>暂无提纯共识</li>
+          </ul>
+        </div>
 
       <!-- 核心争议分歧点 -->
       <div class="disputes-box">

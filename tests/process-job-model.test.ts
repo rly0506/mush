@@ -84,7 +84,7 @@ test('assignment-failure cleanup terminates the unowned child tree even when tas
   const grandchild = makeFakeProcess(4002);
   const child = makeFakeProcess(4001, [grandchild]);
   const root = makeFakeProcess(4000, [child]);
-  stopOwnedProcessTree(4000, [root, child, grandchild], { taskkillFails: true });
+  stopOwnedProcessTree(4000, [root, child, grandchild]);
   assert.equal(root.alive, false);
   assert.equal(child.alive, false);
   assert.equal(grandchild.alive, false);

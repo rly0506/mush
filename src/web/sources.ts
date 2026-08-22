@@ -104,8 +104,16 @@ function projectEvents(entries: readonly EventLogEntry[]): BoardEpochEvent[] {
 
 function collectApprovals(approvalRoot: string): BoardApproval[] {
   if (!existsSync(approvalRoot)) return [];
+  let names: string[];
+  try {
+    // GOAL-067：approvalRoot 在 existsSync 与 readdirSync 之间可能变为
+    // 不可读（权限变化/被替换为文件）——fail-open 返回空，看板不崩。
+    names = readdirSync(approvalRoot);
+  } catch {
+    return [];
+  }
   const approvals: BoardApproval[] = [];
-  const files = readdirSync(approvalRoot)
+  const files = names
     .filter((name) => name.endsWith('.json') && !name.endsWith('.owner-response.json'))
     .sort();
   for (const name of files) {

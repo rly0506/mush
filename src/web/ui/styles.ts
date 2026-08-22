@@ -79,8 +79,8 @@ export function getCollaborationStyles(): string {
     color: var(--ink-dim, #5a6675);
   }
 
-  /* 圆桌辩论工作台样式 (GOAL-044) */
-  #view-debate, #debate-view {
+  /* 圆桌辩论工作台样式 (GOAL-044)；GOAL-067：移除 DOM 中不存在的 #debate-view 死选择器 */
+  #view-debate {
     display: flex;
     flex-direction: column;
 

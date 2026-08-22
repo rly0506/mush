@@ -15,7 +15,8 @@ Write-Output '== [3] board dispatches (non-terminal = board-side in-flight) =='
 $snap = ''
 try { $snap = (Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:4790/api/snapshot' -TimeoutSec 3).Content } catch { Write-Output '  (board unreachable)'; exit 0 }
 $dispatches = ($snap | ConvertFrom-Json).dispatches
-$terminal = @('PASS', 'FAIL', 'DRY_RUN', 'TIMEOUT', 'BLOCKED_WAITING_OWNER', 'BLOCKED_ENV', 'INTERRUPTED')
+# GOAL-067: terminal set aligned with src/web/dispatch.ts TERMINAL (REJECTED/SUPERSEDED added)
+$terminal = @('PASS', 'FAIL', 'DRY_RUN', 'TIMEOUT', 'BLOCKED_WAITING_OWNER', 'BLOCKED_ENV', 'INTERRUPTED', 'REJECTED', 'SUPERSEDED')
 $active = @($dispatches | Where-Object { $terminal -notcontains $_.status })
 if ($active.Count -gt 0) { $active | ForEach-Object { Write-Output ("  {0}  {1}  {2}" -f $_.dispatch_id.Substring(0,8), $_.adapter_id, $_.status) } }
 else { Write-Output '  (no board-side in-flight)' }

@@ -28,6 +28,7 @@ export function getCollaborationClientScript(): string {
           if (pipelineView) pipelineView.style.display = 'none';
           if (redblueView) redblueView.style.display = 'none';
           fetchRecommendedPair();
+          loadDebatesUI();
         } else if (currentCollabMode === 'pipeline') {
           if (pairIndicator) pairIndicator.style.display = 'none';
           if (debateView) debateView.style.display = 'none';
@@ -148,15 +149,24 @@ export function getCollaborationClientScript(): string {
     if (btnApproveGate) {
       btnApproveGate.addEventListener('click', async () => {
         try {
-          const res = await fetch('/api/approvals');
+          // GOAL-067（P1-11）修复三连：
+          // a) 数据源改走真实存在的 GET /api/snapshot（旧 GET /api/approvals 路由不存在，恒 404）；
+          // b) 应答字段名对齐服务端契约 request_file（旧 file 字段必 400）；
+          // c) 补 x-mush-caller-auth 头（强制鉴权模式下裸 fetch 必 401）。
+          const authMeta = document.querySelector('meta[name="mush-caller-auth"]');
+          const authVal = authMeta ? (authMeta.getAttribute('content') || '') : '';
+          const res = await fetch('/api/snapshot');
           const data = await res.json();
           if (data && data.approvals && data.approvals.length > 0) {
             const waiting = data.approvals.find(a => a.status === 'WAITING');
             if (waiting) {
               await fetch('/api/approvals/respond', {
                 method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ file: waiting.request_file || waiting.file, decision: 'APPROVED' })
+                headers: Object.assign(
+                  { 'content-type': 'application/json' },
+                  authVal ? { 'x-mush-caller-auth': authVal } : {}
+                ),
+                body: JSON.stringify({ request_file: waiting.request_file, decision: 'APPROVED' })
               });
               loadPipelinesUI();
               return;
@@ -176,7 +186,7 @@ export function getCollaborationClientScript(): string {
     const btnAutoMatchBid = document.getElementById('btn-auto-match-bid');
     if (btnAutoMatchBid) {
       btnAutoMatchBid.addEventListener('click', () => {
-        loadBountiesUI();
+        autoMatchBestBid();
       });
     }
     const btnSkillsRefresh = document.getElementById('btn-skills-refresh');
@@ -220,9 +230,8 @@ export function getCollaborationClientScript(): string {
         });
 
     function escHtml(value) {
-      return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
-        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
-      });
+      // GOAL-067（P3）：与主层 esc() 同实现，保留薄别名以维持视图内调用点可读。
+      return esc(value);
     }
 
     if (filtered.length === 0) {
@@ -238,7 +247,10 @@ export function getCollaborationClientScript(): string {
       var rawModel = r.model_id || (harnessName.indexOf('agy') !== -1 ? 'gemini-3.7-flash-high' : (harnessName.indexOf('claude') !== -1 ? 'claude-sonnet-4-6' : 'default'));
       var modelName = escHtml(rawModel);
       var tierClass = 'tier-' + (r.rank_tier ? String(r.rank_tier).toLowerCase().replace(/[^a-z0-9_-]/g, '') : 'silver');
-      var winRatePercent = (r.win_rate * 100).toFixed(1) + '%';
+      // GOAL-067（P2-14）：字段缺失/非数值时显示占位，不再渲染 'NaN%'。
+      var winRatePercent = (typeof r.win_rate === 'number' && isFinite(r.win_rate))
+        ? (r.win_rate * 100).toFixed(1) + '%'
+        : '—';
       return '<tr>' +
         '<td style="font-weight:bold;text-align:center">' + rankBadge + '</td>' +
         '<td class="mono"><strong>' + harnessName + '</strong></td>' +
@@ -263,10 +275,11 @@ export function getCollaborationClientScript(): string {
         var winEl = document.getElementById('elo-stat-highest-winrate');
         if (data.rankings.length > 0) {
           if (topEl) topEl.textContent = (data.rankings[0].harness_id || data.rankings[0].adapter_id) + ' (' + data.rankings[0].elo_rating + ')';
-          var totalMatches = data.rankings.reduce(function (sum, r) { return sum + r.matches_played; }, 0);
+          var totalMatches = data.rankings.reduce(function (sum, r) { return sum + (typeof r.matches_played === 'number' ? r.matches_played : 0); }, 0);
           if (matchesEl) matchesEl.textContent = Math.floor(totalMatches / 2);
-          var maxWin = Math.max.apply(Math, data.rankings.map(function (r) { return r.win_rate; }));
-          if (winEl) winEl.textContent = (maxWin * 100).toFixed(1) + '%';
+          var numericWinRates = data.rankings.map(function (r) { return typeof r.win_rate === 'number' && isFinite(r.win_rate) ? r.win_rate : -1; });
+          var maxWin = Math.max.apply(Math, numericWinRates);
+          if (winEl) winEl.textContent = maxWin >= 0 ? (maxWin * 100).toFixed(1) + '%' : '—';
         }
 
         // Render filter pills
@@ -436,9 +449,15 @@ export function getCollaborationClientScript(): string {
     const input = document.getElementById('chat-input');
     const topic = (input && input.value.trim()) || '通用架构设计辩论';
     try {
+      // GOAL-067（P1-11）：补 x-mush-caller-auth 头（强制鉴权下裸 fetch 必 401 静默失效）。
+      const authMeta = document.querySelector('meta[name="mush-caller-auth"]');
+      const authVal = authMeta ? (authMeta.getAttribute('content') || '') : '';
       const res = await fetch('/api/collaboration/recommend-pair', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: Object.assign(
+          { 'content-type': 'application/json' },
+          authVal ? { 'x-mush-caller-auth': authVal } : {}
+        ),
         body: JSON.stringify({ topic, mode: currentCollabMode })
       });
       const data = await res.json();
@@ -476,7 +495,85 @@ export function getCollaborationClientScript(): string {
           tag.textContent = 'SETTLED (' + chosenPlan + ')';
           tag.className = 'debate-status-tag settled';
         }
+        activeDebateId = null;
+        setArbitrationButtonsEnabled(false);
       }
+    } catch {}
+  }
+
+  // GOAL-067（P2-14，F3 折中）：辩论仲裁按钮此前是死按钮——activeDebateId 恒
+  // 为 null 且无任何代码赋值。现接通 GET /api/debates 真实引擎数据。
+  function setArbitrationButtonsEnabled(enabled) {
+    ['btn-arbitrate-pro', 'btn-arbitrate-con', 'btn-arbitrate-merge'].forEach(function (id) {
+      var btn = document.getElementById(id);
+      if (btn) btn.disabled = !enabled;
+    });
+  }
+
+  async function loadDebatesUI() {
+    try {
+      const res = await fetch('/api/debates');
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.debates)) {
+        const active = data.debates.find(function (d) { return d.status === 'ACTIVE'; });
+        activeDebateId = active ? active.debate_id : null;
+        const tag = document.getElementById('debate-status-tag');
+        if (tag) {
+          if (active) {
+            tag.textContent = 'ACTIVE · ' + (active.topic || active.debate_id || '');
+            document.getElementById('debate-topic-display').textContent = active.topic || '';
+          } else {
+            tag.textContent = '暂无进行中的圆桌辩论';
+          }
+        }
+        setArbitrationButtonsEnabled(activeDebateId !== null);
+        // GOAL-067（P2-14，F3）：共识/分歧清单接真实引擎提炼结果（空态保持占位）。
+        if (active) {
+          const conList = document.getElementById('debate-consensus-list');
+          const disList = document.getElementById('debate-disputes-list');
+          if (conList) {
+            conList.innerHTML = (Array.isArray(active.consensus) && active.consensus.length > 0)
+              ? active.consensus.map(function (c) { return '<li>' + esc(String(c)) + '</li>'; }).join('')
+              : '<li>暂无提纯共识</li>';
+          }
+          if (disList) {
+            disList.innerHTML = (Array.isArray(active.disputes) && active.disputes.length > 0)
+              ? active.disputes.map(function (c) { return '<li>' + esc(String(c)) + '</li>'; }).join('')
+              : '<li>暂无分歧点</li>';
+          }
+        }
+      }
+    } catch {}
+  }
+
+  async function autoMatchBestBid() {
+    const authMeta = document.querySelector('meta[name="mush-caller-auth"]');
+    const callerAuth = authMeta ? authMeta.getAttribute('content') : '';
+    const headers = { 'content-type': 'application/json', 'x-mush-caller-auth': callerAuth || '' };
+    try {
+      // GOAL-067（P2-14，F3）：自动撮合按钮此前永久隐藏且 handler 只会刷新列表。
+      // 现接通真实引擎：取最新 BIDDING 悬赏 → 全员犬只自动出价 → 撮合最优标授予。
+      const res = await fetch('/api/bounties');
+      const data = await res.json();
+      const bidding = data && data.bounties
+        ? data.bounties.find(function (b) { return b.status === 'BIDDING'; }) ||
+          data.bounties.find(function (b) { return b.status === 'OPEN'; })
+        : null;
+      if (!bidding) {
+        if (typeof toast === 'function') toast('当前没有可撮合的悬赏任务', false);
+        loadBountiesUI();
+        return;
+      }
+      await fetch('/api/bounties/' + bidding.bounty_id + '/auto-bid', { method: 'POST', headers: headers, body: '{}' });
+      const awardRes = await fetch('/api/bounties/' + bidding.bounty_id + '/award', { method: 'POST', headers: headers, body: '{}' });
+      const awardData = await awardRes.json();
+      if (awardData.ok) {
+        const winner = awardData.bounty && awardData.bounty.awarded_bid ? awardData.bounty.awarded_bid.dog_id : '';
+        if (typeof toast === 'function') toast('已自动撮合：' + bidding.title + ' → ' + winner, true);
+      } else if (typeof toast === 'function') {
+        toast('撮合失败：' + (awardData.error || '未知错误'), false);
+      }
+      loadBountiesUI();
     } catch {}
   }
 
@@ -530,10 +627,12 @@ export function getCollaborationClientScript(): string {
     document.addEventListener('DOMContentLoaded', () => {
       initCollaborationUI();
       initVelocityUI();
+      loadDebatesUI();
     });
   } else {
     initCollaborationUI();
     initVelocityUI();
+    loadDebatesUI();
   }
 `;
 }

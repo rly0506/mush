@@ -1009,10 +1009,6 @@ export function discoverHarnessGroupedModels(contract: AdapterContract): Harness
   };
 }
 
-export function discoverHarnessLiveModels(contract: AdapterContract): string[] {
-  return discoverHarnessGroupedModels(contract).models;
-}
-
 /**
  * 在线端点 /v1/models 与 /models 原生 HTTP 快速探测（超时 3.5s，无外部依赖）。
  */

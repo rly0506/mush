@@ -322,3 +322,11 @@
 | # | 决策点 | 决议 | 依据 |
 | --- | --- | --- | --- |
 | D79 | 商业化 MVP 定位与 RM-010 商业化就绪路线图（GOAL-063 ~ GOAL-066） | (1) **部署形态与定位**：确定为**「本地授权桌面软件 (Local-Licensed Desktop Software) / Local-First」**，面向**「个人开发者」**，坚守“代码 100% 不出本机、BYOK 密钥本地持有、全链路审计留痕”核心合规护城河，放弃高成本多租户 SaaS 云端托管；(2) **市场与版本策略**：先做精简 MVP 试运行版（Pilot Release）投放市场验证需求；(3) **立项 RM-010 商业化就绪与安全加固路线图**：优先实施 P0 安全闸门修复（GOAL-063 零信任鉴权与沙箱、GOAL-064 服务端权威预算与持久化、GOAL-065 进程韧性与 Fail-Closed 纠偏、GOAL-066 MVP 桌面打包与试运行发版）。 | owner 2026-08-21 明确拍板三个战略决策点，指导 mush 商业化试运行版本落地 |
+
+---
+
+## 2026-08-22 第四十批决议（GOAL-067 全栈审计修复：loop 子系统归档与威胁模型明示）
+
+| # | 决策点 | 决议 | 依据 |
+| --- | --- | --- | --- |
+| D80 | src/loop 子系统定性归档为 Fixture 参照资产；单机威胁模型在契约中明示 | (1) **loop 归档（F2 选 B）**：`src/loop/*`（LoopStateMachine/approval-gate/review/scan/closure/role-swap）定性为 **M1 奠基参照与离线机检 fixture 资产**，保留全部文件与测试；生产治理链路由 DispatchPipeline（dispatch.ts 审批卡 + 一次性令牌 + 生命周期事件）承担，二者不再追求合流，架构重复就此封账；(2) **威胁模型明示（S5 选 A）**：mush 为单机 loopback 工具，「本机即信任边界」——GET 只读端点免 Caller Token、Token 本身可本机获取，其安全定位是 **CSRF/跨站防线** 而非身份鉴别；此取舍写入 api-contract.md 威胁模型章节；(3) **代码侧配套**：fs-tree 阻断 UNC 路径（封死跨站触发 SMB 探测的凭据泄漏原语），time-travel 双侧路径包含性校验，memory/distill session_id 白名单。 | owner 2026-08-22 对 GOAL-067 四项争议点逐一裁决（F1 选 A 补路由 / F2 选 B 归档 / F3 折中真数据+标注 / S5 选 A 文档+UNC 阻断）；七组并行深审证实 loop 生产零接线且规则已分叉，GET 免 token 为既有设计立场 |

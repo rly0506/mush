@@ -119,6 +119,11 @@ export function distillTranscript(
 export function saveMemory(rootDir: string, memory: DistilledMemory): void {
   const memDir = path.join(rootDir, 'runtime', 'memories');
   mkdirSync(memDir, { recursive: true });
+  // GOAL-067（P1-8）纵深防御：session_id 拼入文件名，basename 复核拒绝任何
+  // 含路径分隔符/穿越序列的值（server 入口另有白名单正则，此处兜底直调方）。
+  if (path.basename(`memory-${memory.session_id}.json`) !== `memory-${memory.session_id}.json`) {
+    throw new Error(`invalid memory session_id: ${memory.session_id}`);
+  }
   const memFile = path.join(memDir, `memory-${memory.session_id}.json`);
   writeFileSync(memFile, JSON.stringify(memory, null, 2), 'utf8');
 }

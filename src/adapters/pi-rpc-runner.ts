@@ -16,10 +16,11 @@
  */
 
 import { spawn as nodeSpawn, type ChildProcess } from 'node:child_process';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { resolveWindowsShim, killProcessTree } from './t1-runner.ts';
+import { sha256Hex } from '../core/event-log.ts';
 import { extractPiIdentity } from './pi.ts';
 import type { AdapterContract } from './contract.ts';
 
@@ -312,15 +313,15 @@ function writeReceipt(receiptPath: string, adapterId: string, result: PiRpcRunRe
       schema_version: 1,
       adapter_id: adapterId,
       protocol: 'pi-rpc',
-      prompt_sha256: createHash('sha256').update(prompt, 'utf8').digest('hex').toUpperCase(),
+      prompt_sha256: sha256Hex(prompt),
       exit_code: result.exitCode,
       timed_out: result.timedOut,
       child_killed: result.childKilled,
       confirmed_provider: result.confirmedProvider,
       confirmed_model_id: result.confirmedModelId,
       fail_closed_reason: result.failClosedReason,
-      stdout_sha256: createHash('sha256').update(result.stdout, 'utf8').digest('hex').toUpperCase(),
-      stderr_sha256: createHash('sha256').update(result.stderr, 'utf8').digest('hex').toUpperCase(),
+      stdout_sha256: sha256Hex(result.stdout),
+      stderr_sha256: sha256Hex(result.stderr),
       started_at_utc: result.startedAtUtc,
       finished_at_utc: result.finishedAtUtc,
     };

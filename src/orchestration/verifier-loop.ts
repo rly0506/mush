@@ -4,13 +4,10 @@
 
 import path from 'node:path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
-
-export class VerifierDecouplingError extends Error {
-  constructor(message = 'Generator and Verifier cannot be the same dog (physical decoupling violation)') {
-    super(message);
-    this.name = 'VerifierDecouplingError';
-  }
-}
+// GOAL-067（P3）：同名错误类双定义会让 instanceof 互相失明（server 只识别本
+// 文件变体，dispatch 抛的是 verifier.ts 变体）——统一单源于 verifier.ts。
+export { VerifierDecouplingError } from './verifier.ts';
+import { VerifierDecouplingError } from './verifier.ts';
 
 export interface AttackTestCase {
   test_name: string;

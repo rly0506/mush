@@ -2,7 +2,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { extractSessionId, buildHeadDogContract, HEAD_DOG_CHARTER } from '../src/adapters/head-dog.ts';
+import { extractSessionId, buildHeadDogContract, HEAD_DOG_T1_CHARTER } from '../src/adapters/head-dog.ts';
 import { DispatchPipeline, type RunAdapterFn } from '../src/web/dispatch.ts';
 import { ChatService } from '../src/web/chat.ts';
 import { startBoardServer } from '../src/web/server.ts';
@@ -35,8 +35,8 @@ test('head-dog contract has role=head, deepseek-dsh channel, and charter injecti
   assert.equal(contract.executable, 'dsh');
   assert.equal(contract.role, 'head');
   assert.equal(contract.expected_provider, 'deepseek');
-  assert.match(HEAD_DOG_CHARTER, /宪法/);
-  assert.match(HEAD_DOG_CHARTER, /派发/);
+  assert.match(HEAD_DOG_T1_CHARTER, /宪法/);
+  assert.match(HEAD_DOG_T1_CHARTER, /派发/);
 });
 
 test('roster exposes role field per contract (head vs executor)', () => {

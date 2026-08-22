@@ -90,6 +90,4 @@ export function readAttachment(runtimeRoot: string, filename: string): { buffer:
   } catch {
     return null;
   }
-
-  return { buffer, mimeType };
 }

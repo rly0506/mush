@@ -389,7 +389,9 @@ export async function runRpcSession(options: RpcSessionOptions): Promise<RpcSess
       result.auditLines.push(line);
       if (options.auditHook !== undefined) options.auditHook(result.auditLines);
 
-      if (failClosedReason !== null || eventEmitted) continue;
+      // GOAL-067：failClosedReason 各赋值点均紧跟 break，到达此行恒为 null——
+      // 死半边条件已删；eventEmitted 后仅审计不再解析。
+      if (eventEmitted) continue;
 
       let obj: Record<string, unknown> | null = null;
       try {
@@ -530,7 +532,6 @@ export async function runRpcSession(options: RpcSessionOptions): Promise<RpcSess
   }
 
   result.deliveredPrompt = options.promptContent;
-  result.settleStarted = result.settleStarted;
   result.stdinWasOpenAtSettle = stdinWasOpenAtSettle;
   result.stdinClosed = stdinClosed;
   result.nonTerminalTurns = nonTerminalTurns;

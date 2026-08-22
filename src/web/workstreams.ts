@@ -222,18 +222,6 @@ export function parseHandoffBlock(stdout: string, atUtc: string): HandoffBlock |
   return block;
 }
 
-/** 换窗/关流提示模板（追加到 prompt 尾部）。 */
-export const HANDOFF_PROMPT_SUFFIX = [
-  '',
-  '[mush HANDOFF] 本窗口即将关闭/换窗。请在回复末尾输出一个 HANDOFF-BEGIN ... HANDOFF-END 块，包含五节：',
-  '做了什么:',
-  '定了什么:',
-  '文件在哪:',
-  '下一步:',
-  '未解问题:',
-  '',
-].join('\n');
-
 /** dsh 缝合结构常量（U3）：固定章程头 + 追加式流历史 + 新指令尾。 */
 export const DSH_STITCH_HEAD = '【mush 流内 dsh 窗口】\n';
 export const DSH_STITCH_HISTORY = '\n[流历史]\n';

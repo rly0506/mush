@@ -129,11 +129,11 @@ export function stopProcessSnapshot(
 /**
  * 未归属树的 assignment-failure 清理：即使 taskkill 代理失败，也必须整树终止
  * （PS Stop-OwnedProcessTree L391-L420 语义）。
+ * GOAL-067：删除无人读取的 _opts 遗迹形参（killTree 无条件整树终止）。
  */
 export function stopOwnedProcessTree(
   rootPid: number,
   processes: FakeProcess[],
-  _opts: { taskkillFails?: boolean } = {},
 ): void {
   const root = processes.find((process) => process.pid === rootPid);
   if (root === undefined) {

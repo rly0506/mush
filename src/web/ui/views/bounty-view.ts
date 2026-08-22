@@ -43,7 +43,9 @@ export function renderBountyMarketHtml(): string {
       <div class="bounty-column right-col">
         <div class="column-header">
           <span>🎯 犬只自主竞标出价与撮合授标</span>
-          <button class="btn-action-sm" id="btn-auto-match-bid" type="button" style="display:none">⚡ 自动性价比撮合</button>
+          <!-- GOAL-067（P2-14，F3）：恢复可见并接通真实撮合（collectAutomaticBids
+               → awardBounty 最优标），此前永久隐藏且 handler 只刷新列表。 -->
+          <button class="btn-action-sm" id="btn-auto-match-bid" type="button">⚡ 自动性价比撮合</button>
         </div>
         <div class="bids-detail-container" id="bounty-bids-detail">
           <div class="empty">请从左侧选择一个悬赏标的查看各犬竞标出价…</div>

@@ -1,10 +1,28 @@
 # mush Board API 契约 v1
 
-- 状态：`v1.42`（2026-08-21 定稿 v1.42；v1.42 本机工作区系统原生与目录树双模选择器、多模态附件读取、工犬直连终端；v1.41 跨 Harness 多第三方 Provider 动态探测与生态医生诊断；v1.40 RM-009 M5 代码库模块化解耦与 DoD 一键收官工具；v1.39 RM-009 M1~M4 通用工作区自由挂载、动态思维链规格、头像直连交互与子级 Auto-Resume；本文件为权威源）
+- 状态：`v1.43`（2026-08-22 GOAL-067 全栈审计修复与冗余清理；v1.42 本机工作区系统原生与目录树双模选择器、多模态附件读取、工犬直连终端；v1.41 跨 Harness 多第三方 Provider 动态探测与生态医生诊断；v1.40 RM-009 M5 代码库模块化解耦与 DoD 一键收官工具；v1.39 RM-009 M1~M4 通用工作区自由挂载、动态思维链规格、头像直连交互与子级 Auto-Resume；本文件为权威源）
 - 宿主：`src/web/`（node:http，零依赖）；默认只绑 `127.0.0.1`（对外暴露 = 触发门 4，不实现）
 - 序列化：JSON（UTF-8，LF 结尾）；SSE 用 `text/event-stream`，帧格式 `data: <json>\n\n`
 - 错误约定：失败响应一律 `{ "ok": false, "error": "<human-readable>" }`
 - 版本演进：v1 字段**只能向后兼容新增**；删除/改义/改型 = 破坏性变更，需头犬批准并同步 GOAL-007
+
+## 威胁模型（GOAL-067 / D80 明示）
+
+mush 是**单机 loopback 个人工具**，「本机即信任边界」，此为 owner 认可的设计立场：
+
+- **Caller Token 的真实定位是 CSRF/跨站防线**，不是身份鉴别：
+  - `GET /api/session/token` 可由任意本机进程无 Origin 头直接获取；Token 亦渲染于主页 `<meta>`；
+  - 它有效拦截的是**浏览器跨站攻击面**（配合 Host 白名单防 DNS rebinding、Origin 校验、变更方法强制鉴权）——这部分是闭环的；
+- **GET 只读端点免 token**：本机其他进程/用户本可读取同机文件，只读端点不构成额外暴露；含 `prompt_preview` 截断投影属已知可接受面；
+- **UNC 路径一律拒绝**（fs-tree 等）：防止跨站请求诱导本机进程发起 SMB 认证（NTLM 凭据泄漏原语）；
+- 对外网暴露不在威胁模型内（触发门 4，永不实现开关）。
+
+### v1.43 向后兼容扩展（2026-08-22；GOAL-067 全栈审计修复）
+
+- **`GET /api/child-sessions`**：工犬子会话清单（`ChildSessionRegistry.list()`，按当前工作区过滤）；
+- **`POST /api/child-sessions/chat` 契约兑现**：v1.42 声明但后端缺失，现补齐——body `{session_id, prompt, dog?, goal_id?}`；会话不存在且 `dog` 合法时自动建档；轮次入账后经 `ChatService`（originOwner 语义）触发专属独立切流，202 返回 `{ok, accepted, session_id, dispatch_id, reply}`；
+- **`GET /api/harness/doctor` 契约兑现**：v1.41 声明但后端缺失，现接线 `getHarnessDoctorReport()`，返回 `{ok, harnesses:[{name,status,activeProvider?,cliPath,installCmd,updateCmd,...}]}`；
+- **`POST /api/audit/export` 口径修正**：事件链聚合 `event-log-*.jsonl`、派发统计自 `dispatches/*.jsonl` 末事件投影、消费仅计 `ACTUAL_COST`、`time_range` 真过滤、审批计数排除应答文件、台账哈希链状态实测返回。
 
 ### v1.42 向后兼容扩展（2026-08-21；本机工作区系统原生与目录树选择器、多模态发图附件、工犬直连会话）
 

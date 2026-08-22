@@ -22,6 +22,21 @@ export interface LockState {
 
 export class LockError extends Error {}
 
+/**
+ * 逐行容错解析（GOAL-067）：appendFileSync 非原子，进程写入中途被杀会留下
+ * 撕裂半行 JSON——回放必须跳过坏行并告警，而不是让看板永久起不来。
+ */
+function parseJsonLineSafe(line: string, source: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(line) as Record<string, unknown>;
+  } catch {
+    process.stderr.write(
+      `[mush:persistence] torn line skipped in ${source}: ${line.slice(0, 120)}\n`,
+    );
+    return null;
+  }
+}
+
 export class BoardPersistence {
   readonly runtimeRoot: string;
   private readonly isAlive: (pid: number) => boolean;
@@ -88,7 +103,8 @@ export class BoardPersistence {
       let header: Record<string, unknown> | null = null;
       const events: DispatchLifecycleEvent[] = [];
       for (const line of lines) {
-        const parsed = JSON.parse(line) as Record<string, unknown>;
+        const parsed = parseJsonLineSafe(line, name);
+        if (parsed === null) continue;
         if (parsed.kind === 'header') header = parsed;
         else if (parsed.kind === 'event') events.push(parsed as unknown as DispatchLifecycleEvent);
       }
@@ -146,10 +162,26 @@ export class BoardPersistence {
   }> {
     const file = this.eventLogPath(runId);
     if (!existsSync(file)) return [];
-    return readFileSync(file, 'utf8')
-      .split('\n')
-      .filter((line) => line.trim() !== '')
-      .map((line) => JSON.parse(line) as { sequence: number; event_id: string; sha256: string; previous_sha256: string | null; event: unknown });
+    const parsed: Array<{
+      sequence: number;
+      event_id: string;
+      sha256: string;
+      previous_sha256: string | null;
+      event: unknown;
+    }> = [];
+    for (const line of readFileSync(file, 'utf8').split('\n')) {
+      if (line.trim() === '') continue;
+      const row = parseJsonLineSafe(line, path.basename(file));
+      if (row === null) continue;
+      parsed.push(row as {
+        sequence: number;
+        event_id: string;
+        sha256: string;
+        previous_sha256: string | null;
+        event: unknown;
+      });
+    }
+    return parsed;
   }
 
   private cachedLedgerSha: string | null | undefined = undefined;
@@ -199,10 +231,13 @@ export class BoardPersistence {
   loadLedgerLines(): Array<Record<string, unknown>> {
     const file = path.join(this.runtimeRoot, 'budget-ledger.jsonl');
     if (!existsSync(file)) return [];
-    return readFileSync(file, 'utf8')
-      .split('\n')
-      .filter((line) => line.trim() !== '')
-      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    const parsed: Array<Record<string, unknown>> = [];
+    for (const line of readFileSync(file, 'utf8').split('\n')) {
+      if (line.trim() === '') continue;
+      const row = parseJsonLineSafe(line, 'budget-ledger.jsonl');
+      if (row !== null) parsed.push(row);
+    }
+    return parsed;
   }
 
   verifyLedgerChain(): void {
@@ -270,7 +305,13 @@ export class BoardPersistence {
   releaseLock(): void {
     const file = this.lockPath();
     if (!existsSync(file)) return;
-    const lock = JSON.parse(readFileSync(file, 'utf8')) as LockState;
+    let lock: LockState;
+    try {
+      lock = JSON.parse(readFileSync(file, 'utf8')) as LockState;
+    } catch {
+      // 锁文件损坏：不阻塞关闭流程（close() 不应因锁异常失败）。
+      return;
+    }
     if (lock.pid !== process.pid) return;
     writeFileSync(
       file,

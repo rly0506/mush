@@ -55,6 +55,8 @@ import { VelocityMatrixEngine } from '../orchestration/velocity-matrix.ts';
 import { renderFloatingSledHtml } from '../companion/floating-page.ts';
 import type { QuickActionPayload } from '../companion/tray-service.ts';
 import { getModelContextLimit, isFreeModel, calculateUsageCost } from './pricing.ts';
+import { ChildSessionRegistry } from '../core/child-sessions.ts';
+import { getHarnessDoctorReport } from '../adapters/live-probe.ts';
 
 export interface BoardServerOptions {
   approvalRoot: string;
@@ -102,6 +104,8 @@ export interface BoardServerOptions {
   routeOptimizer?: SelfEvolvingRoutingOptimizer;
   /** GOAL-055（RM-007 M4）：多犬协作全景战报与研发能效度量引擎。 */
   velocityEngine?: VelocityMatrixEngine;
+  /** GOAL-067（F1 选 A）：工犬子会话注册表；缺省 <runtimeRoot>/child-sessions.jsonl。 */
+  childSessions?: ChildSessionRegistry;
   /** GOAL-030（GP-32②）：调用者身份鉴别 Token 与安全拦截。 */
   callerToken?: string;
   enforceCallerToken?: boolean;
@@ -113,6 +117,35 @@ export interface BoardServer {
   port: number;
   callerToken: string;
   close(): Promise<void>;
+}
+
+/**
+ * GOAL-067（P0）：路由级异常兜底——磁盘满/文件被占用等 fs 写入异常不得击穿
+ * 看板进程（Node ≥15 默认 unhandledRejection 直接退出）。策略（owner 裁决
+ * Q1）：stderr 记录 + 尽力回 500，进程保持存活。
+ */
+function guarded(response: ServerResponse, fn: () => Promise<void>): void {
+  fn().catch((error: unknown) => {
+    const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
+    process.stderr.write(`[mush:server] handler error: ${detail}\n`);
+    try {
+      if (!response.headersSent) {
+        sendJson(response, 500, { ok: false, error: 'internal error (see server log)' });
+      }
+    } catch {
+      // 响应流已不可写：忽略。
+    }
+  });
+}
+
+let rejectionHookInstalled = false;
+function installRejectionHook(): void {
+  if (rejectionHookInstalled) return;
+  rejectionHookInstalled = true;
+  process.on('unhandledRejection', (reason: unknown) => {
+    const detail = reason instanceof Error ? (reason.stack ?? reason.message) : String(reason);
+    process.stderr.write(`[mush:server] unhandledRejection (process kept alive): ${detail}\n`);
+  });
 }
 
 function sendJson(response: ServerResponse, status: number, body: Record<string, unknown>): void {
@@ -136,6 +169,7 @@ async function readBody(request: IncomingMessage, limitBytes = 1024 * 1024): Pro
 const DECISIONS = new Set(['APPROVED', 'REJECTED']);
 
 export async function startBoardServer(options: BoardServerOptions): Promise<BoardServer> {
+  installRejectionHook();
   const host = options.host ?? '127.0.0.1';
   const port = options.port ?? 0;
   const approvalRoot = path.resolve(options.approvalRoot);
@@ -218,6 +252,9 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
   const eloRatingEngine = options.eloRatingEngine ?? new EloRatingEngine(runtimeRoot);
   const routeOptimizer = options.routeOptimizer ?? new SelfEvolvingRoutingOptimizer(runtimeRoot);
   const velocityEngine = options.velocityEngine ?? new VelocityMatrixEngine(runtimeRoot);
+  // GOAL-067（F1 选 A）：激活 ChildSessionRegistry——此前生产零接线，前端
+  // 工犬抽屉调用 404。显式落 runtimeRoot 下，避免类缺省的 cwd 相对路径。
+  const childSessions = options.childSessions ?? new ChildSessionRegistry(path.join(runtimeRoot, 'child-sessions.jsonl'));
   const chat =
     options.chat ??
     new ChatService({
@@ -434,11 +471,19 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         sendJson(response, 404, { ok: false, error: `brand asset not found: ${name}` });
         return;
       }
+      let icon: Buffer;
+      try {
+        icon = readFileSync(filePath);
+      } catch {
+        // existsSync 与 readFileSync 之间的 TOCTOU（文件被删/被锁）：按 404 处理。
+        sendJson(response, 404, { ok: false, error: `brand asset not found: ${name}` });
+        return;
+      }
       response.writeHead(200, {
         'content-type': 'image/svg+xml; charset=utf-8',
         'cache-control': 'public, max-age=300',
       });
-      response.end(readFileSync(filePath));
+      response.end(icon);
       return;
     }
     if (route === 'GET /api/snapshot') {
@@ -458,15 +503,15 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'POST /api/events') {
-      void handleEventPost(request, response);
+      guarded(response, () => handleEventPost(request, response));
       return;
     }
     if (route === 'POST /api/approvals/respond') {
-      void handleApprovalRespond(request, response);
+      guarded(response, () => handleApprovalRespond(request, response));
       return;
     }
     if (route === 'POST /api/dispatch') {
-      void (async () => {
+      guarded(response, async () => {
         let body: unknown;
         try {
           body = JSON.parse(await readBody(request));
@@ -492,7 +537,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
           status: record.status,
           admission: record.admission,
         });
-      })();
+      });
       return;
     }
     if (route === 'GET /api/carveout/active') {
@@ -506,7 +551,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'POST /api/carveout/grant') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -526,11 +571,11 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
           else if (error instanceof InputError) sendJson(response, 400, { ok: false, error: error.message });
           else sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
         }
-      })();
+      });
       return;
     }
     if (route === 'POST /api/carveout/revoke') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -556,7 +601,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
             sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
           }
         }
-      })();
+      });
       return;
     }
     const dispatchGet = /^\/api\/dispatch\/([0-9a-f]{32})$/.exec(url.pathname);
@@ -571,7 +616,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     }
     const dispatchRerun = /^\/api\/dispatch\/([0-9a-f]{32})\/rerun$/.exec(url.pathname);
     if (request.method === 'POST' && dispatchRerun !== null) {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           const raw = await readBody(request);
@@ -603,11 +648,11 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
           status: record.status,
           admission: record.admission,
         });
-      })();
+      });
       return;
     }
     if (route === 'POST /api/workspaces/browse-native') {
-      void (async () => {
+      guarded(response, async () => {
         if (process.platform !== 'win32') {
           sendJson(response, 200, { ok: false, error: 'Native folder dialog is currently only supported on Windows' });
           return;
@@ -646,7 +691,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (error) {
           sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
         }
-      })();
+      });
       return;
     }
 
@@ -672,6 +717,14 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         }
 
         const target = path.resolve(queryPath.trim());
+        // GOAL-067（P1-9，owner 裁决 S5=A）：阻断 UNC 路径——恶意网页可借
+        // <img>/<link> 对本端口发跨站 GET，path=\\evil.com\share 会让本进程
+        // 主动发起 SMB 认证（Windows 凭据泄漏原语）。单机信任边界不含网络
+        // 文件系统；本地盘符枚举保留。
+        if (queryPath.trim().startsWith('\\\\') || target.startsWith('\\\\')) {
+          sendJson(response, 400, { ok: false, error: 'UNC paths are not allowed (SMB probe guard, GOAL-067)' });
+          return;
+        }
         const parent = path.dirname(target);
         if (!existsSync(target)) {
           sendJson(response, 404, { ok: false, error: 'Directory not found: ' + target });
@@ -723,8 +776,73 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       sendJson(response, 200, { ok: true, workspaces: dispatch.listWorkspaces() });
       return;
     }
+    // GOAL-067（F1 选 A / 契约 v1.42 兑现）：工犬子会话路由——此前前端调用
+    // 而后端缺失，功能整体 404。
+    if (route === 'GET /api/child-sessions') {
+      sendJson(response, 200, { ok: true, sessions: childSessions.list(workspaceRoot) });
+      return;
+    }
+    if (route === 'POST /api/child-sessions/chat') {
+      guarded(response, async () => {
+        let body: Record<string, unknown>;
+        try {
+          body = JSON.parse(await readBody(request)) as Record<string, unknown>;
+        } catch {
+          sendJson(response, 400, { ok: false, error: 'body must be JSON' });
+          return;
+        }
+        const sessionId = typeof body.session_id === 'string' ? body.session_id.trim() : '';
+        const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
+        if (!/^[A-Za-z0-9_-]{1,80}$/.test(sessionId)) {
+          sendJson(response, 400, { ok: false, error: 'session_id must match [A-Za-z0-9_-]{1,80}' });
+          return;
+        }
+        if (prompt === '') {
+          sendJson(response, 400, { ok: false, error: "field 'prompt' is required" });
+          return;
+        }
+        let sess = childSessions.get(sessionId);
+        if (!sess) {
+          // 会话不存在：允许带 dog（+可选 goal_id）即时建档；dog 必须是合法
+          // 犬名形态，防止任意字符串入库。
+          const dog = typeof body.dog === 'string' ? body.dog.trim() : '';
+          if (!/^[A-Za-z0-9_-]{1,32}$/.test(dog)) {
+            sendJson(response, 404, { ok: false, error: `child session not found: ${sessionId}（请从犬头像抽屉打开以自动建档）` });
+            return;
+          }
+          sess = childSessions.getOrCreate(
+            dog,
+            workspaceRoot,
+            typeof body.goal_id === 'string' && body.goal_id.trim() !== '' ? body.goal_id.trim() : undefined,
+          );
+        }
+        childSessions.recordTurn(sess.session_id);
+        // 真实切流：复用 ChatService（owner 敲字即批准 originOwner，GP-32/D30
+        // 与主聊天通道同语义）；adapter 校验失败同步转 400。
+        try {
+          // resume = 子会话 id：工犬对话历史落在同一命名空间，多轮上下文连续。
+          const ack = await chat.post({ message: prompt, adapter_id: sess.dog, solo: true, resume: sess.session_id });
+          sendJson(response, 202, {
+            ok: true,
+            accepted: true,
+            session_id: ack.session_id,
+            dispatch_id: ack.dispatch_id,
+            reply: `[已受理] 派发单 ${ack.dispatch_id.slice(0, 8)} 已创建；执行结果经看板会话流实时推送。`,
+          });
+        } catch (error) {
+          sendJson(response, 400, { ok: false, error: error instanceof Error ? error.message : String(error) });
+        }
+      });
+      return;
+    }
+    // GOAL-067（F1 选 A / 契约 v1.41 兑现）：犬队医生——getHarnessDoctorReport
+    // 此前已有完整实现与单测，但从未接线到 HTTP 层。
+    if (route === 'GET /api/harness/doctor') {
+      sendJson(response, 200, { ok: true, harnesses: getHarnessDoctorReport() });
+      return;
+    }
     if (route === 'POST /api/workspaces/select') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -743,12 +861,12 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
           if (error instanceof InputError) sendJson(response, 400, { ok: false, error: error.message });
           else sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
         }
-      })();
+      });
       return;
     }
     if (route === 'POST /api/workspaces/create') {
       // GP-02（契约 v1.2）：自主登记新建目录——mkdir recursive + 记入 known-workspaces。
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -767,7 +885,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
             sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
           }
         }
-      })();
+      });
       return;
     }
     if (route === 'GET /api/budget/caps') {
@@ -776,7 +894,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     }
     const budgetCapPut = /^\/api\/budget\/caps\/([^/]+)$/.exec(url.pathname);
     if (request.method === 'PUT' && budgetCapPut !== null) {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -792,7 +910,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
           if (error instanceof InputError) sendJson(response, 400, { ok: false, error: error.message });
           else sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
         }
-      })();
+      });
       return;
     }
     if (route === 'GET /api/budget') {
@@ -806,7 +924,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'POST /api/streams') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -823,7 +941,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (error) {
           sendJson(response, 400, { ok: false, error: error instanceof Error ? error.message : String(error) });
         }
-      })();
+      });
       return;
     }
     const streamGet = /^\/api\/streams\/([A-Za-z0-9_-]+)$/.exec(url.pathname);
@@ -841,7 +959,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     const streamPatch = /^\/api\/streams\/([A-Za-z0-9_-]+)$/.exec(url.pathname);
     if (request.method === 'PATCH' && streamPatch !== null) {
       const streamId = streamPatch[1];
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -863,13 +981,13 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (error) {
           sendJson(response, 400, { ok: false, error: error instanceof Error ? error.message : String(error) });
         }
-      })();
+      });
       return;
     }
     const streamForkPost = /^\/api\/streams\/([A-Za-z0-9_-]+)\/fork$/.exec(url.pathname);
     if (request.method === 'POST' && streamForkPost !== null) {
       const streamId = streamForkPost[1];
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -885,12 +1003,12 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (error) {
           sendJson(response, 400, { ok: false, error: error instanceof Error ? error.message : String(error) });
         }
-      })();
+      });
       return;
     }
     const streamHandoffPost = /^\/api\/streams\/([A-Za-z0-9_-]+)\/handoff$/.exec(url.pathname);
     if (request.method === 'POST' && streamHandoffPost !== null) {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -915,7 +1033,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
             sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
           }
         }
-      })();
+      });
       return;
     }
 
@@ -924,7 +1042,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'POST /api/tasks') {
-      void (async () => {
+      guarded(response, async () => {
         let body: unknown;
         try {
           body = JSON.parse(await readBody(request));
@@ -944,12 +1062,12 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
           if (error instanceof InputError) sendJson(response, 400, { ok: false, error: error.message });
           else sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
         }
-      })();
+      });
       return;
     }
     const taskTransition = /^\/api\/tasks\/([A-Za-z0-9_-]+)\/transition$/.exec(url.pathname);
     if (request.method === 'POST' && taskTransition !== null) {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -973,7 +1091,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
             sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
           }
         }
-      })();
+      });
       return;
     }
 
@@ -992,7 +1110,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'POST /api/models/probe') {
-      void (async () => {
+      guarded(response, async () => {
         let adapterId: string | undefined;
         try {
           const raw = await readBody(request);
@@ -1009,7 +1127,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (error) {
           sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
         }
-      })();
+      });
       return;
     }
 
@@ -1033,7 +1151,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'POST /api/adapters') {
-      void (async () => {
+      guarded(response, async () => {
         let body: unknown;
         try {
           body = JSON.parse(await readBody(request));
@@ -1048,7 +1166,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
           if (error instanceof InputError) sendJson(response, 400, { ok: false, error: error.message });
           else sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
         }
-      })();
+      });
       return;
     }
     const adapterDelete = /^\/api\/adapters\/([A-Za-z0-9._-]+)$/.exec(url.pathname);
@@ -1089,7 +1207,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'POST /api/chat') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -1112,12 +1230,12 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (error) {
           sendJson(response, 400, { ok: false, error: error instanceof Error ? error.message : String(error) });
         }
-      })();
+      });
       return;
     }
     // GOAL-032 (GP-19): 智能代码上下文自动装配接口
     if (route === 'POST /api/context/assemble') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -1161,7 +1279,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (error) {
           sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
         }
-      })();
+      });
       return;
     }
     // GOAL-035 (GP-11): Git Diff 视觉审查与单文件回滚
@@ -1182,7 +1300,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     }
     const dispatchRevertPost = /^\/api\/dispatch\/([A-Za-z0-9_-]+)\/revert$/.exec(url.pathname);
     if (request.method === 'POST' && dispatchRevertPost !== null) {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -1204,7 +1322,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } else {
           sendJson(response, 400, { ok: false, error: result.message });
         }
-      })();
+      });
       return;
     }
     // GOAL-036 (D38-L2): Langfuse 式 Trace 步骤树与耗时瀑布
@@ -1256,7 +1374,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     }
     const dogSessionsPost = /^\/api\/dogs\/([A-Za-z0-9._-]+)\/sessions$/.exec(url.pathname);
     if (request.method === 'POST' && dogSessionsPost !== null) {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           const raw = await readBody(request);
@@ -1266,7 +1384,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         const modelId = typeof body.model_id === 'string' ? body.model_id : undefined;
         const session = directSessions.createSession(adapterId, modelId);
         sendJson(response, 201, { ok: true, session });
-      })();
+      });
       return;
     }
     const dogSessionResumePost = /^\/api\/dogs\/([A-Za-z0-9._-]+)\/sessions\/([A-Za-z0-9._-]+)\/resume$/.exec(url.pathname);
@@ -1282,7 +1400,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     }
     const dogSessionMsgPost = /^\/api\/dogs\/([A-Za-z0-9._-]+)\/sessions\/([A-Za-z0-9._-]+)\/messages$/.exec(url.pathname);
     if (request.method === 'POST' && dogSessionMsgPost !== null) {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -1303,7 +1421,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 404, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
     const dogTranscriptGet = /^\/api\/dogs\/([A-Za-z0-9._-]+)\/transcript$/.exec(url.pathname);
@@ -1340,7 +1458,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'POST /api/memory/distill') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -1353,17 +1471,23 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
           sendJson(response, 400, { ok: false, error: "field 'session_id' is required" });
           return;
         }
+        // GOAL-067（P1-8）：session_id 白名单——session_id 会拼进落盘文件名
+        // （memory-<id>.json），未消毒时 "../..\" 可在任意可写目录落文件。
+        if (!/^[A-Za-z0-9_-]{1,64}$/.test(sessionId)) {
+          sendJson(response, 400, { ok: false, error: 'session_id must match [A-Za-z0-9_-]{1,64}' });
+          return;
+        }
         const messages = Array.isArray(body.messages) ? body.messages : [];
         const maxTokens = typeof body.max_tokens === 'number' ? body.max_tokens : 2000;
         const memory = distillTranscript(sessionId, messages as Array<{ sender: string; content: string }>, maxTokens);
         saveMemory(runtimeRoot, memory);
         sendJson(response, 201, { ok: true, memory });
-      })();
+      });
       return;
     }
     // GOAL-039 (GP-07): 异构犬能力感知智能路由推荐
     if (route === 'POST /api/route/recommend') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           const raw = await readBody(request);
@@ -1377,7 +1501,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         const taskProfile = classifyTaskPrompt(prompt, files);
         const recommendations = recommendDogs(taskProfile);
         sendJson(response, 200, { ok: true, task_profile: taskProfile, recommendations });
-      })();
+      });
       return;
     }
     // GOAL-040 (GP-01): 跨 Harness 影子分流评测台
@@ -1398,7 +1522,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'POST /api/evaluations') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -1421,7 +1545,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         }
         saveShadowEvaluation(runtimeRoot, evaluation);
         sendJson(response, 201, { ok: true, evaluation });
-      })();
+      });
       return;
     }
     // GOAL-041 (GP-15): 看板审计日志归档导出
@@ -1451,7 +1575,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'POST /api/audit/export') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           const raw = await readBody(request);
@@ -1460,11 +1584,18 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
           sendJson(response, 400, { ok: false, error: 'body must be JSON' });
           return;
         }
-        const timeRange = (body.time_range as any) || 'all';
-        const report = generateAuditReport({ runtime_root: runtimeRoot, time_range: timeRange });
+        // GOAL-067：非法 time_range 由 generateAuditReport 归一为 'all'（不再直透任意字符串）。
+        const rawRange = body.time_range;
+        const timeRange =
+          rawRange === 'today' || rawRange === 'week' || rawRange === 'all' ? rawRange : undefined;
+        const report = generateAuditReport({
+          runtime_root: runtimeRoot,
+          approval_root: approvalRoot,
+          time_range: timeRange,
+        });
         saveAuditReport(runtimeRoot, report);
         sendJson(response, 201, { ok: true, report });
-      })();
+      });
       return;
     }
     // GOAL-042 (Phase C): 符号化记忆图谱与跨犬直连协作协议
@@ -1487,7 +1618,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'POST /api/memory/nodes') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -1505,11 +1636,11 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         const sourceSessionId = typeof body.source_session_id === 'string' ? body.source_session_id : undefined;
         const node = memoryGraph.addNode({ type, content, tags, source_session_id: sourceSessionId });
         sendJson(response, 201, { ok: true, node });
-      })();
+      });
       return;
     }
     if (route === 'POST /api/memory/edges') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -1530,11 +1661,11 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
     if (route === 'POST /api/collaboration/messages') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -1552,7 +1683,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         }
         const msg = collaborationHub.sendDirectMessage({ sender, receiver, payload_type: payloadType, payload });
         sendJson(response, 201, { ok: true, message: msg });
-      })();
+      });
       return;
     }
     const mailboxGet = /^\/api\/collaboration\/mailbox\/([A-Za-z0-9._-]+)$/.exec(url.pathname);
@@ -1563,7 +1694,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'POST /api/collaboration/plan') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -1579,11 +1710,11 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         }
         const dag = collaborationHub.createCollaborationDAG(taskId, stages);
         sendJson(response, 201, { ok: true, dag });
-      })();
+      });
       return;
     }
     if (route === 'POST /api/collaboration/advance') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -1604,7 +1735,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
     const dagStatusGet = /^\/api\/collaboration\/([A-Za-z0-9._-]+)\/status$/.exec(url.pathname);
@@ -1620,7 +1751,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     }
     // GOAL-043: 协作模式推荐与派发总线
     if (route === 'POST /api/collaboration/recommend-pair') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -1631,11 +1762,11 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         const mode = (typeof body.mode === 'string' ? body.mode : 'debate') as CollaborationMode;
         const pair = recommendCollaborationPair(topic, mode);
         sendJson(response, 200, { ok: true, ...pair });
-      })();
+      });
       return;
     }
     if (route === 'POST /api/collaboration/dispatch') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -1659,13 +1790,13 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         });
         broadcast({ type: 'collaboration_dispatched', packet });
         sendJson(response, 200, { ok: true, packet });
-      })();
+      });
       return;
     }
 
     // GOAL-044: 圆桌辩论工作台与仲裁
     if (route === 'POST /api/debates') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -1688,7 +1819,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         });
         broadcast({ type: 'debate_created', debate_id: debate.debate_id, topic: debate.topic });
         sendJson(response, 200, { ok: true, debate });
-      })();
+      });
       return;
     }
     if (route === 'GET /api/debates') {
@@ -1710,7 +1841,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     const debateTurnPostMatch = /^\/api\/debates\/([A-Za-z0-9._-]+)\/turn$/.exec(url.pathname);
     if (request.method === 'POST' && debateTurnPostMatch !== null) {
       const debateId = debateTurnPostMatch[1];
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -1738,13 +1869,13 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
     const debateArbitratePostMatch = /^\/api\/debates\/([A-Za-z0-9._-]+)\/arbitrate$/.exec(url.pathname);
     if (request.method === 'POST' && debateArbitratePostMatch !== null) {
       const debateId = debateArbitratePostMatch[1];
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -1761,13 +1892,13 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
 
     // GOAL-045: SOP 工序流水线与工件自动接力
     if (route === 'POST /api/pipelines') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -1791,7 +1922,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         });
         broadcast({ type: 'pipeline_created', pipeline_id: pipeline.pipeline_id, task_title: pipeline.task_title });
         sendJson(response, 200, { ok: true, pipeline });
-      })();
+      });
       return;
     }
     if (route === 'GET /api/pipelines') {
@@ -1814,7 +1945,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     if (request.method === 'POST' && pipelineStageCompleteMatch !== null) {
       const pipelineId = pipelineStageCompleteMatch[1];
       const stageId = pipelineStageCompleteMatch[2];
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -1834,14 +1965,14 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
     const pipelineStageApproveMatch = /^\/api\/pipelines\/([A-Za-z0-9._-]+)\/stage\/([A-Za-z0-9._-]+)\/approve$/.exec(url.pathname);
     if (request.method === 'POST' && pipelineStageApproveMatch !== null) {
       const pipelineId = pipelineStageApproveMatch[1];
       const stageId = pipelineStageApproveMatch[2];
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -1856,13 +1987,13 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
 
     // GOAL-046: 红蓝对抗验证室与闭环自动打回流
     if (route === 'POST /api/verify/red-blue') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -1895,7 +2026,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
           const statusCode = err instanceof VerifierDecouplingError ? 400 : 500;
           sendJson(response, statusCode, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
     if (route === 'GET /api/verify/red-blue') {
@@ -1917,7 +2048,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     const redblueAttackMatch = /^\/api\/verify\/red-blue\/([A-Za-z0-9._-]+)\/attack$/.exec(url.pathname);
     if (request.method === 'POST' && redblueAttackMatch !== null) {
       const sessionId = redblueAttackMatch[1];
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -1941,13 +2072,13 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
     const redblueCorrectMatch = /^\/api\/verify\/red-blue\/([A-Za-z0-9._-]+)\/correct$/.exec(url.pathname);
     if (request.method === 'POST' && redblueCorrectMatch !== null) {
       const sessionId = redblueCorrectMatch[1];
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -1965,13 +2096,13 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
 
     // GOAL-047: Contract Net 悬赏招投标市场
     if (route === 'POST /api/bounties') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -2001,7 +2132,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 500, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
     if (route === 'GET /api/bounties') {
@@ -2024,7 +2155,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     const bountyBidsMatch = /^\/api\/bounties\/([A-Za-z0-9._-]+)\/bids$/.exec(url.pathname);
     if (request.method === 'POST' && bountyBidsMatch !== null) {
       const bountyId = bountyBidsMatch[1];
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -2050,13 +2181,13 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
     const bountyAutoBidMatch = /^\/api\/bounties\/([A-Za-z0-9._-]+)\/auto-bid$/.exec(url.pathname);
     if (request.method === 'POST' && bountyAutoBidMatch !== null) {
       const bountyId = bountyAutoBidMatch[1];
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -2071,13 +2202,13 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
     const bountyAwardMatch = /^\/api\/bounties\/([A-Za-z0-9._-]+)\/award$/.exec(url.pathname);
     if (request.method === 'POST' && bountyAwardMatch !== null) {
       const bountyId = bountyAwardMatch[1];
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -2092,13 +2223,13 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
     const bountySettleMatch = /^\/api\/bounties\/([A-Za-z0-9._-]+)\/settle$/.exec(url.pathname);
     if (request.method === 'POST' && bountySettleMatch !== null) {
       const bountyId = bountySettleMatch[1];
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -2113,7 +2244,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
 
@@ -2148,7 +2279,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'POST /api/skills/mount') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -2164,11 +2295,11 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         const res = skillsFederationEngine.mountDirectory(dirPath);
         broadcast({ type: 'skills_directory_mounted', path: dirPath, count: res.count });
         sendJson(response, 200, { ok: true, ...res });
-      })();
+      });
       return;
     }
     if (route === 'POST /api/skills/unmount') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -2183,7 +2314,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         }
         const success = skillsFederationEngine.unmountDirectory(dirPath);
         sendJson(response, 200, { ok: true, unmounted: success });
-      })();
+      });
       return;
     }
 
@@ -2205,7 +2336,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'POST /api/time-travel/snapshot') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -2224,11 +2355,11 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 500, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
     if (route === 'POST /api/time-travel/fork') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -2250,11 +2381,11 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
     if (route === 'POST /api/time-travel/revert') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -2274,7 +2405,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
 
@@ -2303,7 +2434,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'POST /api/blackboard') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -2334,7 +2465,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
             sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
           }
         }
-      })();
+      });
       return;
     }
 
@@ -2347,7 +2478,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     }
     const squadDisbandMatch = /^\/api\/squads\/([A-Za-z0-9._-]+)\/disband$/.exec(url.pathname);
     if (request.method === 'POST' && squadDisbandMatch !== null) {
-      void (async () => {
+      guarded(response, async () => {
         const squadId = squadDisbandMatch[1];
         let body: Record<string, unknown> = {};
         try {
@@ -2363,7 +2494,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
     const squadGetMatch = /^\/api\/squads\/([A-Za-z0-9._-]+)$/.exec(url.pathname);
@@ -2378,7 +2509,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'POST /api/squads') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -2398,7 +2529,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
 
@@ -2416,7 +2547,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'POST /api/elo/match') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -2441,11 +2572,11 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
     if (route === 'POST /api/elo/auto-eval') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -2471,7 +2602,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
 
@@ -2489,7 +2620,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'POST /api/routing/feedback') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -2523,7 +2654,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (err) {
           sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }
-      })();
+      });
       return;
     }
 
@@ -2534,7 +2665,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'POST /api/companion/quick-action') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -2567,7 +2698,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
           mode: actionType,
           message: `已成功速派至 ${actionType} 模式`,
         });
-      })();
+      });
       return;
     }
 
@@ -2578,7 +2709,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'POST /api/velocity/report') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown> = {};
         try {
           body = JSON.parse(await readBody(request));
@@ -2586,12 +2717,12 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         const title = typeof body.title === 'string' && body.title ? body.title : undefined;
         const report = velocityEngine.generateSledReport(title);
         sendJson(response, 200, { ok: true, report });
-      })();
+      });
       return;
     }
 
     if (route === 'POST /api/chat/compact') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -2602,7 +2733,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         const messages = Array.isArray(body.messages) ? body.messages : [];
         const compact = extractStructuredInvariant(messages as any);
         sendJson(response, 200, { ok: true, compact });
-      })();
+      });
       return;
     }
 
@@ -2686,7 +2817,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     }
 
     if (route === 'POST /api/chat/mention-file') {
-      void (async () => {
+      guarded(response, async () => {
         let body: Record<string, unknown>;
         try {
           body = JSON.parse(await readBody(request)) as Record<string, unknown>;
@@ -2721,11 +2852,11 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         }
         const result = processFileMention(filePath, content);
         sendJson(response, 200, { ok: true, ...result });
-      })();
+      });
       return;
     }
     if (route === 'GET /api/chat/history') {
-      void (async () => {
+      guarded(response, async () => {
         const session = (url.searchParams.get('session') ?? '').trim();
         const limit = Number(url.searchParams.get('limit') ?? '50');
         if (session === '') {
@@ -2742,7 +2873,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (error) {
           sendJson(response, 400, { ok: false, error: error instanceof Error ? error.message : String(error) });
         }
-      })();
+      });
       return;
     }
     if (route === 'GET /api/stream') {

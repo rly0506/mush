@@ -9,6 +9,9 @@ export function renderVelocityMatrixHtml(): string {
       <div class="velocity-title-row">
         <span class="velocity-badge">📈 多犬协作全景战报与研发能效大屏</span>
         <span class="velocity-subtitle">DORA & SPACE 研发度量模型、吞吐走势图与一键生成全景战报</span>
+        <!-- GOAL-067（P2-14，F3 裁决）：本视图指标为 D65 收官基线的基准推演值，
+             非实时实测——按证据纪律明示角标，防误读为实测度量。 -->
+        <span class="badge" style="background:rgba(217,119,6,0.12);color:#b45309;font-size:11px;padding:2px 8px;border-radius:10px" title="指标为 RM-001~RM-007 收官基线的推演参考值，非当前实时遥测">⚠ 基准推演参考</span>
         <button class="btn-micro-switch" id="btn-export-sled-report" type="button">📥 导出全景战报 (Markdown)</button>
       </div>
       <div class="velocity-stats-grid">

@@ -7,11 +7,11 @@
  * 生产路径使用同一代码 + 默认 node:child_process spawn。
  */
 
-import { createHash } from 'node:crypto';
 import { spawn as nodeSpawn, execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { AdapterContract } from './contract.ts';
+import { sha256Hex } from '../core/event-log.ts';
 import { type TokenUsageTelemetry, calculateTokenCostAndSavings } from '../core/budget.ts';
 
 export function killProcessTree(pid?: number): void {
@@ -103,10 +103,6 @@ export interface T1RunOptions {
   onStdout?: (chunk: string) => void;
 }
 
-function sha256Hex(text: string): string {
-  return createHash('sha256').update(text, 'utf8').digest('hex').toUpperCase();
-}
-
 /** G009（DEF-03）：Windows npm-global 的 .cmd 垫片不能被 node 直接 spawn
  *（ENOENT/EINVAL）。解析垫片内容找到其真实 JS 入口，改用
  * `node <entry>` 调用——与对调实验的绕行方案同构，但自动化且通用。
@@ -115,6 +111,8 @@ function sha256Hex(text: string): string {
  * 旧正则只认 .js 导致看板真实派发 kimi 恒 ENOENT）。 */
 const SHIM_ENTRY_RE = /node_modules[^\r\n"']*\.(?:mjs|cjs|js)/i;
 const shimEntryCache = new Map<string, { node: string; entry: string } | null>();
+/** GOAL-067（P0-3）：超时 kill 后等待子进程退出的宽限期，到点强制收敛。 */
+const T1_KILL_GRACE_MS = 5_000;
 export function resolveWindowsShim(executable: string): { node: string; entry: string } | null {
   if (process.platform !== 'win32' || path.isAbsolute(executable) || executable.includes('/') || executable.includes('\\')) {
     return null;
@@ -302,13 +300,16 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
 
   await new Promise<void>((resolve) => {
     let settled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let killGraceTimer: ReturnType<typeof setTimeout> | undefined;
     const settle = () => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      if (timer !== undefined) clearTimeout(timer);
+      if (killGraceTimer !== undefined) clearTimeout(killGraceTimer);
       resolve();
     };
-    const timer = setTimeout(() => {
+    timer = setTimeout(() => {
       timedOut = true;
       childKilled = true;
       try {
@@ -317,6 +318,10 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
         // kill 失败仍按超时 fail-closed 收尾。
       }
     }, options.timeoutMs);
+    // GOAL-067（P0-3）：第二看门狗——taskkill 与进程信号双双失败（权限不足/
+    // 僵尸子进程）时 exit 事件永不到来，Promise 会无限挂起、HTTP 请求与派发
+    // 记录一起卡死。grace 到点强制按超时结果收敛，不等待不可靠的 kill 回执。
+    killGraceTimer = setTimeout(settle, options.timeoutMs + T1_KILL_GRACE_MS);
     child.onExit((code) => {
       exitCode = timedOut ? 124 : (code ?? 124);
       settle();

@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { ChatService, type ChatStreamEvent } from '../src/web/chat.ts';
+import { ChatService, type ChatFrameEvent } from '../src/web/chat.ts';
 import { DispatchPipeline } from '../src/web/dispatch.ts';
 import { renderBoardPage } from '../src/web/page.ts';
 
@@ -29,7 +29,7 @@ describe('GOAL-029: Streaming Chat & Thinking Flow', () => {
   });
 
   test('ChatService streams chunks via onEvent with EXECUTE and HEARTBEAT', async () => {
-    const events: ChatStreamEvent[] = [];
+    const events: ChatFrameEvent[] = [];
     const pipeline = new DispatchPipeline({
       workspaceRoot: tmpDir,
       approvalRoot,

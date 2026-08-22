@@ -13,6 +13,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, s
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { UsdBudgetLedger, type UsdAdmissionEntry } from '../core/budget.ts';
+import { sha256Hex } from '../core/event-log.ts';
 import { validateAdapterContract, type AdapterContract, type EffortInjection } from '../adapters/contract.ts';
 import { buildDeepSeekContract } from '../adapters/deepseek.ts';
 import { buildClaudeContract } from '../adapters/claude.ts';
@@ -40,8 +41,8 @@ import {
 } from '../adapters/live-probe.ts';
 
 
-import { runVerifier, type VerifierReport, type VerifierFacet, VerifierDecouplingError } from '../orchestration/verifier.ts';
-import { type TopologyMode, executePipelineSOP, executeCommitteeDebate } from '../orchestration/topology.ts';
+import { runVerifier, type VerifierReport, VerifierDecouplingError } from '../orchestration/verifier.ts';
+import type { TopologyMode } from '../orchestration/topology.ts';
 import type { BoardPersistence } from './persistence.ts';
 import {
   loadAdapterStore,
@@ -64,7 +65,6 @@ import {
   streamKey,
   estimateTokens,
   shouldSwitchWindow,
-  HANDOFF_PROMPT_SUFFIX,
   buildDshStitchedPrompt,
   DSH_CHARTER_FIXED,
   readProjectBrief,
@@ -78,7 +78,6 @@ import {
   transitionTask,
   linkDispatchToTask,
   advanceTaskToStatus,
-  reconcileTasksWithReceipts,
   syncGoalsDirectoryToTasks,
   type Task,
   type TaskStatus,
@@ -416,10 +415,6 @@ function applyProfile(contract: AdapterContract, profileName: string): AdapterCo
 
 const EFFORTS = new Set(['LOW', 'HIGH', 'XHIGH']);
 const DEFAULT_EFFORT_LEVELS: readonly string[] = ['LOW', 'HIGH', 'XHIGH'];
-
-function sha256Hex(text: string): string {
-  return createHash('sha256').update(text, 'utf8').digest('hex').toUpperCase();
-}
 
 export class DispatchPipeline {
   readonly workspaceRoot: string;
@@ -1085,7 +1080,10 @@ export class DispatchPipeline {
     }
 
     // GOAL-026: 顺风车记录模型真实可用性（PASS 升 T1_VERIFIED 权威实测）
-    const effectiveModel = record.model_id || contract.expected_model_id;
+    // GOAL-067（P1-10）归因修正：用户请求的模型变体存于 record.request.model_id
+    // （旧代码读取不存在的 record.model_id，变体实测被错误归因到合同默认模型，
+    //  污染 T1 权威表与名册显示）。
+    const effectiveModel = record.request?.model_id || contract.expected_model_id;
     if (effectiveModel && effectiveModel !== 'UNKNOWN') {
       recordModelReceipt(
         this.liveProbesPath,
@@ -1648,6 +1646,7 @@ export class DispatchPipeline {
       next: input.next ?? '',
       open_issues: input.open_issues ?? '',
       raw,
+      // GOAL-067：HandoffBlock 哈希保持小写 legacy 口径（与历史台账一致），勿改大写。
       sha256: createHash('sha256').update(raw, 'utf8').digest('hex'),
       at_utc: atUtc,
     };

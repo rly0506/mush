@@ -123,7 +123,7 @@ ${getCollaborationStyles()}
   .lane-doing h3 { color: var(--info); }
   .lane-done h3 { color: var(--ok); }
   .task-card { background: var(--panel-hi); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; font-size: 13px; transition: border-color 0.15s ease; }
-  .task-card:hover { border-color: var(--accent); }
+  /* hover 样式统一由 GOAL-023 段（.task-card:hover 含 box-shadow）提供，GOAL-067 删除此重复块 */
   .task-card .task-title { font-weight: 600; color: var(--ink); margin-bottom: 4px; }
   .task-card .task-meta { font-size: 12px; color: var(--ink-faint); display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
   .task-card .task-actions { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -233,7 +233,8 @@ ${getCollaborationStyles()}
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
   .elapsed { font-size: 11px; color: var(--ink-dim); margin-left: 6px; }
   .badge.BLOCKED_WAITING_OWNER, .badge.BLOCKED_ENV { color: var(--ember); border-color: var(--ember); }
-  .badge.REJECTED { color: #e05252; border-color: #e05252; }
+  /* GOAL-067（P3）：删除重复的 .badge.REJECTED 定义——后块 #e05252 曾静默覆盖
+     前块 var(--danger)，现仅保留语义变量版本。 */
   .badge.SUPERSEDED { color: #8a94a6; border-color: #8a94a6; }
   .badge.FAIL { color: var(--danger); border-color: var(--danger); }
   .badge.ok { color: var(--ok); border-color: var(--ok); }
@@ -1357,12 +1358,14 @@ ${getCollaborationStyles()}
   }
 
   var currentChildSessionId = null;
+  var currentChildDog = null;
 
   function openChildDogDrawer(dogName, sessionId, title) {
     var drawer = document.getElementById('child-dog-drawer');
     if (!drawer) return;
     drawer.style.display = 'flex';
     currentChildSessionId = sessionId || ('csess_' + (dogName || 'worker'));
+    currentChildDog = dogName || null;
     document.getElementById('child-dog-drawer-title').textContent = '🐶 工犬专属终端: ' + (dogName || '工犬');
     document.getElementById('child-dog-drawer-meta').textContent = 'Session: ' + currentChildSessionId + (title ? ' · ' + title : '');
     var logsEl = document.getElementById('child-dog-drawer-logs');
@@ -1398,9 +1401,10 @@ ${getCollaborationStyles()}
     var logsEl = document.getElementById('child-dog-drawer-logs');
     logsEl.textContent += '\\n\\n[人类 ➔ 工犬]: ' + prompt + '\\n[工犬正在执行中…]';
     input.value = '';
-    postJson('/api/child-sessions/chat', { session_id: currentChildSessionId || 'csess_worker', prompt: prompt }).then(function (res) {
+    postJson('/api/child-sessions/chat', { session_id: currentChildSessionId || 'csess_worker', dog: currentChildDog, prompt: prompt }).then(function (res) {
       var data = res.body || {};
       if (data.ok && data.reply) {
+        if (data.session_id) currentChildSessionId = data.session_id;
         logsEl.textContent += '\\n' + data.reply;
         toast('工犬已收到指令', true);
       } else {
