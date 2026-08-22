@@ -95,7 +95,7 @@ test('G014A: ACTIVE within whitelist root dispatches and records carveout_id + w
     root,
     {
       runAdapter: async (_c, _p, opts) => {
-        calls.push(opts.cwd ?? '<none>');
+        calls.push(opts!.cwd ?? '<none>');
         return { exitCode: 0, stdout: 'OK', stderr: '', timedOut: false, childKilled: false };
       },
     },

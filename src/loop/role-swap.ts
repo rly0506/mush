@@ -26,7 +26,7 @@ export interface RoleSwapRecord extends RoleAssignment {
 
 export function recordRoleSwap(evidencePath: string, assignment: RoleAssignment): RoleSwapRecord {
   const body = {
-    schema_version: 1,
+    schema_version: 1 as const,
     swapped_at_utc: new Date().toISOString(),
     head: assignment.head,
     executor: assignment.executor,

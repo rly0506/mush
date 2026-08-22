@@ -123,28 +123,7 @@ test('GOAL-026: DispatchPipeline integrates 4-tier model dispatchability into ro
 });
 
 test('GOAL-026: Board page JS includes 4-tier badges and channel guard protection', () => {
-  const html = renderBoardPage({
-    actors: [],
-    epochs: [],
-    approvals: [],
-    roster: [
-      {
-        adapter_id: 'kimi-code',
-        protocol: 't1',
-        expected_provider: 'kimi',
-        expected_model_id: 'tbtk-kimi-k3',
-        role: 'executor',
-        verified: true,
-        supports_model_flag: false,
-        default_model_id: 'tbtk-kimi-k3',
-        live_models: ['tbtk-kimi-k3', 'kimi-k3'],
-        model_tiers: {
-          'tbtk-kimi-k3': 'T2_CONFIGURED',
-          'kimi-k3': 'T0_BLOCKED',
-        },
-      },
-    ],
-  });
+  const html = renderBoardPage();
 
   assert.match(html, /🟢 \[实测通过\]/);
   assert.match(html, /🟡 \[配置就绪\]/);

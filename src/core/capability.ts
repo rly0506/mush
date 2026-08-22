@@ -87,12 +87,12 @@ export function normalizeCapabilityRecord(input: Record<string, unknown>): Capab
 /** PS L95 安全值脱敏：secret 列表中的值替换为 [REDACTED]，永不入库。 */
 export function redactSecretValues<T>(value: T, secretValues: string[]): T {
   if (typeof value === 'string') {
-    let out = value;
+    let out: string = value;
     for (const secret of secretValues) {
       if (secret === '') continue;
       out = out.split(secret).join('[REDACTED]');
     }
-    return out as T;
+    return out as unknown as T;
   }
   if (Array.isArray(value)) return value.map((item) => redactSecretValues(item, secretValues)) as T;
   if (value !== null && typeof value === 'object') {

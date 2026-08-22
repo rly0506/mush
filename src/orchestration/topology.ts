@@ -11,7 +11,8 @@
 export type TopologyMode = 'HIERARCHICAL' | 'PIPELINE_SOP' | 'COMMITTEE_DEBATE' | 'BOUNTY_MARKET';
 
 export interface PipelineStepConfig {
-  step_name: 'SPEC' | 'CODE' | 'TEST' | 'AUDIT';
+  /** GOAL-069：工序名仅作透传标识（结果层本就是 string），放宽为 string。 */
+  step_name: string;
   dog_id: string;
 }
 

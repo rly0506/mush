@@ -44,6 +44,9 @@ export interface PiRpcRunResult {
   confirmedProvider: string;
   confirmedModelId: string;
   failClosedReason: string | null;
+  /** GOAL-069：运行时间戳（writeReceipt 落盘用）。 */
+  startedAtUtc?: string;
+  finishedAtUtc?: string;
 }
 
 export interface PiRpcRunOptions {
@@ -311,7 +314,7 @@ export async function runPiRpc(contract: AdapterContract, prompt: string, option
   });
 }
 
-function writeReceipt(receiptPath: string, adapterId: string, result: PiRpcRunResult & Record<string, unknown>, prompt: string): void {
+function writeReceipt(receiptPath: string, adapterId: string, result: PiRpcRunResult, prompt: string): void {
   try {
     mkdirSync(path.dirname(path.resolve(receiptPath)), { recursive: true });
     const receipt = {

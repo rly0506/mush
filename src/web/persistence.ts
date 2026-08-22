@@ -270,7 +270,7 @@ export class BoardPersistence {
       const released = existing.released_at_utc !== undefined && existing.released_at_utc !== null;
       // 同进程重入（测试/嵌入宿主可并行多个 server）；跨进程才是 F-42 防线。
       if (!released && pid === process.pid) {
-        return existing as LockState;
+        return existing as unknown as LockState;
       }
       if (!released && Number.isInteger(pid) && pid > 0 && this.isAlive(pid)) {
         // DEF-06：拒绝时带上旧实例的监听端口（若可得）与处置指引——

@@ -21,6 +21,9 @@ function makeRecord(id: string): DispatchRecord {
     receipt_path: null,
     admission: { decision: 'ADMITTED', remaining_usd: 5 },
     error: null,
+    stdout_tail: null,
+    stderr_tail: null,
+    session_id: null,
     events: [],
   };
 }

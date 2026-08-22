@@ -55,8 +55,8 @@ describe('GOAL-031: RM-004 M1 Real-Work Operations with AGY Executor', () => {
     assert.strictEqual(defaultContract.expected_model_id, 'gemini-3.7-flash-high');
     assert.strictEqual(defaultContract.role, 'executor');
     assert.deepStrictEqual(defaultContract.effort_levels, ['LOW', 'MEDIUM', 'HIGH']);
-    assert.ok(defaultContract.variants.includes('gemini-3.7-flash-high'));
-    assert.ok(defaultContract.variants.includes('gemini-3.1-pro-high'));
+    assert.ok((defaultContract.variants ?? []).includes('gemini-3.7-flash-high'));
+    assert.ok((defaultContract.variants ?? []).includes('gemini-3.1-pro-high'));
 
     const customContract = buildAgyContract('gemini-3.1-pro-high');
     assert.strictEqual(customContract.expected_model_id, 'gemini-3.1-pro-high');

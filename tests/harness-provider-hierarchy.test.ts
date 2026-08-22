@@ -64,16 +64,7 @@ test('Harness -> Provider -> Model 3-tier Hierarchy Tests', async (t) => {
   });
 
   await t.test('4. Board page HTML renders provider selector elements', () => {
-    const html = renderBoardPage({
-      actors: [],
-      epochs: [],
-      approvals: [],
-      roster: [],
-      workspaces: [],
-      currentWorkspace: '',
-      runId: 'test-run',
-      assignmentEpoch: 1,
-    });
+    const html = renderBoardPage();
 
     assert.ok(html.includes('id="chat-head-provider"'), 'Page must contain chat-head-provider select');
     assert.ok(html.includes('id="dispatch-provider"'), 'Page must contain dispatch-provider select');

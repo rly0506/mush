@@ -48,11 +48,11 @@ test('events are frozen snapshots and verifyChain detects a broken anchor', () =
   assert.equal(first.meta.candidate, 'm5-board');
   loop.transition('CONFIRM', {});
   assert.doesNotThrow(() => loop.verifyChain());
-  const forged: LoopState[] = [
+  const forged = [
     { ...loop.events()[0], sha256: 'A'.repeat(64), sequence: 1 },
     { ...loop.events()[1], sequence: 2 },
-  ] as never;
-  assert.throws(() => LoopStateMachine.fromEvents('run-loop-fixture', forged), /chain|anchor|hash/i);
+  ] as never as LoopState[];
+  assert.throws(() => LoopStateMachine.fromEvents('run-loop-fixture', forged as unknown as Parameters<typeof LoopStateMachine.fromEvents>[1]), /chain|anchor|hash/i);
 });
 
 test('ACCEPT is terminal; replay rebuilds the exact terminal state and chain', () => {

@@ -386,14 +386,15 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
     stdout_sha256: sha256Hex(stdout),
     stderr_sha256: sha256Hex(stderr),
     // DEF-02：spawn 失败受控标记（ENOENT/EPERM 等），exit_code=127。
-    ...(spawnError !== null ? { spawn_error: spawnError.message } : {}),
+    // GOAL-069：回调内赋值不参与外层收窄，此处显式按声明类型读取。
+    ...(spawnError !== null ? { spawn_error: (spawnError as Error).message } : {}),
     ...(telemetry ? { telemetry } : {}),
   };
 
   mkdirSync(path.dirname(path.resolve(options.receiptPath)), { recursive: true });
   writeFileSync(options.receiptPath, JSON.stringify(receipt) + '\n', 'utf8');
 
-  if (spawnError !== null) throw new Error(`spawn failed (BLOCKED_ENV): ${spawnError.message}`);
+  if (spawnError !== null) throw new Error(`spawn failed (BLOCKED_ENV): ${(spawnError as Error).message}`);
   if (identityError !== null) throw identityError;
   return {
     exitCode,

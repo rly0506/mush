@@ -30,7 +30,7 @@ test('GOAL-065 Process Resilience, EPIPE Guard, Tree Kill & Fail-Closed Suite', 
   });
 
   await t.test('1. Subprocess premature exit + stdin EPIPE is gracefully caught without process crash', async () => {
-    const contract = buildDeepSeekContract('deepseek-chat');
+    const contract = buildDeepSeekContract('dsh');
     // Mock child process that immediately simulates an EPIPE error on stdin
     const mockSpawn = (): ChildProcessLike => {
       const emitter = new EventEmitter();
@@ -73,7 +73,7 @@ test('GOAL-065 Process Resilience, EPIPE Guard, Tree Kill & Fail-Closed Suite', 
   });
 
   await t.test('3. pi-rpc runner is strictly fail-closed when child exits 0 before settling', async () => {
-    const contract = buildPiContract('deepseek', 'deepseek-chat');
+    const contract = buildPiContract();
     const mockPiSpawn: PiRpcSpawnFn = () => {
       const outEmitter = new EventEmitter();
       const errEmitter = new EventEmitter();

@@ -243,12 +243,16 @@ export interface RunAdapterResult {
   stderr: string;
   timedOut: boolean;
   childKilled: boolean;
+  /** GOAL-069：真实 runner（runT1）返回完整回执；fake 可省略。 */
+  receipt?: { telemetry?: import('../core/budget.ts').TokenUsageTelemetry };
 }
 
 export type RunAdapterFn = (
   contract: AdapterContract,
   prompt: string,
-  opts: {
+  /** GOAL-069：可选——注入式 fake 允许两参签名；默认实现依赖完整 opts，
+   * 缺省时在 try 内解构 undefined 同步抛错→受控返回 exit1（历史行为）。 */
+  opts?: {
     workspaceRoot: string;
     receiptPath: string;
     timeoutMs: number;
@@ -563,13 +567,16 @@ export class DispatchPipeline {
       options.runAdapter ??
       (async (contract, prompt, opts) => {
         try {
+          // GOAL-069：opts 按类型可选；默认实现缺省时此处解构 undefined 同步
+          // 抛 TypeError→下方 catch 受控返回 exit1（与历史两参调用行为一致）。
+          const { workspaceRoot, receiptPath, timeoutMs } = opts!;
           if (contract.protocol === 'pi-rpc') {
             // GP-29：pi 通用 harness 走 RPC runner（黄金参照线协议）。
             const piResult = await runPiRpc(contract, prompt, {
-              workspaceRoot: opts.workspaceRoot,
-              receiptPath: opts.receiptPath,
-              timeoutMs: opts.timeoutMs,
-              ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+              workspaceRoot,
+              receiptPath,
+              timeoutMs,
+              ...(opts!.cwd !== undefined ? { cwd: opts!.cwd } : {}),
             });
             return {
               exitCode: piResult.exitCode,
@@ -582,12 +589,12 @@ export class DispatchPipeline {
           const result = await runT1({
             contract,
             prompt,
-            workspaceRoot: opts.workspaceRoot,
-            receiptPath: opts.receiptPath,
-            timeoutMs: opts.timeoutMs,
+            workspaceRoot: opts!.workspaceRoot,
+            receiptPath: opts!.receiptPath,
+            timeoutMs: opts!.timeoutMs,
             spawn: options.spawn,
-            onStdout: opts.onStdout,
-            ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+            onStdout: opts!.onStdout,
+            ...(opts!.cwd !== undefined ? { cwd: opts!.cwd } : {}),
           });
           return {
             exitCode: result.exitCode,
@@ -1312,8 +1319,8 @@ export class DispatchPipeline {
     return Object.values(this.contracts)
       .filter((contract) => contract.adapter_id !== 'fake-t1' || process.env.MUSH_INCLUDE_FAKE_ROSTER === '1')
       .map((contract) => {
-        const user = this.userAdapters.find((entry) => entry.adapter_id === contract.adapter_id && entry.removed !== true);
-        const origin = user !== undefined ? (this.baseAdapterIds.has(contract.adapter_id) ? 'user-override' : 'user') : 'base';
+          const user = this.userAdapters.find((entry) => entry.adapter_id === contract.adapter_id && entry.removed !== true);
+          const origin: AdapterView['origin'] = user !== undefined ? (this.baseAdapterIds.has(contract.adapter_id) ? 'user-override' : 'user') : 'base';
         return {
           adapter_id: contract.adapter_id,
           protocol: contract.protocol,
@@ -1422,6 +1429,8 @@ export class DispatchPipeline {
         const record = await probeAdapterLive(
           contract,
           async (cmd, args) => {
+            // GOAL-069：保持历史两参调用——注入式 fake（两参签名）照常工作；
+            // 默认 runner 因缺 opts 在内部受控返回 exit1（探测记为失败）。
             const res = await this.runAdapter(contract, args.join(' '));
             return { exitCode: res.exitCode, stdout: res.stdout, stderr: res.stderr };
           },

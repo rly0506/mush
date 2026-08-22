@@ -162,7 +162,7 @@ test('GOAL-017A U3: setBudgetCap persists and appends CAP_CHANGE ledger row', ()
   pipeline.setBudgetCap('codex', 10);
   assert.equal(pipeline.getBudgetCaps()['codex'], 10);
   const lines = persistence.loadLedgerLines();
-  assert.ok(lines.some((line) => line.meta?.kind === 'CAP_CHANGE'));
+  assert.ok(lines.some((line) => (line.meta as Record<string, unknown> | undefined)?.kind === 'CAP_CHANGE'));
   assert.doesNotThrow(() => persistence.verifyLedgerChain());
 });
 

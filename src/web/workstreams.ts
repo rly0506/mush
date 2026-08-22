@@ -181,7 +181,8 @@ export function addDispatchToStream(
   const full: StreamDispatchEvent = { kind: 'dispatch', stream_id: stream.stream_id, ...event };
   stream.events.push(full);
   stream.updated_at_utc = full.at_utc;
-  appendStreamLog(streamsPath, { kind: 'dispatch', ...full });
+  // GOAL-069：full 已含 kind/stream_id，不再重复指定。
+  appendStreamLog(streamsPath, full);
 }
 
 export function addHandoffToStream(streamsPath: string, stream: WorkStream, handoff: HandoffBlock): void {

@@ -123,8 +123,8 @@ test('GOAL-021 U3: createThrottledStream merges ≥512B or ≥200ms into frames,
 test('GOAL-021 U3: dispatch emits EXECUTE incremental stream frames only when streaming requested (plain dispatch unchanged)', async () => {
   const root = fixtureRoot();
   const runAdapter: RunAdapterFn = async (_contract, _prompt, opts) => {
-    opts.onStdout?.('frag-one ');
-    opts.onStdout?.('frag-two');
+    opts!.onStdout?.('frag-one ');
+    opts!.onStdout?.('frag-two');
     return { exitCode: 0, stdout: 'frag-one frag-two', stderr: '', timedOut: false, childKilled: false };
   };
   const pipeline = new DispatchPipeline({
@@ -149,8 +149,8 @@ test('GOAL-021 U3: dispatch emits EXECUTE incremental stream frames only when st
 test('GOAL-021 U2/U3: chat frames stream ADMITTED→EXECUTE→HEARTBEAT→REPORT and JSONL stores full reply', async () => {
   const root = fixtureRoot();
   const runAdapter: RunAdapterFn = async (_contract, _prompt, opts) => {
-    opts.onStdout?.('part-one ');
-    opts.onStdout?.('part-two');
+    opts!.onStdout?.('part-one ');
+    opts!.onStdout?.('part-two');
     return { exitCode: 0, stdout: 'part-one part-two', stderr: '', timedOut: false, childKilled: false };
   };
   const pipeline = new DispatchPipeline({
@@ -203,7 +203,7 @@ test('GOAL-021 U1: 202 ack 即刻返回（后台执行未完成），user turn �
   let started = false;
   const runAdapter: RunAdapterFn = async (_contract, _prompt, opts) => {
     started = true;
-    opts.onStdout?.('慢速回复');
+    opts!.onStdout?.('慢速回复');
     await gate; // 阻塞后台执行，验证 ack 已先返回（异步受理）。
     return { exitCode: 0, stdout: '慢速回复', stderr: '', timedOut: false, childKilled: false };
   };

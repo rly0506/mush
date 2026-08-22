@@ -66,7 +66,7 @@ test('scan evidence is written append-only with candidate list and honest WAITIN
   const evidence = writeScanEvidence(evidencePath, CANDIDATES, null, 'no owner selection record yet');
   assert.ok(existsSync(evidencePath));
   assert.equal(evidence.status, 'WAITING_OWNER');
-  const onDisk = JSON.parse(readFileSync(evidencePath, 'utf8')) as Record<string, unknown>;
+  const onDisk = JSON.parse(readFileSync(evidencePath, 'utf8')) as { candidates: unknown[]; selected: unknown };
   assert.equal(onDisk.candidates.length, 2);
   assert.equal(onDisk.selected, null);
 });

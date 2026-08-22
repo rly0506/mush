@@ -149,6 +149,7 @@ test('dispatch executes agy dry-run successfully', async () => {
   });
   assert.equal(res.status, 'DRY_RUN');
   assert.equal(res.adapter_id, 'agy');
+  assert.ok(res.request, 'dry-run record must snapshot the request');
   assert.equal(res.request.effort, 'HIGH');
   assert.equal(res.request.model_id, 'gemini-3.1-pro-high');
 });

@@ -12,10 +12,15 @@
     "start": "node bin/mush board --open",
     "test": "node --test --test-isolation=none tests/*.test.ts",
     "test:isolated": "node --test tests/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "mush": "node bin/mush",
     "build:desktop": "powershell -NoProfile -File scripts/build-desktop.ps1"
   },
   "bin": {
     "mush": "bin/mush"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "typescript": "^5.9.2"
   }
 }

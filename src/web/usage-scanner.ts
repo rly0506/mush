@@ -102,6 +102,7 @@ export function scanLocalHarnessUsage(
         harness,
         cost_usd: 0,
         tokens: 0,
+        volume: 0,
         input_tokens: 0,
         output_tokens: 0,
         sessions_count: 0,
@@ -109,6 +110,8 @@ export function scanLocalHarnessUsage(
     }
     perHarness[harness].cost_usd = Number((perHarness[harness].cost_usd + cost).toFixed(6));
     perHarness[harness].tokens += tokens;
+    // GOAL-069：volume 与 total_volume 同口径（输入+输出 token 量）。
+    perHarness[harness].volume += usage.inputTokens + usage.outputTokens;
     perHarness[harness].input_tokens += usage.inputTokens;
     perHarness[harness].output_tokens += usage.outputTokens;
 
@@ -144,6 +147,7 @@ export function scanLocalHarnessUsage(
                   harness: 'claude-code',
                   cost_usd: 0,
                   tokens: 0,
+                  volume: 0,
                   input_tokens: 0,
                   output_tokens: 0,
                   sessions_count: 0,
@@ -199,6 +203,7 @@ export function scanLocalHarnessUsage(
                   harness: 'pi',
                   cost_usd: 0,
                   tokens: 0,
+                  volume: 0,
                   input_tokens: 0,
                   output_tokens: 0,
                   sessions_count: 0,
@@ -259,6 +264,7 @@ export function scanLocalHarnessUsage(
                   harness: hKey,
                   cost_usd: 0,
                   tokens: 0,
+                  volume: 0,
                   input_tokens: 0,
                   output_tokens: 0,
                   sessions_count: 0,

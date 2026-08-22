@@ -56,23 +56,7 @@ test('Harness Multi-Provider & Doctor Suite', async (t) => {
   });
 
   await t.test('4. renderBoardPage renders doctor tool button and excludes head-dog from candidate list', () => {
-    const html = renderBoardPage({
-      snapshot: {
-        generated_at_utc: new Date().toISOString(),
-        actors: [],
-        epochs: [],
-        approvals: [],
-        roster: [
-          { adapter_id: 'head-dog', expected_provider: 'deepseek', expected_model_id: 'v4', role: 'head', verified: true },
-          { adapter_id: 'claude-code', expected_provider: 'anthropic', expected_model_id: 'sonnet-5', role: 'executor', verified: true },
-          { adapter_id: 'agy-claude', expected_provider: 'google', expected_model_id: 'sonnet-4', role: 'executor', verified: true },
-          { adapter_id: 'agy', expected_provider: 'google', expected_model_id: 'gemini-2.5-pro', role: 'executor', verified: true },
-        ],
-      },
-      workspaces: [],
-      budget: null,
-      trackedDispatches: [],
-    });
+    const html = renderBoardPage();
 
     assert.ok(html.includes('btn-harness-doctor'), 'Must render harness doctor button');
     assert.ok(!html.includes('HEAD_WHITELIST = { \'head-dog\': 1'), 'Must not whitelist head-dog');

@@ -166,24 +166,26 @@ export function validateAdapterUpsert(input: unknown): { template: AdapterTempla
   if (rawParams === null || typeof rawParams !== 'object' || Array.isArray(rawParams)) {
     throw new Error('params must be an object when present');
   }
+  // GOAL-069：收窄为具体记录类型，替代裸 object 的属性访问。
+  const rawRecord = rawParams as Record<string, unknown>;
   const allowed = ALLOWED_PARAMS[template as AdapterTemplateId];
   const params: UserAdapterParams = {};
-  for (const key of Object.keys(rawParams as Record<string, unknown>)) {
+  for (const key of Object.keys(rawRecord)) {
     if (!allowed.includes(key)) {
       throw new Error(`field '${key}' is not allowed for template '${template}'`);
     }
   }
-  if (rawParams.profile !== undefined) {
-    if (typeof rawParams.profile !== 'string' || rawParams.profile.trim() === '') {
+  if (rawRecord.profile !== undefined) {
+    if (typeof rawRecord.profile !== 'string' || rawRecord.profile.trim() === '') {
       throw new Error("params.profile must be a non-blank string");
     }
-    params.profile = rawParams.profile.trim();
+    params.profile = rawRecord.profile.trim();
   }
-  if (rawParams.model_id !== undefined) {
-    if (typeof rawParams.model_id !== 'string' || rawParams.model_id.trim() === '') {
+  if (rawRecord.model_id !== undefined) {
+    if (typeof rawRecord.model_id !== 'string' || rawRecord.model_id.trim() === '') {
       throw new Error("params.model_id must be a non-blank string");
     }
-    params.model_id = rawParams.model_id.trim();
+    params.model_id = rawRecord.model_id.trim();
   }
   return { template: template as AdapterTemplateId, adapterId, params };
 }

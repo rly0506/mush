@@ -24,9 +24,9 @@ function makeFakeChild(stdout: string, exitCode = 0): ChildProcessLike {
   return {
     stdinWrite: () => {},
     stdinEnd: () => {},
-    onStdout: (listener) => setTimeout(() => listener(stdout), 1),
+    onStdout: (listener: (chunk: Buffer | string) => void) => setTimeout(() => listener(stdout), 1),
     onStderr: () => {},
-    onExit: (listener) => setTimeout(() => listener(exitCode), 2),
+    onExit: (listener: (code: number | null) => void) => setTimeout(() => listener(exitCode), 2),
     kill: () => {},
   } as unknown as ChildProcessLike;
 }

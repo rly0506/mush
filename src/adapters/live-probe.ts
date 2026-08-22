@@ -33,6 +33,8 @@ export interface LiveProbeRecord {
   error_message?: string;
   supports_model_flag?: boolean;
   default_model_id?: string;
+  /** GOAL-068 分组模型清单（discoverHarnessGroupedModels 输出，buildRecord 写入）。 */
+  grouped_models?: Record<string, string[]>;
 }
 
 export interface LiveProbeCacheFile {

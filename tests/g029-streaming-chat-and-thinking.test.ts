@@ -36,8 +36,8 @@ describe('GOAL-029: Streaming Chat & Thinking Flow', () => {
       ledgerPath,
       runAdapter: async (contract, prompt, options) => {
         // 模拟流式输出
-        options.onStdout?.('<think>正在分析用户意图...</think>');
-        options.onStdout?.('你好！我是头犬。');
+        options!.onStdout?.('<think>正在分析用户意图...</think>');
+        options!.onStdout?.('你好！我是头犬。');
         return {
           exitCode: 0,
           stdout: '<think>正在分析用户意图...</think>你好！我是头犬。',

@@ -211,7 +211,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
   const workstreams = options.workstreams ?? new WorkstreamStore(path.join(runtimeRoot, 'workstreams.jsonl'));
   const sseClients = new Set<ServerResponse>();
 
-  function broadcast(payload: Record<string, unknown>): void {
+  function broadcast(payload: unknown): void {
     const frame = `data: ${JSON.stringify(payload)}\n\n`;
     for (const client of sseClients) {
       try {
@@ -229,7 +229,8 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       const act = translateDispatchEvent(event, {
         task_id: record?.task_id,
         goal_id: record?.request?.goal_id,
-        amount_usd: record?.request?.amount_usd,
+        // GOAL-069：DispatchRequestSnapshot 刻意不含 amount_usd（GP-10 防虚报），
+        // 此处不再读取幻影字段；金额经台账投影另行呈现。
       });
       if (act !== null) {
         recordActivity(runtimeRoot, act);
@@ -1133,10 +1134,8 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
 
     if (route === 'GET /api/usage') {
       try {
-        const usage = scanLocalHarnessUsage({
-          workspaceRoot: options.workspaceRoot,
-          now: options.now,
-        });
+        // GOAL-069：移除 BoardServerOptions 上从未存在的 options.now 幻影属性。
+        const usage = scanLocalHarnessUsage({ workspaceRoot: options.workspaceRoot });
         sendJson(response, 200, { ok: true, usage });
       } catch (error) {
         sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
@@ -1478,8 +1477,8 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
           return;
         }
         const messages = Array.isArray(body.messages) ? body.messages : [];
-        const maxTokens = typeof body.max_tokens === 'number' ? body.max_tokens : 2000;
-        const memory = distillTranscript(sessionId, messages as Array<{ sender: string; content: string }>, maxTokens);
+        // GOAL-069：distillTranscript 仅两参——旧调用的第三参从未生效，删除。
+        const memory = distillTranscript(sessionId, messages as Array<{ sender?: string; content?: string }>);
         saveMemory(runtimeRoot, memory);
         sendJson(response, 201, { ok: true, memory });
       });
@@ -2401,7 +2400,8 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         try {
           const result = timeTravelKernel.travelToNode(nodeId);
           broadcast({ type: 'time_travel_reverted', node_id: nodeId, restored_files_count: result.restored_files_count });
-          sendJson(response, 200, { ok: true, ...result });
+          // GOAL-069：result 自带 ok 字段，不再重复指定。
+          sendJson(response, 200, { ...result });
         } catch (err) {
           sendJson(response, 400, { ok: false, error: err instanceof Error ? err.message : String(err) });
         }

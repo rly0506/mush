@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { DispatchPipeline, type RunAdapterFn } from '../src/web/dispatch.ts';
+import type { ReadableStreamReadResult } from 'node:stream/web';
+import { DispatchPipeline, type RunAdapterFn, type RunAdapterResult } from '../src/web/dispatch.ts';
 import { ChatService } from '../src/web/chat.ts';
 import { startBoardServer } from '../src/web/server.ts';
 
@@ -18,7 +19,7 @@ function fixtureRoot(): string {
   return root;
 }
 
-const fakeOk: RunAdapterFn = async () => ({
+const fakeOk = async (): Promise<RunAdapterResult> => ({
   exitCode: 0,
   stdout: '头犬回报：已派活完毕 session_id=sess-012b',
   stderr: '',
@@ -27,10 +28,11 @@ const fakeOk: RunAdapterFn = async () => ({
 });
 
 function makeChat(root: string, captured?: { adapter_id?: string; effort?: string }, onEvent?: (event: import('../src/web/chat.ts').ChatFrameEvent) => void): ChatService {
-  const spyRunner: RunAdapterFn = async (args, opts) => {
-    void args;
+  const spyRunner: RunAdapterFn = async (contract, prompt, opts) => {
+    void contract;
+    void prompt;
     void opts;
-    return fakeOk(args, opts);
+    return fakeOk();
   };
   const pipeline = new DispatchPipeline({
     workspaceRoot: root,
@@ -130,7 +132,7 @@ test('GOAL-021 U1: POST /api/chat 202 即返 {dispatch_id, session_id}，回复�
       while (Date.now() < deadline && !frames.some((f) => f.phase === 'REPORT')) {
         const chunk = await Promise.race([
           reader?.read(),
-          new Promise<ReadableStreamReadResult<Uint8Array>>((resolve) => setTimeout(() => resolve({ done: false, value: undefined }), 250)),
+          new Promise<ReadableStreamReadResult<Uint8Array>>((resolve) => setTimeout(() => resolve({ done: false, value: undefined } as unknown as ReadableStreamReadResult<Uint8Array>), 250)),
         ]);
         if (chunk === undefined || chunk.done) break;
         const text = decoder.decode(chunk.value, { stream: true });

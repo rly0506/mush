@@ -96,8 +96,8 @@ test('T1 stdin transport writes the exact prompt and captures stdout/stderr/exit
     timeoutMs: 1000,
     spawn,
   });
-  assert.equal((child as FakeChildHandle).stdinData, 'fixture prompt 测试', 'prompt must be written to stdin exactly');
-  assert.equal((child as FakeChildHandle).stdinEnded, true, 'stdin must close after prompt');
+  assert.equal((child as unknown as FakeChildHandle).stdinData, 'fixture prompt 测试', 'prompt must be written to stdin exactly');
+  assert.equal((child as unknown as FakeChildHandle).stdinEnded, true, 'stdin must close after prompt');
   assert.equal(result.exitCode, 0);
   assert.equal(result.stdout, 'fixture-stdout');
   assert.equal(result.stderr, 'fixture-stderr');
@@ -159,7 +159,7 @@ test('T1 timeout kills the child and reports timed_out fail-closed', async () =>
   assert.equal(result.timedOut, true);
   assert.equal(result.childKilled, true);
   assert.equal(result.exitCode, 124);
-  assert.equal((child as FakeChildHandle).killed, true);
+  assert.equal((child as unknown as FakeChildHandle).killed, true);
 });
 
 test('T1 identity verifier is fail-closed: mismatch throws and is recorded in the receipt', async () => {

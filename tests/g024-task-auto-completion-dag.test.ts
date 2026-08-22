@@ -95,11 +95,7 @@ test('GOAL-024 Pipeline: 派发执行完成自动将任务放入完成池 (DONE)
 });
 
 test('GOAL-024 Frontend: 任务路径导图 / 思维导图与四态色彩渲染结构断言', () => {
-  const html = renderBoardPage({
-    actors: [],
-    epochs: [],
-    approvals: [],
-  });
+  const html = renderBoardPage();
 
   // 1. 视图切换容器与按钮
   assert.match(html, /class="tasks-view-switch"/);

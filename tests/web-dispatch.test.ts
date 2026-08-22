@@ -2,6 +2,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import type { ReadableStreamReadResult } from 'node:stream/web';
 import { DispatchPipeline, InputError, type DispatchLifecycleEvent, type RunAdapterFn } from '../src/web/dispatch.ts';
 import { startBoardServer, type BoardServer } from '../src/web/server.ts';
 import { LoopStateMachine } from '../src/loop/loop.ts';
@@ -255,7 +256,7 @@ test('SSE receives dispatch lifecycle events during a dry-run dispatch (DoD smok
   while (Date.now() < deadline && !sawDispatch) {
     const chunk = await Promise.race([
       reader?.read(),
-      new Promise<ReadableStreamReadResult<Uint8Array>>((resolve) => setTimeout(() => resolve({ done: false, value: undefined }), 250)),
+      new Promise<ReadableStreamReadResult<Uint8Array>>((resolve) => setTimeout(() => resolve({ done: false, value: undefined } as unknown as ReadableStreamReadResult<Uint8Array>), 250)),
     ]);
     if (chunk === undefined || chunk.done) break;
     const text = decoder.decode(chunk.value, { stream: true });
@@ -269,9 +270,10 @@ test('GP-21: profile field is validated against ~/.dsh/profiles and injects --pr
   const root = fixtureRoot();
   const profilesRoot = path.join(root, 'profiles');
   mkdirSync(path.join(profilesRoot, 'headless-pro'), { recursive: true });
-  let seenArgs: string[] | null = null;
-  const runAdapter: RunAdapterFn = async (_contract, _prompt, _opts) => {
-    seenArgs = [..._contract.arguments];
+  // GOAL-069：回调内赋值不参与外层 CFA 收窄，用盒装引用避免 seenArgs 被推成 never。
+  const seenArgsBox: { args: string[] | null } = { args: null };
+  const runAdapter: RunAdapterFn = async (contract, _prompt, _opts) => {
+    seenArgsBox.args = [...contract.arguments];
     return { exitCode: 0, stdout: 'OK', stderr: '', timedOut: false, childKilled: false };
   };
   const pipeline = new DispatchPipeline({
@@ -283,7 +285,7 @@ test('GP-21: profile field is validated against ~/.dsh/profiles and injects --pr
   });
   const record = await pipeline.dispatch({ adapter_id: 'deepseek-dsh', prompt: 'use preset', profile: 'headless-pro' });
   assert.equal(record.status, 'DRY_RUN');
-  assert.ok(seenArgs !== null && seenArgs.includes('--profile') && seenArgs[seenArgs.indexOf('--profile') + 1] === 'headless-pro');
+  assert.ok(seenArgsBox.args !== null && seenArgsBox.args.includes('--profile') && seenArgsBox.args[seenArgsBox.args.indexOf('--profile') + 1] === 'headless-pro');
   assert.equal(record.request?.profile, 'headless-pro');
 
   await assert.rejects(() => pipeline.dispatch({ adapter_id: 'deepseek-dsh', prompt: 'x', profile: 'missing-profile' }), /profile/i);

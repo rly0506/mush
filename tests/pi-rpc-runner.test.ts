@@ -20,8 +20,8 @@ interface FakeChildHandle {
   stdinWrites: string[];
 }
 
-/** fake 子进程：script(lines) 收到 stdin 行数组，返回要往 stdout 写的行。 */
-function makeFakeChild(script: (writes: () => string[]) => AsyncGenerator<string>): FakeChildHandle {
+/** fake 子进程：script(lines) 收到 stdin 累积串，返回要往 stdout 写的行。 */
+function makeFakeChild(script: (writes: () => string) => AsyncGenerator<string>): FakeChildHandle {
   const handle: FakeChildHandle = { spawn: () => undefined as never, stdinWrites: [] };
   let exitListener: ((code: number | null) => void) | null = null;
   let errorListener: ((error: Error) => void) | null = null;
@@ -37,11 +37,11 @@ function makeFakeChild(script: (writes: () => string[]) => AsyncGenerator<string
         setTimeout(() => exitListener?.(0), 5);
       },
     },
-    stdout: { on: (_e, l) => (stdoutListener = l) },
-    stderr: { on: (_e, l) => (stderrListener = l) },
-    on: (event: string, l: never) => {
-      if (event === 'exit') exitListener = l as (code: number | null) => void;
-      if (event === 'error') errorListener = l as (error: Error) => void;
+    stdout: { on: (_e: 'data', l: (chunk: Buffer) => void) => (stdoutListener = l) },
+    stderr: { on: (_e: 'data', l: (chunk: Buffer) => void) => (stderrListener = l) },
+    on: (event: 'exit' | 'error', listener: (...args: unknown[]) => void) => {
+      if (event === 'exit') exitListener = listener as (code: number | null) => void;
+      if (event === 'error') errorListener = listener as (error: Error) => void;
     },
     kill: () => exitListener?.(1),
   });

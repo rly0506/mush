@@ -1,6 +1,6 @@
 # GOAL-067: 全栈 Review 修复与冗余清理 (Full-Stack Audit Remediation and Redundancy Cleanup)
 
-- 状态：`IN_PROGRESS`
+- 状态：`DONE`（2026-08-22 owner 验收；commit 98419a8，571/571 全绿）
 - 来源：owner 授权（2026-08-22 对话裁决：Q1 记录不退出 / Q2 实现真过滤 / Q3 一次做完；F1 选 A 补路由、F2 选 B 归档 loop、F3 折中真数据+标注、S5 选 A 文档明示+UNC 阻断）
 - 优先级：高
 - 依赖：无（基于 978648f 之后的工作区）

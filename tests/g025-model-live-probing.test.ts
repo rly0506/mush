@@ -139,11 +139,7 @@ test('GOAL-025 Server & Frontend: /api/models/probe 接口与前端实测交互�
     assert.equal(postData.ok, true);
 
     // 3. 测试前端 DOM 结构断言
-    const html = renderBoardPage({
-      actors: [],
-      epochs: [],
-      approvals: [],
-    });
+    const html = renderBoardPage();
     assert.match(html, /id="btn-models-probe"/);
     assert.match(html, /id="chat-probe-btn"/);
     assert.match(html, /id="dispatch-probe-btn"/);

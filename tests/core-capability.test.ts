@@ -59,10 +59,12 @@ test('registry assigns a stable 32-hex capability_id and retrieves by it', () =>
     thinking_level: 'XHIGH',
   });
   const registered = registry.register(record);
-  assert.match(registered.capability_id, /^[0-9A-F]{32}$/i);
-  assert.equal(registry.get(registered.capability_id)?.model_id, 'deepseek-v4-pro');
-  assert.equal(registry.get(registered.capability_id)?.model_tier, 'HIGH');
-  assert.equal(registry.get(registered.capability_id)?.thinking_level, 'XHIGH');
+  // GOAL-069：capability_id 声明为可选，注册后必有值——断言收窄后再用。
+  const capabilityId = registered.capability_id as string;
+  assert.match(capabilityId, /^[0-9A-F]{32}$/i);
+  assert.equal(registry.get(capabilityId)?.model_id, 'deepseek-v4-pro');
+  assert.equal(registry.get(capabilityId)?.model_tier, 'HIGH');
+  assert.equal(registry.get(capabilityId)?.thinking_level, 'XHIGH');
 });
 
 test('dispatch selection is fail-closed: credential must be PRESENT and runtime identity exact (PS L243-L248 + wrapper L351-L352)', () => {
@@ -114,6 +116,7 @@ test('dispatch selection is fail-closed: credential must be PRESENT and runtime 
       }),
     /identity|model/i,
   );
+  assert.ok(present.capability_id, 'capability_id must be assigned');
   assert.equal(present.capability_id.length, 32);
 });
 

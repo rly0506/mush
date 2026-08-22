@@ -154,7 +154,10 @@ describe('GOAL-032: Smart Codebase Indexer & Context Assembler', () => {
       }),
     });
     assert.strictEqual(authed.status, 200);
-    const data = (await authed.json()) as { ok: boolean; context: typeof context };
+    const data = (await authed.json()) as {
+      ok: boolean;
+      context: { target_files: Array<{ relative_path: string }> };
+    };
     assert.strictEqual(data.ok, true);
     assert.strictEqual(data.context.target_files[0].relative_path, 'src/service.ts');
   });

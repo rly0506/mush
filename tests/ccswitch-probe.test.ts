@@ -44,7 +44,9 @@ function fixtureDb(): string {
 test('provider column whitelist never includes the credential-bearing settings_config', () => {
   assert.ok(ALLOWED_PROVIDER_COLUMNS.includes('app_type'));
   assert.ok(ALLOWED_PROVIDER_COLUMNS.includes('name'));
-  assert.equal(ALLOWED_PROVIDER_COLUMNS.includes('settings_config'), false);
+  // GOAL-069：宽化为 readonly string[] 以表达“密钥列不在白名单”的负向断言。
+  const columns: readonly string[] = ALLOWED_PROVIDER_COLUMNS;
+  assert.equal(columns.includes('settings_config'), false);
 });
 
 test('probe enumerates providers and recent models without touching secret columns', () => {
