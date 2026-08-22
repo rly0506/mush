@@ -4,7 +4,13 @@
  * 依据：D32（用量与成本核算）、CONSTITUTION.md §1（花钱与证据纪律）。
  * 零外部依赖、零密钥侵入的大模型 Token 计费与费用核算。
  * 单位：美元 / 100 万 Token (USD per 1M tokens)
+ *
+ * GOAL-068（B1，owner 裁决）：价目数据只保留一张权威表——core/model-pricing.ts
+ * （2026-08-22 官方页逐一取证）。本模块仅做形状适配与免费档/兜底策略，
+ * 不再维护第二份价格数据。
  */
+
+import { findOfficialModelPrefixHit, OFFICIAL_MODEL_PRICING } from '../core/model-pricing.ts';
 
 export interface ModelPricingRate {
   readonly inputPerMillion: number;
@@ -20,48 +26,18 @@ export interface TokenUsageStats {
   cacheWriteTokens?: number;
 }
 
-export const DEFAULT_MODEL_PRICING: Record<string, ModelPricingRate> = {
-  // Claude Family
-  'claude-sonnet-5': { inputPerMillion: 3.0, outputPerMillion: 15.0, cacheReadPerMillion: 0.3, cacheWritePerMillion: 3.75 },
-  'claude-sonnet-4-6': { inputPerMillion: 3.0, outputPerMillion: 15.0, cacheReadPerMillion: 0.3, cacheWritePerMillion: 3.75 },
-  'claude-sonnet-4-5': { inputPerMillion: 3.0, outputPerMillion: 15.0, cacheReadPerMillion: 0.3, cacheWritePerMillion: 3.75 },
-  'claude-opus-4-6': { inputPerMillion: 15.0, outputPerMillion: 75.0, cacheReadPerMillion: 1.5, cacheWritePerMillion: 18.75 },
-  'claude-opus-4-8': { inputPerMillion: 15.0, outputPerMillion: 75.0, cacheReadPerMillion: 1.5, cacheWritePerMillion: 18.75 },
-  'claude-haiku-4-5': { inputPerMillion: 0.8, outputPerMillion: 4.0, cacheReadPerMillion: 0.08, cacheWritePerMillion: 1.0 },
-
-  // DeepSeek Family
-  'deepseek-v4-flash': { inputPerMillion: 0.14, outputPerMillion: 0.28, cacheReadPerMillion: 0.014, cacheWritePerMillion: 0.14 },
-  'deepseek-v4-flash-0731': { inputPerMillion: 0.14, outputPerMillion: 0.28, cacheReadPerMillion: 0.014, cacheWritePerMillion: 0.14 },
-  'deepseek-v4-pro': { inputPerMillion: 0.27, outputPerMillion: 1.10, cacheReadPerMillion: 0.07, cacheWritePerMillion: 0.27 },
-  'deepseek-chat': { inputPerMillion: 0.14, outputPerMillion: 0.28, cacheReadPerMillion: 0.014, cacheWritePerMillion: 0.14 },
-
-  // Gemini / AGY Family
-  'gemini-3.7-flash-high': { inputPerMillion: 0.10, outputPerMillion: 0.40, cacheReadPerMillion: 0.025, cacheWritePerMillion: 0.10 },
-  'gemini-3.7-flash-medium': { inputPerMillion: 0.10, outputPerMillion: 0.40, cacheReadPerMillion: 0.025, cacheWritePerMillion: 0.10 },
-  'gemini-3.7-flash-low': { inputPerMillion: 0.10, outputPerMillion: 0.40, cacheReadPerMillion: 0.025, cacheWritePerMillion: 0.10 },
-  'gemini-3.1-pro-high': { inputPerMillion: 1.25, outputPerMillion: 5.00, cacheReadPerMillion: 0.30, cacheWritePerMillion: 1.25 },
-  'gemini-3.1-pro-low': { inputPerMillion: 1.25, outputPerMillion: 5.00, cacheReadPerMillion: 0.30, cacheWritePerMillion: 1.25 },
-
-  // GPT / Codex Family
-  'gpt-5.6-sol': { inputPerMillion: 2.50, outputPerMillion: 10.00, cacheReadPerMillion: 1.25, cacheWritePerMillion: 2.50 },
-  'gpt-5.1-codex-max': { inputPerMillion: 2.50, outputPerMillion: 10.00, cacheReadPerMillion: 1.25, cacheWritePerMillion: 2.50 },
-  'gpt-5': { inputPerMillion: 2.50, outputPerMillion: 10.00, cacheReadPerMillion: 1.25, cacheWritePerMillion: 2.50 },
-  'gpt-4.1': { inputPerMillion: 2.00, outputPerMillion: 8.00, cacheReadPerMillion: 1.00, cacheWritePerMillion: 2.00 },
-  'gpt-4.1-mini': { inputPerMillion: 0.15, outputPerMillion: 0.60, cacheReadPerMillion: 0.075, cacheWritePerMillion: 0.15 },
-
-  // Kimi Family
-  'tbtk-kimi-k3': { inputPerMillion: 0.30, outputPerMillion: 0.60, cacheReadPerMillion: 0.05, cacheWritePerMillion: 0.30 },
-  'kimi-k3': { inputPerMillion: 0.30, outputPerMillion: 0.60, cacheReadPerMillion: 0.05, cacheWritePerMillion: 0.30 },
-
-  // ZCode / GLM Family
-  'zai/glm-5.3': { inputPerMillion: 0.50, outputPerMillion: 1.00, cacheReadPerMillion: 0.10, cacheWritePerMillion: 0.50 },
-  'zai/glm-5.2': { inputPerMillion: 0.30, outputPerMillion: 0.60, cacheReadPerMillion: 0.06, cacheWritePerMillion: 0.30 },
-  'glm-5.3': { inputPerMillion: 0.50, outputPerMillion: 1.00, cacheReadPerMillion: 0.10, cacheWritePerMillion: 0.50 },
-
-  // Grok Family
-  'grok-4.5': { inputPerMillion: 2.00, outputPerMillion: 10.00, cacheReadPerMillion: 0.50, cacheWritePerMillion: 2.00 },
-  'grok-4.5-latest': { inputPerMillion: 2.00, outputPerMillion: 10.00, cacheReadPerMillion: 0.50, cacheWritePerMillion: 2.00 },
-};
+/** 形状适配：官方 snake_case 表 → 本模块 camelCase 契约（键集与权威表一致）。 */
+export const DEFAULT_MODEL_PRICING: Record<string, ModelPricingRate> = Object.fromEntries(
+  Object.entries(OFFICIAL_MODEL_PRICING).map(([key, r]) => [
+    key,
+    {
+      inputPerMillion: r.input_per_m,
+      outputPerMillion: r.output_per_m,
+      cacheReadPerMillion: r.cache_read_per_m,
+      cacheWritePerMillion: r.cache_write_per_m,
+    } satisfies ModelPricingRate,
+  ]),
+);
 
 export const FREE_MODEL_PRICING: ModelPricingRate = {
   inputPerMillion: 0,
@@ -101,21 +77,20 @@ export function isFreeModel(modelId: string): boolean {
 export function findPricingRate(modelId: string): ModelPricingRate {
   if (!modelId || modelId === 'UNKNOWN') return FALLBACK_PRICING;
   if (isFreeModel(modelId)) return FREE_MODEL_PRICING;
-  const key = modelId.toLowerCase().trim();
-  if (DEFAULT_MODEL_PRICING[key]) return DEFAULT_MODEL_PRICING[key];
 
-  // Fuzzy match
-  for (const [k, v] of Object.entries(DEFAULT_MODEL_PRICING)) {
-    if (key.includes(k) || k.includes(key)) {
-      return v;
-    }
-  }
-  if (key.includes('claude') || key.includes('sonnet')) return DEFAULT_MODEL_PRICING['claude-sonnet-4-6'];
+  // GOAL-068（B1）：精确 → 最长前缀（单向，杜绝 'gpt-4' 误中 'gpt-4.1' 的旧错配）。
+  const hit = findOfficialModelPrefixHit(modelId);
+  if (hit !== null) return DEFAULT_MODEL_PRICING[hit];
+
+  // 家族级兜底（仅当完全未收录时按厂商家族取代表价；键均为权威表现行条目）。
+  const key = modelId.toLowerCase().trim();
+  if (key.includes('claude') || key.includes('sonnet')) return DEFAULT_MODEL_PRICING['claude-sonnet-4-5'];
   if (key.includes('deepseek') || key.includes('dsh')) return DEFAULT_MODEL_PRICING['deepseek-v4-flash'];
-  if (key.includes('gemini') || key.includes('flash')) return DEFAULT_MODEL_PRICING['gemini-3.7-flash-high'];
+  if (key.includes('gemini')) return DEFAULT_MODEL_PRICING['gemini-3.7-flash'];
   if (key.includes('gpt')) return DEFAULT_MODEL_PRICING['gpt-5.6-sol'];
   if (key.includes('kimi')) return DEFAULT_MODEL_PRICING['kimi-k3'];
   if (key.includes('glm')) return DEFAULT_MODEL_PRICING['zai/glm-5.3'];
+  if (key.includes('grok')) return DEFAULT_MODEL_PRICING['grok-4.3'];
   return FALLBACK_PRICING;
 }
 

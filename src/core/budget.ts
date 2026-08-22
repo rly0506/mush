@@ -7,6 +7,7 @@
  */
 
 import { canonicalJson, sha256Hex } from './event-log.ts';
+import { findOfficialModelPricing, OFFICIAL_MODEL_PRICING } from './model-pricing.ts';
 
 export interface LocalBudgetLimits {
   maxCalls: number;
@@ -94,35 +95,30 @@ export interface ModelPricingRate {
   readonly cache_creation_per_m: number;
 }
 
-export const DEFAULT_PRICING_MATRIX: Record<string, ModelPricingRate> = {
-  'claude-3-5-sonnet': { input_per_m: 3.00, output_per_m: 15.00, cache_read_per_m: 0.30, cache_creation_per_m: 3.75 },
-  'claude-3-7-sonnet': { input_per_m: 3.00, output_per_m: 15.00, cache_read_per_m: 0.30, cache_creation_per_m: 3.75 },
-  'claude-3-5-haiku': { input_per_m: 0.80, output_per_m: 4.00, cache_read_per_m: 0.08, cache_creation_per_m: 1.00 },
-  'deepseek-chat': { input_per_m: 0.14, output_per_m: 0.28, cache_read_per_m: 0.014, cache_creation_per_m: 0.14 },
-  'deepseek-reasoner': { input_per_m: 0.55, output_per_m: 2.19, cache_read_per_m: 0.14, cache_creation_per_m: 0.55 },
-  'gemini-2.5-pro': { input_per_m: 1.25, output_per_m: 5.00, cache_read_per_m: 0.30, cache_creation_per_m: 1.25 },
-  'gemini-2.5-flash': { input_per_m: 0.075, output_per_m: 0.30, cache_read_per_m: 0.01875, cache_creation_per_m: 0.075 },
-  'default': { input_per_m: 2.00, output_per_m: 10.00, cache_read_per_m: 0.20, cache_creation_per_m: 2.00 },
-};
+/** GOAL-068（B1）：形状适配层——单一权威价目表在 core/model-pricing.ts。 */
+export const DEFAULT_PRICING_MATRIX: Record<string, ModelPricingRate> = Object.fromEntries(
+  Object.entries(OFFICIAL_MODEL_PRICING).map(([key, r]) => [
+    key,
+    {
+      input_per_m: r.input_per_m,
+      output_per_m: r.output_per_m,
+      cache_read_per_m: r.cache_read_per_m,
+      cache_creation_per_m: r.cache_write_per_m,
+    } satisfies ModelPricingRate,
+  ]),
+);
 
 export function calculateTokenCostAndSavings(
   tokens: { input_tokens: number; output_tokens: number; cache_creation_tokens?: number; cache_read_tokens?: number },
   modelId?: string
 ): { total_cost_usd: number; cache_savings_usd: number } {
-  const mid = (modelId || 'default').toLowerCase();
-  let rate = DEFAULT_PRICING_MATRIX['default'];
-  for (const [key, val] of Object.entries(DEFAULT_PRICING_MATRIX)) {
-    if (mid.includes(key)) {
-      rate = val;
-      break;
-    }
-  }
+  const rate = findOfficialModelPricing(modelId);
   const input = tokens.input_tokens || 0;
   const output = tokens.output_tokens || 0;
   const cacheCreation = tokens.cache_creation_tokens || 0;
   const cacheRead = tokens.cache_read_tokens || 0;
 
-  const actualInputCost = (input * rate.input_per_m + cacheCreation * rate.cache_creation_per_m + cacheRead * rate.cache_read_per_m) / 1_000_000;
+  const actualInputCost = (input * rate.input_per_m + cacheCreation * rate.cache_write_per_m + cacheRead * rate.cache_read_per_m) / 1_000_000;
   const outputCost = (output * rate.output_per_m) / 1_000_000;
   const total_cost_usd = Math.round((actualInputCost + outputCost) * 1_000_000) / 1_000_000;
 

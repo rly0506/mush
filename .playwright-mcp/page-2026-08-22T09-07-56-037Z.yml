@@ -1,0 +1,221 @@
+- generic [active] [ref=f5e1]:
+  - blockquote [ref=f5e2]:
+    - heading [level=2] [ref=f5e3]: Documentation Index
+    - paragraph [ref=f5e4]:
+      - text: "Fetch the complete documentation index at:"
+      - link [ref=f5e5] [cursor=pointer]:
+        - /url: /docs/llms.txt
+        - text: /docs/llms.txt
+    - paragraph [ref=f5e6]: Use this file to discover all available pages before exploring further.
+  - generic [ref=f5e7]:
+    - link "Skip to main content" [ref=f5e8] [cursor=pointer]:
+      - /url: "#content-area"
+    - generic [ref=f5e10]:
+      - banner [ref=f5e11]:
+        - paragraph [ref=f5e15]:
+          - text: 🎉 Kimi K3 has launched!
+          - link "Start exploring now!" [ref=f5e16] [cursor=pointer]:
+            - /url: /docs/guide/kimi-k3-quickstart
+        - generic [ref=f5e19]:
+          - generic [ref=f5e22]:
+            - link "Kimi API Platform home page light logo" [ref=f5e24] [cursor=pointer]:
+              - /url: https://platform.kimi.ai
+              - generic [ref=f5e25]: Kimi API Platform home page
+              - img "light logo" [ref=f5e26]
+            - button "Open search" [ref=f5e28] [cursor=pointer]:
+              - generic [ref=f5e29]: Search...
+              - generic [ref=f5e34]: Ctrl K
+            - generic [ref=f5e35]:
+              - navigation "Main" [ref=f5e36]:
+                - list [ref=f5e37]:
+                  - listitem [ref=f5e38]:
+                    - link "Kimi Business" [ref=f5e39] [cursor=pointer]:
+                      - /url: https://www.kimi.com/membership/pricing?from=platform_page&open=business
+                  - listitem [ref=f5e41]:
+                    - link "Contact Sales" [ref=f5e42] [cursor=pointer]:
+                      - /url: https://platform.kimi.ai/contact-sales
+                  - listitem [ref=f5e44]:
+                    - link "Community" [ref=f5e45] [cursor=pointer]:
+                      - /url: /docs/api/join-the-community
+                  - listitem [ref=f5e47]:
+                    - link "Playground" [ref=f5e48] [cursor=pointer]:
+                      - /url: https://platform.kimi.ai/playground
+                  - listitem [ref=f5e50]:
+                    - link "User Center" [ref=f5e51] [cursor=pointer]:
+                      - /url: https://platform.kimi.ai/console/account
+              - button "Change theme preference" [ref=f5e54] [cursor=pointer]
+          - generic [ref=f5e60]:
+            - link "Guides" [ref=f5e61] [cursor=pointer]:
+              - /url: /docs/overview
+            - link "API Reference" [ref=f5e63] [cursor=pointer]:
+              - /url: /docs/api/overview
+            - link "Pricing" [ref=f5e65] [cursor=pointer]:
+              - /url: /docs/pricing/chat
+            - link "Help Center" [ref=f5e67] [cursor=pointer]:
+              - /url: /docs/guide/account-and-payments
+            - link "Resources" [ref=f5e69] [cursor=pointer]:
+              - /url: /docs/guide/ask-questions-about-pdf-content
+      - generic [ref=f5e71]:
+        - navigation "Pages" [ref=f5e72]:
+          - generic [ref=f5e75]:
+            - generic [ref=f5e76]:
+              - heading "Model Pricing" [level=3] [ref=f5e78]
+              - list [ref=f5e79]:
+                - listitem [ref=f5e80]:
+                  - link "Overview" [ref=f5e81] [cursor=pointer]:
+                    - /url: /docs/pricing/chat
+                - listitem [ref=f5e85]:
+                  - link "Kimi K3" [ref=f5e86] [cursor=pointer]:
+                    - /url: /docs/pricing/chat-k3
+                - listitem [ref=f5e90]:
+                  - link "Kimi K2.7 Code" [ref=f5e91] [cursor=pointer]:
+                    - /url: /docs/pricing/chat-k27-code
+                - listitem [ref=f5e95]:
+                  - link "Kimi K2.6" [ref=f5e96] [cursor=pointer]:
+                    - /url: /docs/pricing/chat-k26
+                - listitem [ref=f5e100]:
+                  - link "Kimi K2.5" [ref=f5e101] [cursor=pointer]:
+                    - /url: /docs/pricing/chat-k25
+                - listitem [ref=f5e105]:
+                  - link "Moonshot V1" [ref=f5e106] [cursor=pointer]:
+                    - /url: /docs/pricing/chat-v1
+            - generic [ref=f5e110]:
+              - heading "Other" [level=3] [ref=f5e112]
+              - list [ref=f5e113]:
+                - listitem [ref=f5e114]:
+                  - link "BatchJob Pricing" [ref=f5e115] [cursor=pointer]:
+                    - /url: /docs/pricing/batch
+                - listitem [ref=f5e119]:
+                  - link "WebSearch Pricing" [ref=f5e120] [cursor=pointer]:
+                    - /url: /docs/pricing/tools
+                - listitem [ref=f5e124]:
+                  - link "Recharge and Rate Limits" [ref=f5e125] [cursor=pointer]:
+                    - /url: /docs/pricing/limits
+        - main [ref=f5e129]:
+          - generic [ref=f5e131]:
+            - generic [ref=f5e132]:
+              - generic [ref=f5e133]:
+                - link "Model Pricing" [ref=f5e136] [cursor=pointer]:
+                  - /url: /docs/pricing/chat
+                - generic [ref=f5e137]:
+                  - heading "Flagship Model Kimi K3 Pricing" [level=1] [ref=f5e138]
+                  - generic [ref=f5e139]:
+                    - button "Copy page" [ref=f5e140] [cursor=pointer]
+                    - button "More actions" [ref=f5e147] [cursor=pointer]
+              - paragraph [ref=f5e151]: Review Kimi K3 flagship model pricing for input, output, and cache-hit tokens, along with billing notes.
+            - generic [ref=f5e152]:
+              - heading "Navigate to header Product Pricing" [level=2] [ref=f5e153]:
+                - link "Navigate to header" [ref=f5e154] [cursor=pointer]:
+                  - /url: "#product-pricing"
+                - generic [ref=f5e159] [cursor=pointer]: Product Pricing
+              - strong [ref=f5e161]: "Explanation: Prices exclude applicable taxes. Specific tax obligations are subject to local tax regulations and will be calculated at checkout based on your jurisdiction."
+              - region "Scrollable table" [ref=f5e163]:
+                - table [ref=f5e165]:
+                  - rowgroup [ref=f5e173]:
+                    - row [ref=f5e174]:
+                      - columnheader "Model" [ref=f5e175]
+                      - columnheader "Unit" [ref=f5e176]
+                      - columnheader "Input Price (Cache Hit)" [ref=f5e177]
+                      - columnheader "Input Price (Cache Miss)" [ref=f5e178]
+                      - columnheader "Output Price" [ref=f5e179]
+                      - columnheader "Context Window" [ref=f5e180]
+                  - rowgroup [ref=f5e181]:
+                    - row [ref=f5e182]:
+                      - cell "kimi-k3" [ref=f5e183]
+                      - cell "1M tokens" [ref=f5e184]
+                      - cell "$0.30" [ref=f5e185]
+                      - cell "$3.00" [ref=f5e186]
+                      - cell "$15.00" [ref=f5e187]
+                      - cell "1,048,576 tokens" [ref=f5e188]
+              - generic [ref=f5e189]: Here, 1M = 1,000,000. The prices in the table represent the cost per 1M tokens consumed.
+              - heading "Navigate to header Model Description" [level=2] [ref=f5e190]:
+                - link "Navigate to header" [ref=f5e191] [cursor=pointer]:
+                  - /url: "#model-description"
+                - generic [ref=f5e196] [cursor=pointer]: Model Description
+              - note "Warning" [ref=f5e197]:
+                - generic [ref=f5e202]:
+                  - text: The web search (
+                  - code [ref=f5e203]: web_search
+                  - text: ) is currently being updated. We do not recommend using this functionality in the near term. This documentation is outdated; please follow subsequent content updates.
+              - list [ref=f5e204]:
+                - listitem [ref=f5e205]:
+                  - text: Kimi K3 is Kimi’s flagship model for long-horizon coding and end-to-end knowledge work, with a 1M-token context window and industry-leading intelligence. See
+                  - link "Introducing Kimi K3" [ref=f5e206] [cursor=pointer]:
+                    - /url: /docs/guide/kimi-k3-quickstart
+                  - text: .
+                - listitem [ref=f5e207]:
+                  - text: Always reasons and supports configuring its reasoning effort with the top-level
+                  - code [ref=f5e208]: reasoning_effort
+                  - text: request field (
+                  - code [ref=f5e209]: low
+                  - text: /
+                  - code [ref=f5e210]: high
+                  - text: /
+                  - code [ref=f5e211]: max
+                  - text: ", default"
+                  - code [ref=f5e212]: max
+                  - text: ). See
+                  - link "Reasoning Effort" [ref=f5e213] [cursor=pointer]:
+                    - /url: /docs/guide/use-reasoning-effort
+                  - text: .
+                - listitem [ref=f5e214]:
+                  - text: Supports
+                  - link "automatic context caching" [ref=f5e215] [cursor=pointer]:
+                    - /url: /docs/guide/use-context-caching-feature-of-kimi-api
+                  - text: ","
+                  - link "ToolCalls" [ref=f5e216] [cursor=pointer]:
+                    - /url: /docs/guide/use-kimi-api-to-complete-tool-calls
+                  - text: ","
+                  - link "JSON Mode" [ref=f5e217] [cursor=pointer]:
+                    - /url: /docs/guide/use-json-mode-feature-of-kimi-api
+                  - text: ","
+                  - link [ref=f5e218] [cursor=pointer]:
+                    - /url: /docs/guide/response_format
+                    - text: structured output (
+                    - code [ref=f5e219]: response_format
+                    - text: / JSON Schema)
+                  - text: ","
+                  - link "Partial Mode" [ref=f5e220] [cursor=pointer]:
+                    - /url: /docs/guide/use-partial-mode-feature-of-kimi-api
+                  - text: ","
+                  - link "internet search" [ref=f5e221] [cursor=pointer]:
+                    - /url: /docs/guide/use-web-search
+                  - text: ", and more"
+                - listitem [ref=f5e222]:
+                  - text: "New API capabilities in K3:"
+                  - link [ref=f5e223] [cursor=pointer]:
+                    - /url: /docs/guide/use-tool-choice
+                    - text: tool choice constraints (
+                    - code [ref=f5e224]: tool_choice
+                    - text: )
+                  - text: and
+                  - link "dynamically loaded tools" [ref=f5e225] [cursor=pointer]:
+                    - /url: /docs/guide/use-dynamic-tool-loading
+                  - text: — see
+                  - link "Kimi K3 API Tool Calling Best Practices" [ref=f5e226] [cursor=pointer]:
+                    - /url: /docs/guide/kimi-k3-tool-calling-best-practice
+                  - text: for combined usage
+            - generic [ref=f5e228]:
+              - paragraph [ref=f5e229]: Was this page helpful?
+              - generic [ref=f5e231]:
+                - button "Yes" [ref=f5e232] [cursor=pointer]
+                - button "No" [ref=f5e237] [cursor=pointer]
+            - navigation "Pagination" [ref=f5e242]:
+              - 'link "Previous: Overview" [ref=f5e243] [cursor=pointer]':
+                - /url: /docs/pricing/chat
+                - generic [ref=f5e246]: Overview
+              - 'link "Next: Kimi K2.7 Code" [ref=f5e247] [cursor=pointer]':
+                - /url: /docs/pricing/chat-k27-code
+                - generic [ref=f5e248]: Kimi K2.7 Code
+            - generic [ref=f5e252]:
+              - link "x" [ref=f5e253] [cursor=pointer]:
+                - /url: https://x.com/Kimi_Moonshot
+              - link "github" [ref=f5e256] [cursor=pointer]:
+                - /url: https://github.com/MoonshotAI
+              - link "linkedin" [ref=f5e259] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/kimi-ai-linkedin
+              - link "discord" [ref=f5e262] [cursor=pointer]:
+                - /url: https://discord.com/invite/TYU2fdJykW?source=docs_footer
+              - link "website" [ref=f5e265] [cursor=pointer]:
+                - /url: https://forum.moonshot.ai/?source=docs_footer
+  - alert [ref=f5e267]

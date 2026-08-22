@@ -37,14 +37,14 @@ describe('GOAL-027: Local Usage & Cost Monitor (ccusage-like)', () => {
     // total = 0.30 + 0.15 + 0.15 = 0.60
     assert.strictEqual(claudeCost, 0.6);
 
-    // 2. DeepSeek V4 Flash (0.14 / 0.28 / 0.014)
+    // 2. DeepSeek V4 Flash（GOAL-068 B1 官方价修订：峰值 0.44 / 1.32）
     const dsCost = calculateUsageCost('deepseek-v4-flash', {
-      inputTokens: 1_000_000, // 1 * $0.14 = $0.14
-      outputTokens: 1_000_000, // 1 * $0.28 = $0.28
+      inputTokens: 1_000_000, // 1 * $0.44 = $0.44
+      outputTokens: 1_000_000, // 1 * $1.32 = $1.32
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
     });
-    assert.strictEqual(dsCost, 0.42);
+    assert.strictEqual(dsCost, 1.76);
 
     // 3. Fallback / fuzzy matching
     const rate = findPricingRate('custom-claude-3-7-sonnet');
