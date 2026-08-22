@@ -10,7 +10,8 @@
 
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, mkdirSync } from 'node:fs';
+import { homedir } from 'node:os';
 import path from 'node:path';
 import { EventLog } from '../core/event-log.ts';
 import { parseBridgeEventV2 } from '../schema/events.ts';
@@ -56,6 +57,7 @@ import { renderFloatingSledHtml } from '../companion/floating-page.ts';
 import type { QuickActionPayload } from '../companion/tray-service.ts';
 import { getModelContextLimit, isFreeModel, calculateUsageCost } from './pricing.ts';
 import { ChildSessionRegistry } from '../core/child-sessions.ts';
+import { MasterBudgetGate, loadMasterCap } from '../core/budget-master.ts';
 import { getHarnessDoctorReport } from '../adapters/live-probe.ts';
 
 export interface BoardServerOptions {
@@ -104,6 +106,8 @@ export interface BoardServerOptions {
   routeOptimizer?: SelfEvolvingRoutingOptimizer;
   /** GOAL-055（RM-007 M4）：多犬协作全景战报与研发能效度量引擎。 */
   velocityEngine?: VelocityMatrixEngine;
+  /** GOAL-068（D2）：跨项目全局资金 Master Cap（USD）；缺省读 ~/.mush/master-cap.json，0=不限。 */
+  masterCapUsd?: number;
   /** GOAL-067（F1 选 A）：工犬子会话注册表；缺省 <runtimeRoot>/child-sessions.jsonl。 */
   childSessions?: ChildSessionRegistry;
   /** GOAL-030（GP-32②）：调用者身份鉴别 Token 与安全拦截。 */
@@ -172,11 +176,20 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
   installRejectionHook();
   const host = options.host ?? '127.0.0.1';
   const port = options.port ?? 0;
-  const approvalRoot = path.resolve(options.approvalRoot);
-  const workspaceRoot = options.workspaceRoot ?? process.cwd();
+  // GOAL-068（多项目热切换）：以下工作区绑定状态为可变——切换活动项目时由
+  // activateWorkspaceContext() 整体重建；路由闭包经名字动态解析拿到最新值。
+  let approvalRoot = path.resolve(options.approvalRoot);
+  let workspaceRoot = options.workspaceRoot ?? process.cwd();
   // 测试/缺省：runtime 挂在 approvalRoot 下（天然隔离）；生产 CLI 显式传 workspace/runtime。
-  const runtimeRoot = options.runtimeRoot ?? path.join(approvalRoot, 'runtime');
-  const persistence = options.persistence ?? new BoardPersistence(runtimeRoot);
+  let runtimeRoot = options.runtimeRoot ?? path.join(approvalRoot, 'runtime');
+  const startupWorkspaceRoot = workspaceRoot; // 宿主安装根（品牌资产等全局资源锚点，不随切换）
+  let persistence = options.persistence ?? new BoardPersistence(runtimeRoot);
+
+  // GOAL-068（D2）：全局资金总控门——机器级唯一实例，跨所有工作区上下文共享。
+  const masterGate = new MasterBudgetGate({
+    filePath: process.env.MUSH_MASTER_LEDGER_PATH ?? path.join(homedir(), '.mush', 'master-ledger.jsonl'),
+    capUsd: options.masterCapUsd ?? loadMasterCap(),
+  });
 
   // GOAL-030（GP-32②）：会话级 Caller Token 初始化
   const callerToken = options.callerToken ?? randomUUID().replace(/-/g, '');
@@ -185,7 +198,8 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
   // GOAL-013L（rm003-p13，授权唯一后端小改）：品牌图标静态路由。
   // 白名单目录 assets/brands/，仅 .svg；name 先校验纯文件名（拒绝路径穿越），
   // 再经 path.resolve 前缀复核（纵深防御）；content-type image/svg+xml + 短缓存。
-  const brandAssetsRoot = path.resolve(workspaceRoot, 'assets', 'brands');
+  // 锚定宿主安装根（不随项目切换）。
+  const brandAssetsRoot = path.resolve(startupWorkspaceRoot, 'assets', 'brands');
 
   // GP-03 / F-42：单实例锁。已在运行的看板实例拒绝第二个实例。
   persistence.acquireLock();
@@ -197,7 +211,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       log.append(line.event);
     }
   }
-  const dispatch =
+  let dispatch =
     options.dispatch ??
     new DispatchPipeline({
       workspaceRoot,
@@ -205,10 +219,11 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       ledgerPath: options.ledgerPath ?? path.join(runtimeRoot, 'budget-ledger.jsonl'),
       registryPath: path.join(workspaceRoot, 'runtime', 'capability-registry.json'),
       persistence,
+      masterGate,
       onEvent: (event) => broadcast(event),
     });
   // GOAL-033（GP-31）：会话工作流管理器
-  const workstreams = options.workstreams ?? new WorkstreamStore(path.join(runtimeRoot, 'workstreams.jsonl'));
+  let workstreams = options.workstreams ?? new WorkstreamStore(path.join(runtimeRoot, 'workstreams.jsonl'));
   const sseClients = new Set<ServerResponse>();
 
   function broadcast(payload: unknown): void {
@@ -221,48 +236,120 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       }
     }
   }
-  // 注入管线也要把生命周期事件推 SSE 并转译活动时间线（GOAL-023）。
-  dispatch.setEventListener((event) => {
-    broadcast(event);
-    try {
-      const record = dispatch.get(event.dispatch_id);
-      const act = translateDispatchEvent(event, {
-        task_id: record?.task_id,
-        goal_id: record?.request?.goal_id,
-        // GOAL-069：DispatchRequestSnapshot 刻意不含 amount_usd（GP-10 防虚报），
-        // 此处不再读取幻影字段；金额经台账投影另行呈现。
-      });
-      if (act !== null) {
-        recordActivity(runtimeRoot, act);
+  // GOAL-068：管线生命周期事件接线抽为助手——每个工作区上下文的新 pipeline
+  // 都需要同样的 SSE 广播 + 活动时间线转译（活动流落各自 runtime）。
+  function wirePipelineEvents(pipeline: DispatchPipeline, wsRuntimeRoot: string): void {
+    pipeline.setEventListener((event) => {
+      broadcast(event);
+      try {
+        const record = pipeline.get(event.dispatch_id);
+        const act = translateDispatchEvent(event, {
+          task_id: record?.task_id,
+          goal_id: record?.request?.goal_id,
+          // GOAL-069：DispatchRequestSnapshot 刻意不含 amount_usd（GP-10 防虚报），
+          // 此处不再读取幻影字段；金额经台账投影另行呈现。
+        });
+        if (act !== null) {
+          recordActivity(wsRuntimeRoot, act);
+        }
+      } catch (err) {
+        console.warn('[activity] failed to record dispatch activity:', err);
       }
-    } catch (err) {
-      console.warn('[activity] failed to record dispatch activity:', err);
-    }
-  });
-  const directSessions = options.directSessions ?? new DirectSessionManager(runtimeRoot);
-  const memoryGraph = options.memoryGraph ?? new SymbolicMemoryGraph(runtimeRoot);
-  const collaborationHub = options.collaborationHub ?? new AgentCollaborationHub(runtimeRoot);
-  const debateEngine = options.debateEngine ?? new DebateEngine(runtimeRoot);
-  const pipelineEngine = options.pipelineEngine ?? new PipelineEngine(runtimeRoot);
-  const verifierLoopEngine = options.verifierLoopEngine ?? new VerifierLoopEngine(runtimeRoot);
-  const bountyMarketEngine = options.bountyMarketEngine ?? new BountyMarketEngine(runtimeRoot);
-  const skillsFederationEngine = options.skillsFederationEngine ?? new SkillsFederationEngine([path.join(workspaceRoot, 'skills'), path.join(runtimeRoot, 'skills')]);
-  const timeTravelKernel = options.timeTravelKernel ?? new TimeTravelKernel(workspaceRoot, runtimeRoot);
-  const blackboardEngine = options.blackboardEngine ?? new BlackboardEngine(runtimeRoot);
-  const liquidSquadEngine = options.liquidSquadEngine ?? new LiquidSquadEngine(runtimeRoot);
-  const eloRatingEngine = options.eloRatingEngine ?? new EloRatingEngine(runtimeRoot);
-  const routeOptimizer = options.routeOptimizer ?? new SelfEvolvingRoutingOptimizer(runtimeRoot);
-  const velocityEngine = options.velocityEngine ?? new VelocityMatrixEngine(runtimeRoot);
+    });
+  }
+  // 注入管线也要把生命周期事件推 SSE 并转译活动时间线（GOAL-023）。
+  wirePipelineEvents(dispatch, runtimeRoot);
+  // GOAL-068（D2）：缺省管线（含注入式实例）统一共享机器级 Master Cap 门。
+  dispatch.setMasterGate(masterGate);
+  let directSessions = options.directSessions ?? new DirectSessionManager(runtimeRoot);
+  let memoryGraph = options.memoryGraph ?? new SymbolicMemoryGraph(runtimeRoot);
+  let collaborationHub = options.collaborationHub ?? new AgentCollaborationHub(runtimeRoot);
+  let debateEngine = options.debateEngine ?? new DebateEngine(runtimeRoot);
+  let pipelineEngine = options.pipelineEngine ?? new PipelineEngine(runtimeRoot);
+  let verifierLoopEngine = options.verifierLoopEngine ?? new VerifierLoopEngine(runtimeRoot);
+  let bountyMarketEngine = options.bountyMarketEngine ?? new BountyMarketEngine(runtimeRoot);
+  let skillsFederationEngine = options.skillsFederationEngine ?? new SkillsFederationEngine([path.join(workspaceRoot, 'skills'), path.join(runtimeRoot, 'skills')]);
+  let timeTravelKernel = options.timeTravelKernel ?? new TimeTravelKernel(workspaceRoot, runtimeRoot);
+  let blackboardEngine = options.blackboardEngine ?? new BlackboardEngine(runtimeRoot);
+  let liquidSquadEngine = options.liquidSquadEngine ?? new LiquidSquadEngine(runtimeRoot);
+  let eloRatingEngine = options.eloRatingEngine ?? new EloRatingEngine(runtimeRoot);
+  let routeOptimizer = options.routeOptimizer ?? new SelfEvolvingRoutingOptimizer(runtimeRoot);
+  let velocityEngine = options.velocityEngine ?? new VelocityMatrixEngine(runtimeRoot);
   // GOAL-067（F1 选 A）：激活 ChildSessionRegistry——此前生产零接线，前端
   // 工犬抽屉调用 404。显式落 runtimeRoot 下，避免类缺省的 cwd 相对路径。
-  const childSessions = options.childSessions ?? new ChildSessionRegistry(path.join(runtimeRoot, 'child-sessions.jsonl'));
-  const chat =
+  let childSessions = options.childSessions ?? new ChildSessionRegistry(path.join(runtimeRoot, 'child-sessions.jsonl'));
+  let chat =
     options.chat ??
     new ChatService({
       pipeline: dispatch,
       runtimeRoot,
       onEvent: (event) => broadcast(event as unknown as Record<string, unknown>),
     });
+
+  // GOAL-068（多项目完全数据隔离）：热切换上下文重建。
+  //
+  // 切换活动项目时，为该工作区**全新构建**一整套数据面服务（派发管线、任务池、
+  // 聊天、工犬子会话、时空快照、黑板、ELO……），全部落位 `<ws>/runtime/` 与
+  // `<ws>/goals/receipts/approval-requests>`，实现 100% 物理隔离（D1 决议：
+  // 沿用 runtime/ 布局，不迁移 .mush/）。要点：
+  // - 注入式实例（options.dispatch/chat 等）仅作用于启动缺省上下文；热切构建
+  //   的非缺省上下文一律使用默认构造器；
+  // - 在途派发绑定其 origin 管线闭包，不受切换影响，SSE/toast 全局照推（D4）；
+  // - masterGate 为机器级单例，跨所有上下文共享（D2 资金总控）。
+  function activateWorkspaceContext(targetWorkspace: string): { workspace_root: string } {
+    const resolved = path.resolve(targetWorkspace);
+    if (resolved === path.resolve(workspaceRoot)) {
+      return { workspace_root: workspaceRoot };
+    }
+    if (!existsSync(resolved)) {
+      throw new InputError(`workspace does not exist: ${resolved}`);
+    }
+    const nextRuntime = path.join(resolved, 'runtime');
+    const nextApproval = path.join(resolved, 'goals', 'receipts', 'approval-requests');
+    mkdirSync(nextRuntime, { recursive: true });
+
+    const nextPersistence = new BoardPersistence(nextRuntime);
+    const nextDispatch = new DispatchPipeline({
+      workspaceRoot: resolved,
+      approvalRoot: nextApproval,
+      ledgerPath: path.join(nextRuntime, 'budget-ledger.jsonl'),
+      registryPath: path.join(nextRuntime, 'capability-registry.json'),
+      persistence: nextPersistence,
+      masterGate,
+      onEvent: (event) => broadcast(event),
+    });
+    wirePipelineEvents(nextDispatch, nextRuntime);
+
+    workspaceRoot = resolved;
+    approvalRoot = nextApproval;
+    runtimeRoot = nextRuntime;
+    persistence = nextPersistence;
+    dispatch = nextDispatch;
+    workstreams = new WorkstreamStore(path.join(nextRuntime, 'workstreams.jsonl'));
+    chat = new ChatService({
+      pipeline: nextDispatch,
+      runtimeRoot: nextRuntime,
+      onEvent: (event) => broadcast(event as unknown as Record<string, unknown>),
+    });
+    directSessions = new DirectSessionManager(nextRuntime);
+    memoryGraph = new SymbolicMemoryGraph(nextRuntime);
+    collaborationHub = new AgentCollaborationHub(nextRuntime);
+    debateEngine = new DebateEngine(nextRuntime);
+    pipelineEngine = new PipelineEngine(nextRuntime);
+    verifierLoopEngine = new VerifierLoopEngine(nextRuntime);
+    bountyMarketEngine = new BountyMarketEngine(nextRuntime);
+    skillsFederationEngine = new SkillsFederationEngine([path.join(resolved, 'skills'), path.join(nextRuntime, 'skills')]);
+    timeTravelKernel = new TimeTravelKernel(resolved, nextRuntime);
+    blackboardEngine = new BlackboardEngine(nextRuntime);
+    liquidSquadEngine = new LiquidSquadEngine(nextRuntime);
+    eloRatingEngine = new EloRatingEngine(nextRuntime);
+    routeOptimizer = new SelfEvolvingRoutingOptimizer(nextRuntime);
+    velocityEngine = new VelocityMatrixEngine(nextRuntime);
+    childSessions = new ChildSessionRegistry(path.join(nextRuntime, 'child-sessions.jsonl'));
+
+    broadcast({ type: 'workspace_switched', workspace_root: resolved });
+    return { workspace_root: workspaceRoot };
+  }
 
   async function handleEventPost(request: IncomingMessage, response: ServerResponse): Promise<void> {
     let raw: string;
@@ -678,6 +765,8 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
                 dispatch.createWorkspace(selected);
               } catch {
                 dispatch.selectWorkspace(selected);
+                // GOAL-068：原生目录选择即选中——热切换数据面上下文。
+                activateWorkspaceContext(selected);
               }
               sendJson(response, 200, { ok: true, path: selected, workspaces: dispatch.listWorkspaces() });
             } catch (regErr) {
@@ -857,6 +946,9 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         }
         try {
           const selected = dispatch.selectWorkspace(body.path);
+          // GOAL-068（多项目完全数据隔离）：选中即热切换整套数据面上下文——
+          // 任务池/聊天/工犬会话/派发追踪全部落到目标工作区 runtime。
+          activateWorkspaceContext(selected);
           sendJson(response, 201, { ok: true, selected });
         } catch (error) {
           if (error instanceof InputError) sendJson(response, 400, { ok: false, error: error.message });

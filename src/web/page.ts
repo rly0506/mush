@@ -1302,12 +1302,21 @@ ${getCollaborationStyles()}
     }).join('');
   }
 
+  // GOAL-068（多项目热切换）：工作区切换成功后的统一联动刷新——任务池、
+  // 头犬聊天历史、看板快照与工作区列表全部按新上下文重取，零数据残留。
+  function onWorkspaceSwitched() {
+    loadWorkspaces();
+    loadTasks(true);
+    chatRefreshHistory();
+    refresh();
+  }
+
   function updateChatWorkspace(targetPath) {
     if (!targetPath) return;
     postJson('/api/workspaces/select', { path: targetPath }).then(function (result) {
       if (result.status === 201) {
         toast('工作区已切换为: ' + normalizeDisplayPath(targetPath), true);
-        refresh();
+        onWorkspaceSwitched();
       } else {
         toast('工作区切换失败', false);
       }
@@ -3912,7 +3921,7 @@ ${getCollaborationStyles()}
         postJson('/api/workspaces/select', { path: chosen }).then(function () {
           closeWorkspaceTreeDialog();
           toast('工作区已切换为: ' + chosen, true);
-          refresh();
+          onWorkspaceSwitched();
         });
       } else {
         closeWorkspaceTreeDialog();
@@ -3930,7 +3939,7 @@ ${getCollaborationStyles()}
     var selected = this.value;
     if (!selected) return;
     postJson('/api/workspaces/select', { path: selected }).then(function (result) {
-      if (result.status === 201) { toast('workspace 已切换：' + selected, true); loadWorkspaces(); }
+      if (result.status === 201) { toast('workspace 已切换：' + selected, true); onWorkspaceSwitched(); }
       else { toast('workspace 切换失败：' + (result.body.error || result.status), false); }
     }).catch(function (error) { toast('workspace 切换失败：' + error, false); });
   });
@@ -3996,7 +4005,7 @@ ${getCollaborationStyles()}
         toast('已新建并登记：' + normalizeDisplayPath(target), true);
         document.getElementById('workspace-register-path').value = '';
         // 建完即选中（登记 = 可派发白名单成员）
-        postJson('/api/workspaces/select', { path: target }).then(function () { loadWorkspaces(); });
+        postJson('/api/workspaces/select', { path: target }).then(function () { onWorkspaceSwitched(); });
         return;
       }
       toast('新建失败：' + ((result.body && result.body.error) || result.status), false);

@@ -12,7 +12,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import { UsdBudgetLedger, type UsdAdmissionEntry } from '../core/budget.ts';
+import { UsdBudgetLedger, roundMicroUsd, type UsdAdmissionEntry } from '../core/budget.ts';
+import type { MasterBudgetGateLike } from '../core/budget-master.ts';
 import { sha256Hex } from '../core/event-log.ts';
 import { validateAdapterContract, type AdapterContract, type EffortInjection } from '../adapters/contract.ts';
 import { buildDeepSeekContract } from '../adapters/deepseek.ts';
@@ -299,6 +300,8 @@ export interface DispatchPipelineOptions {
   carveoutTokenPath?: string;
   /** GOAL-025（GP-35）：模型实测缓存文件路径；缺省 <workspaceRoot>/runtime/live-probes.json。 */
   liveProbesPath?: string;
+  /** GOAL-068（D2）：跨项目全局资金总控门（多项目热切换下防资金逃逸）。 */
+  masterGate?: MasterBudgetGateLike;
 }
 
 export interface WorkspaceInfo {
@@ -431,6 +434,8 @@ export class DispatchPipeline {
   private readonly runAdapter: RunAdapterFn;
   private onEvent: (event: DispatchLifecycleEvent) => void;
   private readonly ledger = new UsdBudgetLedger();
+  /** GOAL-068（D2）：跨项目全局资金总控门（可选；多项目热切换防逃逸）。 */
+  private masterGate?: MasterBudgetGateLike;
   private readonly records = new Map<string, DispatchRecord>();
   private selectedWorkspace: string | null = null;
   private now: () => Date;
@@ -492,6 +497,7 @@ export class DispatchPipeline {
     this.onEvent = options.onEvent ?? (() => {});
     this.now = options.now ?? (() => new Date());
     this.persistence = options.persistence ?? null;
+    this.masterGate = options.masterGate;
     this.profilesRoot = path.resolve(options.profilesRoot ?? path.join(homedir(), '.dsh', 'profiles'));
     this.budgetCapsPath = path.resolve(
       options.budgetCapsPath ?? path.join(this.workspaceRoot, 'runtime', 'budget-caps.json'),
@@ -620,6 +626,15 @@ export class DispatchPipeline {
     this.onEvent = listener;
   }
 
+  /**
+   * GOAL-068（D2）：注入跨项目全局资金总控门。
+   * startBoardServer 对**活动缺省管线**（含 options.dispatch 注入式实例）统一
+   * 调用，保证热切换构建的所有上下文与缺省上下文共享同一个 Master Cap 门。
+   */
+  setMasterGate(gate: MasterBudgetGateLike): void {
+    this.masterGate = gate;
+  }
+
   private emit(record: DispatchRecord, phase: DispatchLifecycleEvent['phase'], status: DispatchStatus, payload: Record<string, unknown>): void {
     const event: DispatchLifecycleEvent = {
       kind: 'dispatch',
@@ -635,8 +650,7 @@ export class DispatchPipeline {
     this.onEvent(event);
   }
 
-  private appendLedger(entry: UsdAdmissionEntry): void {
-    if (this.persistence !== null) {
+  private appendLedger(entry: UsdAdmissionEntry): void {    if (this.persistence !== null) {
       this.persistence.appendLedger({
         atUtc: entry.atUtc,
         actorId: entry.actorId,
@@ -944,11 +958,59 @@ export class DispatchPipeline {
       request,
     };
 
+    // GOAL-068（D2）：全局资金总控门先于项目 admission——跨项目切换下防资金
+    // 逃逸；DENIED 同样在项目台账留证（kind=MASTER_CAP_EXCEEDED）。
+    const masterCheck = this.masterGate?.admit(adapterId, workspace, amountUsd);
+    if (masterCheck !== undefined && masterCheck.decision === 'DENIED') {
+      const deniedAtUtc = this.now().toISOString();
+      const spentBeforeDenied = roundMicroUsd(this.ledger.spentUsd(adapterId));
+      const deniedEntry: UsdAdmissionEntry = Object.freeze({
+        atUtc: deniedAtUtc,
+        actorId: adapterId,
+        decision: 'DENIED',
+        amountUsd,
+        capUsd,
+        spentBeforeUsd: spentBeforeDenied,
+        remainingUsd: roundMicroUsd(capUsd - spentBeforeDenied),
+        meta: {
+          dispatch_id: dispatchId,
+          kind: 'MASTER_CAP_EXCEEDED',
+          master_cap_usd: masterCheck.master_cap_usd,
+          master_remaining_usd: masterCheck.remaining_usd,
+          reason: masterCheck.reason ?? 'master budget cap exceeded (cross-project)',
+          workspace,
+        },
+        sha256: '',
+        previous_sha256: null,
+      });
+      record.admission = { decision: 'DENIED', remaining_usd: deniedEntry.remainingUsd };
+      this.records.set(dispatchId, record);
+      this.persistence?.saveDispatchHeader(record);
+      this.appendLedger(deniedEntry);
+      this.emit(record, 'ADMISSION', 'FAIL', {
+        decision: 'DENIED',
+        remaining_usd: deniedEntry.remainingUsd,
+        master_remaining_usd: masterCheck.remaining_usd,
+      });
+      record.status = 'FAIL';
+      record.error = 'master budget admission denied (cross-project cap)';
+      this.emit(record, 'REVIEW', 'FAIL', { reason: record.error });
+      return record;
+    }
+
     const admission = this.ledger.admit({
       actorId: adapterId,
       capUsd,
       amountUsd,
-      meta: { dispatch_id: dispatchId, effort, real, profile, prompt_sha256: sha256Hex(prompt) },
+      meta: {
+        dispatch_id: dispatchId,
+        effort,
+        real,
+        profile,
+        prompt_sha256: sha256Hex(prompt),
+        ...(masterCheck !== undefined ? { master_remaining_usd: masterCheck.remaining_usd } : {}),
+        workspace,
+      },
     });
     record.admission = { decision: admission.decision, remaining_usd: admission.remainingUsd };
     this.records.set(dispatchId, record);
@@ -1061,6 +1123,7 @@ export class DispatchPipeline {
           telemetry,
           cache_savings_usd: telemetry.cache_savings_usd ?? 0,
           kind: 'ACTUAL_COST',
+          workspace,
         },
       });
       this.appendLedger(actualEntry);

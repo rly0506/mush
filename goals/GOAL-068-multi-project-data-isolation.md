@@ -1,6 +1,7 @@
 # GOAL-068: 多工作区多项目完全数据隔离与即时热切换引擎 (Multi-Project Full Data Isolation & Dynamic Hot-Switching)
 
-- 状态：`READY`
+- 状态：`AUTO_ACCEPTED`（2026-08-22 owner 批准实施并确认 D1-D4 决策：D1 沿用 runtime/ 沙盒、D2 全局唯一 master ledger、D3 adapter 调参 per-project、D4 在途派发 SSE/toast 全局+列表随活动项目；机检验收全绿 typecheck 零错误 + 575/575；DONE 判定权归 owner/D15）
+- 编号备注：commit 前缀 g068-a/g068-b 为 GOAL-067 遗留修复批次标签，与本 Goal 无关；本文件为 GOAL-068 正式实体
 - 来源：owner 2026-08-22 明确规划指示（“一个 mush 适配一个项目，切换工作区后任务池、聊天历史、工犬会话、派发追踪等所有项目数据完全切换到对应工作区，严格区分不同 projects”）
 - 优先级：高
 - 依赖：无
