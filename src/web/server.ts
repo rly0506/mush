@@ -1433,12 +1433,20 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     const auditExportGet = /^\/api\/audit\/exports\/([A-Za-z0-9._-]+)$/.exec(url.pathname);
     if (request.method === 'GET' && auditExportGet !== null) {
       const fileName = auditExportGet[1];
+      if (fileName === '.' || fileName === '..' || !fileName.endsWith('.md')) {
+        sendJson(response, 400, { ok: false, error: 'invalid export filename' });
+        return;
+      }
       const filePath = path.join(runtimeRoot, 'exports', fileName);
-      if (existsSync(filePath)) {
-        const content = readFileSync(filePath, 'utf-8');
-        sendJson(response, 200, { ok: true, file_name: fileName, markdown_content: content });
-      } else {
-        sendJson(response, 404, { ok: false, error: `audit report not found: ${fileName}` });
+      try {
+        if (existsSync(filePath) && statSync(filePath).isFile()) {
+          const content = readFileSync(filePath, 'utf-8');
+          sendJson(response, 200, { ok: true, file_name: fileName, markdown_content: content });
+        } else {
+          sendJson(response, 404, { ok: false, error: `audit report not found: ${fileName}` });
+        }
+      } catch {
+        sendJson(response, 500, { ok: false, error: 'failed to read export file' });
       }
       return;
     }
@@ -2638,14 +2646,14 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch {}
       }
 
-      const tHist = inputTokens + outputTokens;
+      const tHist = Math.max(0, inputTokens - tSys) + outputTokens;
       const totalTokens = tSys + tTools + tHist;
       // 缓存命中有利度评估：多轮对话中历史前缀自动命中 Prompt Cache
       const cacheReadTokens = inputTokens > 1000 ? Math.floor(inputTokens * 0.72) : 0;
       const cacheWriteTokens = Math.max(0, inputTokens - cacheReadTokens);
       const cacheHitRatio = inputTokens > 0 ? Number((cacheReadTokens / inputTokens).toFixed(2)) : 0;
       const costUsd = isFree ? 0 : calculateUsageCost(activeModel, { inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens });
-      const pressurePct = Number(Math.min(100, Math.max(0.1, (totalTokens / maxContextTokens) * 100)).toFixed(1));
+      const pressurePct = Number(Math.min(100, Math.max(0.1, (totalTokens / Math.max(1, maxContextTokens)) * 100)).toFixed(1));
 
       sendJson(response, 200, {
         ok: true,

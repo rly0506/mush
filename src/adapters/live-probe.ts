@@ -224,10 +224,11 @@ export function parseDshSettings(yamlContent: string): {
         continue;
       }
       if (inProviders) {
-        // Provider 声明行 (例如 "    tbtk:" 或 "    poke2api:")
-        const provMatch = line.match(/^ {4}([a-zA-Z0-9_-]+):/);
-        if (provMatch) {
-          currentProvider = provMatch[1];
+        // Provider 声明行 (例如 "    tbtk:" 或 "  tbtk:")
+        const provMatch = line.match(/^ {2,6}([a-zA-Z0-9_-]+):$/);
+        const name = provMatch ? provMatch[1] : '';
+        if (provMatch && !['models', 'providers', 'headers', 'options', 'api', 'baseURL'].includes(name)) {
+          currentProvider = name;
           result.providers[currentProvider] = { displayName: currentProvider, models: [] };
           inModels = false;
           continue;

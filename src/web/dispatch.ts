@@ -1555,9 +1555,25 @@ export class DispatchPipeline {
     const actors = [...actorIds].map((actorId) => {
       const allEntries = this.ledger.entries(actorId).filter((entry) => (entry.meta as Record<string, unknown>).kind !== 'CAP_CHANGE');
       const admission_count = allEntries.length;
-      const spent_usd = allEntries
-        .filter((entry) => entry.decision === 'ADMITTED' && entry.amountUsd > 0 && (entry.meta.real === true || entry.meta.kind === 'ACTUAL_COST'))
-        .reduce((sum, entry) => Math.round((sum + entry.amountUsd) * 1_000_000) / 1_000_000, 0);
+      const dispatchMap = new Map<string, number>();
+      let nonDispatchSum = 0;
+      for (const entry of allEntries) {
+        if (entry.decision !== 'ADMITTED' || entry.amountUsd <= 0) continue;
+        if (entry.meta.real !== true && entry.meta.kind !== 'ACTUAL_COST') continue;
+        const did = entry.meta && typeof entry.meta.dispatch_id === 'string' ? entry.meta.dispatch_id : null;
+        if (did) {
+          if (entry.meta.kind === 'ACTUAL_COST' || !dispatchMap.has(did)) {
+            dispatchMap.set(did, entry.amountUsd);
+          }
+        } else {
+          nonDispatchSum += entry.amountUsd;
+        }
+      }
+      let actorTotalSpent = nonDispatchSum;
+      for (const val of dispatchMap.values()) {
+        actorTotalSpent += val;
+      }
+      const spent_usd = Math.round(actorTotalSpent * 1_000_000) / 1_000_000;
       const cache_savings_usd = allEntries
         .reduce((sum, entry) => sum + (Number((entry.meta as Record<string, unknown>)?.cache_savings_usd) || 0), 0);
       total_spent_usd += spent_usd;

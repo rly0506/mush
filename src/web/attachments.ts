@@ -3,7 +3,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 export interface AttachmentInput {
@@ -69,19 +69,27 @@ export function saveAttachment(runtimeRoot: string, input: AttachmentInput): Sto
 }
 
 export function readAttachment(runtimeRoot: string, filename: string): { buffer: Buffer; mimeType: string } | null {
-  // 安全校验：防路径穿越
+  // 安全校验：防路径穿越与目录探测
+  if (!filename || filename === '.' || filename === '..' || !/^[A-Za-z0-9_][A-Za-z0-9_.-]*\.[A-Za-z0-9]+$/.test(filename)) {
+    return null;
+  }
   const safeFilename = path.basename(filename);
   if (safeFilename !== filename) return null;
 
   const localPath = path.join(path.resolve(runtimeRoot), 'attachments', safeFilename);
-  if (!existsSync(localPath)) return null;
+  try {
+    if (!existsSync(localPath) || !statSync(localPath).isFile()) return null;
+    const buffer = readFileSync(localPath);
+    let mimeType = 'image/png';
+    if (safeFilename.endsWith('.jpg') || safeFilename.endsWith('.jpeg')) mimeType = 'image/jpeg';
+    else if (safeFilename.endsWith('.gif')) mimeType = 'image/gif';
+    else if (safeFilename.endsWith('.webp')) mimeType = 'image/webp';
+    else if (safeFilename.endsWith('.svg')) mimeType = 'image/svg+xml';
 
-  const buffer = readFileSync(localPath);
-  let mimeType = 'image/png';
-  if (safeFilename.endsWith('.jpg') || safeFilename.endsWith('.jpeg')) mimeType = 'image/jpeg';
-  else if (safeFilename.endsWith('.gif')) mimeType = 'image/gif';
-  else if (safeFilename.endsWith('.webp')) mimeType = 'image/webp';
-  else if (safeFilename.endsWith('.svg')) mimeType = 'image/svg+xml';
+    return { buffer, mimeType };
+  } catch {
+    return null;
+  }
 
   return { buffer, mimeType };
 }

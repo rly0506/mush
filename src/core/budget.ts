@@ -216,11 +216,26 @@ export class UsdBudgetLedger {
 
   spentUsd(actorId: string): number {
     const list = this.ledgers.get(actorId) ?? [];
-    return roundMicroUsd(
-      list
-        .filter((entry) => entry.decision === 'ADMITTED')
-        .reduce((sum, entry) => sum + entry.amountUsd, 0)
-    );
+    const dispatchMap = new Map<string, number>();
+    let nonDispatchSum = 0;
+
+    for (const entry of list) {
+      if (entry.decision !== 'ADMITTED') continue;
+      const did = entry.meta && typeof entry.meta.dispatch_id === 'string' ? entry.meta.dispatch_id : null;
+      if (did) {
+        if (entry.meta.kind === 'ACTUAL_COST' || !dispatchMap.has(did)) {
+          dispatchMap.set(did, entry.amountUsd);
+        }
+      } else {
+        nonDispatchSum += entry.amountUsd;
+      }
+    }
+
+    let total = nonDispatchSum;
+    for (const val of dispatchMap.values()) {
+      total += val;
+    }
+    return roundMicroUsd(total);
   }
 
   remainingUsd(actorId: string, capUsd: number): number {

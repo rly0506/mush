@@ -258,7 +258,13 @@ export class ChatService extends EventEmitter {
     const turns = readFileSync(file, 'utf8')
       .split('\n')
       .filter((line) => line.trim() !== '')
-      .map((line) => JSON.parse(line) as ChatTurn);
+      .flatMap((line) => {
+        try {
+          return [JSON.parse(line) as ChatTurn];
+        } catch {
+          return [];
+        }
+      });
     return { turns: turns.slice(-Math.max(1, Math.floor(limit))) };
   }
 }

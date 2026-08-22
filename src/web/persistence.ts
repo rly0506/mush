@@ -152,6 +152,8 @@ export class BoardPersistence {
       .map((line) => JSON.parse(line) as { sequence: number; event_id: string; sha256: string; previous_sha256: string | null; event: unknown });
   }
 
+  private cachedLedgerSha: string | null | undefined = undefined;
+
   appendLedger(entry: {
     atUtc: string;
     actorId: string;
@@ -163,7 +165,10 @@ export class BoardPersistence {
     meta: Record<string, unknown>;
   }): void {
     this.ensureDir();
-    const previous = this.lastLedgerSha256();
+    if (this.cachedLedgerSha === undefined) {
+      this.cachedLedgerSha = this.lastLedgerSha256();
+    }
+    const previous = this.cachedLedgerSha;
     const body = {
       at_utc: entry.atUtc,
       actor_id: entry.actorId,
@@ -176,6 +181,7 @@ export class BoardPersistence {
       previous_sha256: previous,
     };
     const sha256 = sha256Hex(canonicalJson(body));
+    this.cachedLedgerSha = sha256;
     appendFileSync(
       path.join(this.runtimeRoot, 'budget-ledger.jsonl'),
       JSON.stringify({ ...body, sha256 }) + '\n',

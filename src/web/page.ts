@@ -2081,7 +2081,7 @@ ${getCollaborationStyles()}
       var dispatches = snapshot.dispatches || [];
       if (dispatches.length === 0) { el.innerHTML = '<div class="empty">暂无 epoch 事件链（无派发记录；派发后此处显示其生命周期）</div>'; return; }
       var dr = dispatches.map(function (d) {
-        return '<tr><td class="mono">' + esc(d.dispatch_id.slice(0, 12)) + '</td>' +
+        return '<tr><td class="mono">' + esc(String(d.dispatch_id || '').slice(0, 12)) + '</td>' +
           '<td>' + esc(d.adapter_id) + '</td>' +
           '<td><span class="badge ' + esc(d.status) + '">' + esc(d.status) + '</span></td>' +
           '<td class="mono">' + escTime(d.at_utc || '') + '</td></tr>';
@@ -2319,7 +2319,7 @@ ${getCollaborationStyles()}
     // GP-32（D30）：派发类请求的审批者报备面板——犬只/强度/超时/工作区/预算/完整 prompt 预览。
     if (approval.dispatch) {
       var d = approval.dispatch;
-      html += '<dt>派发号</dt><dd class="mono">' + esc(d.dispatch_id.slice(0, 8)) + '</dd>' +
+      html += '<dt>派发号</dt><dd class="mono">' + esc(String(d.dispatch_id || '').slice(0, 8)) + '</dd>' +
         '<dt>目标</dt><dd class="mono">' + esc(d.goal_id || '（未关联 Goal）') + '</dd>' +
         '<dt>犬只 × 强度</dt><dd class="mono">' + esc(d.adapter_id + ' × ' + d.effort) + '</dd>' +
         '<dt>超时 / 工作区</dt><dd class="mono">' + esc((d.timeout_s || 0) + 's / ' + (d.workspace || '')) + '</dd>' +
@@ -2966,7 +2966,17 @@ ${getCollaborationStyles()}
     });
   }
 
-    /* ---------- GOAL-022（D36 人话原则）：状态/按钮全面中文化 + ID 折叠 + 排序聚簇 ---------- */
+    var TASK_TRANSITIONS = {
+    IDEA: ['READY', 'CANCELLED'],
+    READY: ['QUEUED', 'BLOCKED', 'CANCELLED'],
+    QUEUED: ['IN_FLIGHT', 'BLOCKED', 'CANCELLED'],
+    IN_FLIGHT: ['DONE', 'BLOCKED', 'CANCELLED'],
+    BLOCKED: ['READY', 'CANCELLED'],
+    DONE: [],
+    CANCELLED: []
+  };
+
+  /* ---------- GOAL-022（D36 人话原则）：状态/按钮全面中文化 + ID 折叠 + 排序聚簇 ---------- */
   var TASK_STATUS_CN = {
     IDEA: '构想', READY: '就绪', QUEUED: '已排队', IN_FLIGHT: '执行中',
     DONE: '完成', BLOCKED: '受阻', CANCELLED: '已取消'
@@ -3251,9 +3261,9 @@ ${getCollaborationStyles()}
   function detectTaskDependencies(t) {
     var deps = [];
     var detail = (t.detail || '') + ' ' + (t.title || '');
-    var m = /依赖[:：]\s*([A-Za-z0-9_,-.\s✅]+)/i.exec(detail);
+    var m = /依赖[:：]\\s*([A-Za-z0-9_,-.\\s✅]+)/i.exec(detail);
     if (m) {
-      var rawList = m[1].split(/[,，\s]+/);
+      var rawList = m[1].split(/[,，\\s]+/);
       rawList.forEach(function (id) {
         id = id.trim().replace(/✅/g, '');
         if (id && id !== '—' && id !== '无') deps.push(id);
@@ -3310,8 +3320,8 @@ ${getCollaborationStyles()}
       if (list.length === 0 && (key === 'active' || key === 'rm008' || key === 'rm009')) return '';
 
       list.sort(function (a, b) {
-        var numA = parseInt((/\d+/.exec(a.goal_id || a.task_id || '') || ['0'])[0], 10);
-        var numB = parseInt((/\d+/.exec(b.goal_id || b.task_id || '') || ['0'])[0], 10);
+        var numA = parseInt((/\\d+/.exec(a.goal_id || a.task_id || '') || ['0'])[0], 10);
+        var numB = parseInt((/\\d+/.exec(b.goal_id || b.task_id || '') || ['0'])[0], 10);
         return numA - numB;
       });
 
@@ -3328,7 +3338,7 @@ ${getCollaborationStyles()}
         var connectorHtml = idx > 0 ? '<div class="dag-spine-connector"></div>' : '';
 
         // 提取简要标题
-        var displayTitle = (t.title || '').replace(/^#?\s*GOAL-\d+[A-Z]?\s*[:：]\s*/i, '').trim() || t.title;
+        var displayTitle = (t.title || '').replace(/^#?\\s*GOAL-\\d+[A-Z]?\\s*[:：]\\s*/i, '').trim() || t.title;
 
         return connectorHtml +
           '<div class="dag-card-node" data-task-id="' + esc(t.task_id) + '" title="' + esc(t.title + (t.detail ? ' | ' + t.detail : '')) + '">' +

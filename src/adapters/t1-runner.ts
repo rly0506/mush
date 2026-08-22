@@ -195,12 +195,12 @@ export function parseTokenTelemetry(stdout: string, stderr: string, modelId?: st
 
   // 2. Line-by-line CLI text patterns (e.g. "Tokens: 1,234 input, 567 output, 8,900 cached")
   if (!found) {
-    const tokensLineMatch = /(?:tokens?|usage)[:：]\s*(\d+)\s*(?:input|prompt)?\s*[,，/]\s*(\d+)\s*(?:output|completion)?/i.exec(combined);
+    const tokensLineMatch = /(?:tokens?|usage)[:：]\s*([\d,]+)\s*(?:input|prompt)?\s*[,，/]\s*([\d,]+)\s*(?:output|completion)?/i.exec(combined);
     if (tokensLineMatch) {
-      input = parseInt(tokensLineMatch[1], 10) || 0;
-      output = parseInt(tokensLineMatch[2], 10) || 0;
-      const cacheMatch = /(?:(?:cache|cached)[:：\s]+(\d+)|(\d+)\s*(?:cached|cache))/i.exec(combined);
-      if (cacheMatch) cacheRead = parseInt(cacheMatch[1] || cacheMatch[2], 10) || 0;
+      input = parseInt(tokensLineMatch[1].replace(/,/g, ''), 10) || 0;
+      output = parseInt(tokensLineMatch[2].replace(/,/g, ''), 10) || 0;
+      const cacheMatch = /(?:(?:cache|cached)[:：\s]+([\d,]+)|([\d,]+)\s*(?:cached|cache))/i.exec(combined);
+      if (cacheMatch) cacheRead = parseInt((cacheMatch[1] || cacheMatch[2]).replace(/,/g, ''), 10) || 0;
       found = true;
     }
 
