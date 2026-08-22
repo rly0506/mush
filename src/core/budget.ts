@@ -177,9 +177,11 @@ export class UsdBudgetLedger {
     const amountUsd = roundMicroUsd(opts.amountUsd);
     const capUsd = roundMicroUsd(opts.capUsd);
     const entries = this.ledgers.get(opts.actorId) ?? [];
+    // GOAL-068（A1）：门禁与 spentUsd() 同源同口径——同一 dispatch 的预估行被
+    // ACTUAL_COST 覆盖（去重），不再把预留+实付双算进 spentBefore 导致提前拒单。
     const spentBefore = roundMicroUsd(
       entries
-        .filter((entry) => entry.decision === 'ADMITTED')
+        .filter((entry) => entry.decision === 'ADMITTED' && !isActualCostCoveredReserve(entries, entry))
         .reduce((sum, entry) => sum + entry.amountUsd, 0)
     );
     const allowed = roundMicroUsd(spentBefore + amountUsd) <= capUsd;
@@ -216,26 +218,7 @@ export class UsdBudgetLedger {
 
   spentUsd(actorId: string): number {
     const list = this.ledgers.get(actorId) ?? [];
-    const dispatchMap = new Map<string, number>();
-    let nonDispatchSum = 0;
-
-    for (const entry of list) {
-      if (entry.decision !== 'ADMITTED') continue;
-      const did = entry.meta && typeof entry.meta.dispatch_id === 'string' ? entry.meta.dispatch_id : null;
-      if (did) {
-        if (entry.meta.kind === 'ACTUAL_COST' || !dispatchMap.has(did)) {
-          dispatchMap.set(did, entry.amountUsd);
-        }
-      } else {
-        nonDispatchSum += entry.amountUsd;
-      }
-    }
-
-    let total = nonDispatchSum;
-    for (const val of dispatchMap.values()) {
-      total += val;
-    }
-    return roundMicroUsd(total);
+    return computeSpentUsd(list);
   }
 
   remainingUsd(actorId: string, capUsd: number): number {
@@ -278,4 +261,35 @@ export class UsdBudgetLedger {
       previous = entry.sha256;
     }
   }
+}
+
+function entryDispatchId(entry: UsdAdmissionEntry): string | null {
+  return entry.meta && typeof entry.meta.dispatch_id === 'string' ? entry.meta.dispatch_id : null;
+}
+
+/** 预估行已被同 dispatch 的 ACTUAL_COST 覆盖（后者在账序上更晚）→ 不再计入花费。 */
+function isActualCostCoveredReserve(entries: readonly UsdAdmissionEntry[], target: UsdAdmissionEntry): boolean {
+  if (target.meta && target.meta.kind === 'ACTUAL_COST') return false;
+  const did = entryDispatchId(target);
+  if (did === null) return false;
+  const idx = entries.indexOf(target);
+  return entries.some(
+    (e, i) =>
+      i > idx &&
+      e.decision === 'ADMITTED' &&
+      entryDispatchId(e) === did &&
+      e.meta !== undefined &&
+      e.meta.kind === 'ACTUAL_COST',
+  );
+}
+
+/** 花费口径（admit 门禁与 spentUsd 共用，GOAL-068 A1）：ADMITTED 且未被实付覆盖的预估 + 全部实付。 */
+function computeSpentUsd(entries: readonly UsdAdmissionEntry[]): number {
+  let total = 0;
+  for (const entry of entries) {
+    if (entry.decision !== 'ADMITTED') continue;
+    if (isActualCostCoveredReserve(entries, entry)) continue;
+    total += entry.amountUsd;
+  }
+  return roundMicroUsd(total);
 }

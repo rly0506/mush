@@ -28,12 +28,37 @@ function fail(message: string, exitCode: number): CliResult {
   return { exitCode, stdout: jsonLine({ ok: false, error: message }) };
 }
 
-function parseArgs(argv: string[]): { positionals: string[]; flags: Record<string, string | boolean> } {
+/** GOAL-068（A5）：全部命令的合法旗标并集——未知旗标一律 usage error，不再静默吞。 */
+const KNOWN_FLAGS = new Set([
+  'workspace',
+  'port',
+  'once',
+  'approval-root',
+  'adapter',
+  'prompt',
+  'cap-usd',
+  'amount-usd',
+  'real',
+  'receipt',
+  'dry-run',
+]);
+
+function parseArgs(argv: string[]): { positionals: string[]; flags: Record<string, string | boolean>; unknownFlags: string[] } {
   const positionals: string[] = [];
   const flags: Record<string, string | boolean> = {};
+  const unknownFlags: string[] = [];
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg.startsWith('--')) {
+      // GOAL-068（A5）：支持 --flag=value 形态——此前 '--workspace=D:\x' 会变成
+      // 名为 'workspace=D:\x' 的布尔旗标，resolveWorkspace 静默回退 cwd。
+      const eq = arg.indexOf('=');
+      if (eq !== -1) {
+        const key = arg.slice(2, eq);
+        flags[key] = arg.slice(eq + 1);
+        if (!KNOWN_FLAGS.has(key)) unknownFlags.push(`--${key}`);
+        continue;
+      }
       const key = arg.slice(2);
       const next = argv[index + 1];
       if (next !== undefined && !next.startsWith('--')) {
@@ -42,11 +67,12 @@ function parseArgs(argv: string[]): { positionals: string[]; flags: Record<strin
       } else {
         flags[key] = true;
       }
+      if (!KNOWN_FLAGS.has(key)) unknownFlags.push(`--${key}`);
     } else {
       positionals.push(arg);
     }
   }
-  return { positionals, flags };
+  return { positionals, flags, unknownFlags };
 }
 
 function resolveWorkspace(flags: Record<string, string | boolean>): string {
@@ -75,10 +101,13 @@ function knownContract(adapterId: string): AdapterContract | null {
 }
 
 export async function runCli(argv: string[]): Promise<CliResult> {
-  const { positionals, flags } = parseArgs(argv);
+  const { positionals, flags, unknownFlags } = parseArgs(argv);
   const command = positionals[0];
   if (command === undefined) {
     return { exitCode: 64, stdout: jsonLine({ ok: false, usage: 'mush <status|dispatch|review|board> [--workspace <dir>] [options]' }) };
+  }
+  if (unknownFlags.length > 0) {
+    return fail(`unknown flag(s): ${unknownFlags.join(', ')}`, 64);
   }
 
   if (command === 'board') {

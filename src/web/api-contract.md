@@ -437,7 +437,7 @@ mush 是**单机 loopback 个人工具**，「本机即信任边界」，此为 
 ```json
 {
   "adapter_id": "fake-t1 | deepseek-dsh | claude-code | zcode | codex | opencode | kimi-code | pi | agy | <user-adapter>",
-  "prompt": "string (1..64000)",
+  "prompt": "string（1..64000；argument 通道适配器上限 30000——Windows CreateProcess 命令行 ~32767 上限，GOAL-068 A7）",
   "workspace": "string? (缺省=已选 workspace 或服务 cwd)",
   "effort": "string?（缺省 LOW；必须属于所选合同 effort_levels；未声明合同回退 LOW|HIGH|XHIGH）",
   "profile": "string?（v1.4：dsh preset 目录名；仅 ~/.dsh/profiles 下存在者）",

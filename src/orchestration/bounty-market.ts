@@ -123,8 +123,10 @@ export class BountyMarketEngine {
     const bid: DogBid = {
       bid_id: bidId,
       adapter_id: bidParams.adapter_id,
-      estimated_cost_usd: bidParams.estimated_cost_usd,
-      estimated_time_ms: bidParams.estimated_time_ms,
+      // GOAL-068（A3）：负值 cost/time 会让撮合公式 (1-normCost) 满分/超界被
+      // 操纵——非有限数与负值一律钳为 0。
+      estimated_cost_usd: Math.max(0, Number.isFinite(bidParams.estimated_cost_usd) ? bidParams.estimated_cost_usd : 0),
+      estimated_time_ms: Math.max(0, Number.isFinite(bidParams.estimated_time_ms) ? bidParams.estimated_time_ms : 0),
       confidence_score: Math.max(0, Math.min(1.0, bidParams.confidence_score)),
       bid_rationale: bidParams.bid_rationale,
       submitted_at_utc: now,

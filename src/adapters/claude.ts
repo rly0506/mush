@@ -8,6 +8,7 @@
 
 import { createHash } from 'node:crypto';
 import { spawn as nodeSpawn } from 'node:child_process';
+import { StringDecoder } from 'node:string_decoder';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { validateAdapterContract, type AdapterContract } from './contract.ts';
@@ -170,8 +171,23 @@ export async function runClaudeStreamNonceProbe(
             if (child.stdin !== null && child.stdin.writable) child.stdin.end();
           } catch {}
         },
-        onStdout: (listener) => child.stdout.on('data', listener),
-        onStderr: (listener) => child.stderr.on('data', listener),
+        // GOAL-068（A6）：StringDecoder 防多字节跨 chunk 乱码。
+        onStdout: (listener) => {
+          const decoder = new StringDecoder('utf8');
+          child.stdout.on('data', (buf: Buffer) => listener(decoder.write(buf)));
+          child.stdout.on('end', () => {
+            const tail = decoder.end();
+            if (tail) listener(tail);
+          });
+        },
+        onStderr: (listener) => {
+          const decoder = new StringDecoder('utf8');
+          child.stderr.on('data', (buf: Buffer) => listener(decoder.write(buf)));
+          child.stderr.on('end', () => {
+            const tail = decoder.end();
+            if (tail) listener(tail);
+          });
+        },
         onExit: (listener) => child.on('exit', listener),
         onError: (listener) => child.on('error', listener),
         kill: () => killProcessTree(child.pid),

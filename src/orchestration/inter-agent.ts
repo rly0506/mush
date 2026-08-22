@@ -94,6 +94,17 @@ export class AgentCollaborationHub {
       graph.set(s.stage_id, []);
       inDegree.set(s.stage_id, 0);
     }
+    // GOAL-068（A4）：先校验依赖引用——悬空 stage_id 若只计入度不建边，Kahn
+    // 访问数不足会被误报成"循环依赖"，把排障方向带偏。
+    for (const s of stages) {
+      for (const dep of s.depends_on || []) {
+        if (!graph.has(dep)) {
+          throw new Error(
+            `Stage '${s.stage_id}' depends on unknown stage '${dep}' (dangling reference) in task: ${taskId}`,
+          );
+        }
+      }
+    }
     for (const s of stages) {
       const deps = s.depends_on || [];
       inDegree.set(s.stage_id, deps.length);

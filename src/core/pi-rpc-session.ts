@@ -198,13 +198,19 @@ function raceNext(
   generator: AsyncGenerator<string | null, void, void>,
   waitMs: number,
 ): Promise<PendingLine | 'timeout'> {
+  // GOAL-068（A8）：race 输掉的 setTimeout 句柄此前永不清理——fail-closed 提前
+  // 返回后，最长 processTimeoutMs 的挂起 timer 会钉住事件循环延迟进程退出。
+  let timer: ReturnType<typeof setTimeout> | undefined;
   return Promise.race([
-    generator.next().then((next) => ({
-      done: next.done === true,
-      value: next.done ? null : (next.value ?? null),
-    })),
+    generator.next().then((next) => {
+      if (timer !== undefined) clearTimeout(timer);
+      return {
+        done: next.done === true,
+        value: next.done ? null : (next.value ?? null),
+      } satisfies PendingLine;
+    }),
     new Promise<'timeout'>((resolve) => {
-      setTimeout(() => resolve('timeout'), waitMs);
+      timer = setTimeout(() => resolve('timeout'), waitMs);
     }),
   ]);
 }

@@ -815,7 +815,13 @@ export class DispatchPipeline {
       });
     }
     const prompt = typeof body.prompt === 'string' ? body.prompt : '';
-    if (prompt.trim() === '' || prompt.length > 64000) throw new InputError('prompt must be 1..64000 chars');
+    // GOAL-068（A7）：argument 通道的 prompt 直接进 argv，Windows CreateProcess
+    // 单条命令行上限 ~32767 字符——此前放行到 64000 只会在执行期 spawn 必败。
+    // 按通道前置拦截：argument ≤30000（给合同参数留余量），stdin/rpc 维持 64000。
+    const promptLimit = effectiveContract.prompt_transport === 'argument' ? 30_000 : 64_000;
+    if (prompt.trim() === '' || prompt.length > promptLimit) {
+      throw new InputError(`prompt must be 1..${promptLimit} chars (${effectiveContract.prompt_transport} transport)`);
+    }
     // GP-22 / GOAL-059：effort 校验，兼容合同声明的 effort_levels 或动态 ThinkingSpec（数值预算/开关）
     const effortLevels = (effectiveContract.effort_levels ?? DEFAULT_EFFORT_LEVELS).map((level) => level.toUpperCase());
     const defaultEffort = effortLevels.includes('LOW') ? 'LOW' : effortLevels[0];

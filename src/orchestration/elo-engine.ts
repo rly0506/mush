@@ -124,6 +124,11 @@ export class EloRatingEngine {
     outcome: MatchOutcome,
     notes?: string
   ): { profileA: DogEloProfile; profileB: DogEloProfile; changeA: number; changeB: number } {
+    // GOAL-068（A2）：同犬自战会让同一个 profile 对象同时 wins++/losses++，
+    // 产生"1 战 1 胜 1 负"的矛盾档案并持久化——fail-closed 拒绝。
+    if (dogA === dogB) {
+      throw new Error(`ELO self-match rejected: ${dogA} cannot play against itself`);
+    }
     const profA = this.getProfile(dogA);
     const profB = this.getProfile(dogB);
 

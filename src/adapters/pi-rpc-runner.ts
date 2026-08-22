@@ -18,6 +18,7 @@
 import { spawn as nodeSpawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { StringDecoder } from 'node:string_decoder';
 import path from 'node:path';
 import { resolveWindowsShim, killProcessTree } from './t1-runner.ts';
 import { sha256Hex } from '../core/event-log.ts';
@@ -288,8 +289,12 @@ export async function runPiRpc(contract: AdapterContract, prompt: string, option
       }
     };
 
+    // GOAL-068（A6）：StringDecoder 流式解码——多字节字符跨 chunk 截断时
+    // chunk.toString('utf8') 会产生乱码行并污染回执哈希。行协议下无换行尾巴
+    // 与既有行为一致不冲刷，故不注册额外 'end' 监听。
+    const stdoutDecoder = new StringDecoder('utf8');
     child.stdout.on('data', (chunk: Buffer) => {
-      buffer += chunk.toString('utf8');
+      buffer += stdoutDecoder.write(chunk);
       let newlineIndex = buffer.indexOf('\n');
       while (newlineIndex >= 0) {
         const line = buffer.slice(0, newlineIndex).replace(/\r$/, '');
