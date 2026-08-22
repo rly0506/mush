@@ -2934,7 +2934,39 @@ ${getCollaborationStyles()}
     switchChatSession(null);
   }
 
-  /* ---------- GOAL-022（D36 人话原则）：状态/按钮全面中文化 + ID 折叠 + 排序聚簇 ---------- */
+  /* ---------- GOAL-019 U2 & GOAL-024：任务池数据加载与状态渲染 ---------- */
+  var tasksData = null;
+  function laneOf(status) {
+    if (status === 'READY' || status === 'IDEA' || status === 'QUEUED') return 'todo';
+    if (status === 'IN_FLIGHT' || status === 'BLOCKED') return 'doing';
+    return 'done';
+  }
+
+  function loadTasks(silent) {
+    var statusEl = document.getElementById('tasks-refresh-status');
+    var refreshBtn = document.getElementById('btn-tasks-refresh');
+    if (!silent && statusEl) statusEl.textContent = '同步中…';
+    if (!silent && refreshBtn) refreshBtn.style.opacity = '0.6';
+
+    return getJson('/api/tasks').then(function (data) {
+      if (data && data.ok && Array.isArray(data.tasks)) tasksData = data.tasks;
+      renderTasks();
+      renderRecentActivity();
+      if (activeDrawerTaskId) openTaskDrawer(activeDrawerTaskId);
+      if (statusEl) {
+        statusEl.textContent = '已同步 ' + new Date().toLocaleTimeString();
+        setTimeout(function () { if (statusEl) statusEl.textContent = ''; }, 3000);
+      }
+      if (refreshBtn) refreshBtn.style.opacity = '1';
+    }).catch(function () {
+      renderTasks();
+      renderRecentActivity();
+      if (statusEl) statusEl.textContent = '同步失败';
+      if (refreshBtn) refreshBtn.style.opacity = '1';
+    });
+  }
+
+    /* ---------- GOAL-022（D36 人话原则）：状态/按钮全面中文化 + ID 折叠 + 排序聚簇 ---------- */
   var TASK_STATUS_CN = {
     IDEA: '构想', READY: '就绪', QUEUED: '已排队', IN_FLIGHT: '执行中',
     DONE: '完成', BLOCKED: '受阻', CANCELLED: '已取消'
