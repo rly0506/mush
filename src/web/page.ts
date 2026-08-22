@@ -2934,57 +2934,6 @@ ${getCollaborationStyles()}
     switchChatSession(null);
   }
 
-  /* ---------- 汇总刷新 ---------- */
-  /* ---------- GOAL-020 B5：任务池三泳道（v1.7 契约 mock：p19a 未落盘按描述消费） ---------- */
-  var tasksData = null;
-
-  var TASK_LANES = {
-    todo: ['IDEA', 'READY'],
-    doing: ['QUEUED', 'IN_FLIGHT'],
-    done: ['DONE', 'CANCELLED']
-  };
-  // 状态机白名单（与 GOAL-019 后端约定一致；非法迁移按钮不渲染）
-  var TASK_TRANSITIONS = {
-    IDEA: ['READY', 'CANCELLED'],
-    READY: ['QUEUED', 'CANCELLED'],
-    QUEUED: ['IN_FLIGHT', 'CANCELLED'],
-    IN_FLIGHT: ['DONE', 'BLOCKED', 'CANCELLED'],
-    BLOCKED: ['IN_FLIGHT', 'CANCELLED'],
-    DONE: [],
-    CANCELLED: []
-  };
-
-  function laneOf(status) {
-    if (TASK_LANES.todo.indexOf(status) >= 0) return 'todo';
-    if (TASK_LANES.doing.indexOf(status) >= 0) return 'doing';
-    return 'done';
-  }
-
-  function loadTasks(silent) {
-    var statusEl = document.getElementById('tasks-refresh-status');
-    var refreshBtn = document.getElementById('btn-tasks-refresh');
-    if (!silent && statusEl) statusEl.textContent = '同步中…';
-    if (!silent && refreshBtn) refreshBtn.style.opacity = '0.6';
-
-    return getJson('/api/tasks').then(function (data) {
-      if (data && data.ok && Array.isArray(data.tasks)) tasksData = data.tasks;
-      renderTasks();
-      renderRecentActivity();
-      if (activeDrawerTaskId) openTaskDrawer(activeDrawerTaskId);
-      if (statusEl) {
-        statusEl.textContent = '已同步 ' + new Date().toLocaleTimeString();
-        setTimeout(function () { if (statusEl) statusEl.textContent = ''; }, 3000);
-      }
-      if (refreshBtn) refreshBtn.style.opacity = '1';
-    }).catch(function () {
-      renderTasks();
-      renderRecentActivity();
-      if (statusEl) statusEl.textContent = '同步失败';
-      if (refreshBtn) refreshBtn.style.opacity = '1';
-    });
-  }
-
-
   /* ---------- GOAL-022（D36 人话原则）：状态/按钮全面中文化 + ID 折叠 + 排序聚簇 ---------- */
   var TASK_STATUS_CN = {
     IDEA: '构想', READY: '就绪', QUEUED: '已排队', IN_FLIGHT: '执行中',
@@ -3124,7 +3073,7 @@ ${getCollaborationStyles()}
   }
   window.switchTasksView = switchTasksView;
 
-  /* ---------- GOAL-024 & D68 演进：全景路线图 (RM-001 ~ RM-007) 与动态 DAG 拓扑 ---------- */
+    /* ---------- GOAL-024 & D68 演进：全景路线图 (RM-001 ~ RM-010) 与动态 DAG 拓扑 ---------- */
   var DOMAIN_STREAMS = {
     rm001: {
       key: 'rm001',
@@ -3147,7 +3096,6 @@ ${getCollaborationStyles()}
       desc: 'DAG 路径思维导图、实时探针、零消耗本地模型梯队与用量监控 (GOAL-024 ~ GOAL-027)',
       goals: ['GOAL-024', 'GOAL-025', 'GOAL-026', 'GOAL-027']
     },
-
     rm004: {
       key: 'rm004',
       icon: '🛡️',
@@ -3197,9 +3145,16 @@ ${getCollaborationStyles()}
       desc: '工作区自由挂载、多厂商动态思维链规格、头像直连工犬抽屉、自动 Resume 降本与代码解耦 (GOAL-058 ~ GOAL-062)',
       goals: ['GOAL-058', 'GOAL-059', 'GOAL-060', 'GOAL-061', 'GOAL-062']
     },
+    rm010: {
+      key: 'rm010',
+      icon: '🚀',
+      name: 'RM-010：商业化就绪、零信任加固与发版 (Commercial & Release)',
+      desc: '零信任鉴权闭环、服务端权威预算、进程树杀与便携发版 (GOAL-063 ~ GOAL-066)',
+      goals: ['GOAL-063', 'GOAL-064', 'GOAL-065', 'GOAL-066']
+    },
     active: {
       key: 'active',
-      icon: '🚀',
+      icon: '✨',
       name: '活跃探索与新立项 (Active Exploration & Goals)',
       desc: '当前工作区自主扫描入池的新 Goal 规格文档与用户自定义任务',
       goals: []
@@ -3207,12 +3162,12 @@ ${getCollaborationStyles()}
   };
 
   function detectTaskDomain(t) {
-    // 1. 优先提取当前任务自身声明的 Goal ID（严格避免被 detail 中的依赖项文字误导）
-    var ownIdText = ((t.goal_id || '') + ' ' + (t.task_id || '') + ' ' + (t.title || '')).toUpperCase();
-    var match = /(GOAL-\d+[A-Z]?)/i.exec(ownIdText);
+    if (!t) return DOMAIN_STREAMS.active;
+    // 1. 优先提取当前任务自身声明的 Goal ID
+    var ownIdText = ((t.goal_id || '') + ' ' + (t.task_id || '') + ' ' + (t.source || '') + ' ' + (t.title || '')).toUpperCase();
+    var match = /(?:GOAL|GP)[-_]?(\\d+)[A-Z]?/i.exec(ownIdText);
     if (match) {
-      var gid = match[1].toUpperCase();
-      var num = parseInt(/\d+/.exec(gid)[0], 10);
+      var num = parseInt(match[1], 10);
       if (num >= 1 && num <= 12) return DOMAIN_STREAMS.rm001;
       if (num >= 13 && num <= 23) return DOMAIN_STREAMS.rm002;
       if (num >= 24 && num <= 27) return DOMAIN_STREAMS.rm003;
@@ -3223,10 +3178,18 @@ ${getCollaborationStyles()}
       if (num >= 52 && num <= 55) return DOMAIN_STREAMS.rm007;
       if (num >= 56 && num <= 57) return DOMAIN_STREAMS.rm008;
       if (num >= 58 && num <= 62) return DOMAIN_STREAMS.rm009;
+      if (num >= 63 && num <= 66) return DOMAIN_STREAMS.rm010;
       return DOMAIN_STREAMS.active;
     }
-    // 2. 兜底按数字序号归集
-    var numMatch = /\d+/.exec(t.task_id || t.title || '');
+    // 2. 按 streams 定义的预置 goals 列表逆向查
+    var rawGid = String(t.goal_id || t.task_id || '').toUpperCase();
+    for (var k in DOMAIN_STREAMS) {
+      if (DOMAIN_STREAMS[k].goals && DOMAIN_STREAMS[k].goals.indexOf(rawGid) >= 0) {
+        return DOMAIN_STREAMS[k];
+      }
+    }
+    // 3. 兜底按数字序号归集
+    var numMatch = /\\d+/.exec(t.task_id || t.title || '');
     if (numMatch) {
       var n = parseInt(numMatch[0], 10);
       if (n >= 1 && n <= 12) return DOMAIN_STREAMS.rm001;
@@ -3239,11 +3202,10 @@ ${getCollaborationStyles()}
       if (n >= 52 && n <= 55) return DOMAIN_STREAMS.rm007;
       if (n >= 56 && n <= 57) return DOMAIN_STREAMS.rm008;
       if (n >= 58 && n <= 62) return DOMAIN_STREAMS.rm009;
+      if (n >= 63 && n <= 66) return DOMAIN_STREAMS.rm010;
     }
     return DOMAIN_STREAMS.active;
   }
-
-
 
   function detectTaskLayer(t) {
     var text = ((t.title || '') + ' ' + (t.detail || '')).toUpperCase();
