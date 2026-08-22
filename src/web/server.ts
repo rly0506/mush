@@ -54,6 +54,7 @@ import { SelfEvolvingRoutingOptimizer, type RoutingDomain, type TaskOutcomeFeedb
 import { VelocityMatrixEngine } from '../orchestration/velocity-matrix.ts';
 import { renderFloatingSledHtml } from '../companion/floating-page.ts';
 import type { QuickActionPayload } from '../companion/tray-service.ts';
+import { getModelContextLimit, isFreeModel, calculateUsageCost } from './pricing.ts';
 
 export interface BoardServerOptions {
   approvalRoot: string;
@@ -2598,19 +2599,78 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
 
     if (route === 'GET /api/chat/context-gauge') {
       const activeSession = url.searchParams.get('session');
-      let totalTokens = 1200;
+      const activeModel = (url.searchParams.get('model') || url.searchParams.get('adapter') || 'claude-sonnet-5').trim();
+      const maxContextTokens = getModelContextLimit(activeModel);
+      const isFree = isFreeModel(activeModel);
+
+      let inputTokens = 600; // 基础 system prompt
+      let outputTokens = 0;
+      let reasoningTokens = 0;
+      let tSys = 600;
+      let tTools = 400;
+
       if (activeSession && /^[A-Za-z0-9_-]{1,64}$/.test(activeSession.trim())) {
         try {
-          const hist = readFileSync(path.join(runtimeRoot, 'chat', `${activeSession.trim()}.jsonl`), 'utf8');
-          totalTokens = Math.ceil(hist.length / 4);
+          const histFile = path.join(runtimeRoot, 'chat', `${activeSession.trim()}.jsonl`);
+          if (existsSync(histFile)) {
+            const histLines = readFileSync(histFile, 'utf8').split('\n').filter((l) => l.trim() !== '');
+            for (const line of histLines) {
+              try {
+                const turn = JSON.parse(line) as { role?: string; text?: string };
+                const text = turn.text || '';
+                const tokens = Math.ceil(text.length / 3.8);
+                if (turn.role === 'user') {
+                  inputTokens += tokens;
+                } else if (turn.role === 'head') {
+                  outputTokens += tokens;
+                  // 提取思维链思考 Token
+                  const thinkMatch = text.match(/<think>([\s\S]*?)<\/think>/i) || text.match(/\[thinking\]([\s\S]*?)\[\/thinking\]/i);
+                  if (thinkMatch && thinkMatch[1]) {
+                    reasoningTokens += Math.ceil(thinkMatch[1].length / 3.8);
+                  } else if (activeModel.includes('reasoner') || activeModel.includes('r1') || activeModel.includes('thinking')) {
+                    reasoningTokens += Math.ceil(tokens * 0.4);
+                  }
+                }
+              } catch {}
+            }
+          }
         } catch {}
       }
+
+      const tHist = inputTokens + outputTokens;
+      const totalTokens = tSys + tTools + tHist;
+      // 缓存命中有利度评估：多轮对话中历史前缀自动命中 Prompt Cache
+      const cacheReadTokens = inputTokens > 1000 ? Math.floor(inputTokens * 0.72) : 0;
+      const cacheWriteTokens = Math.max(0, inputTokens - cacheReadTokens);
+      const cacheHitRatio = inputTokens > 0 ? Number((cacheReadTokens / inputTokens).toFixed(2)) : 0;
+      const costUsd = isFree ? 0 : calculateUsageCost(activeModel, { inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens });
+      const pressurePct = Number(Math.min(100, Math.max(0.1, (totalTokens / maxContextTokens) * 100)).toFixed(1));
+
       sendJson(response, 200, {
         ok: true,
         gauge: {
+          model_id: activeModel,
           total_tokens: totalTokens,
-          max_context_tokens: 200000,
-          pressure_pct: Math.min(100, Math.round((totalTokens / 200000) * 100)),
+          max_context_tokens: maxContextTokens,
+          pressure_pct: pressurePct,
+          percent: pressurePct,
+          input_tokens: inputTokens,
+          output_tokens: outputTokens,
+          reasoning_tokens: reasoningTokens,
+          cache_read_tokens: cacheReadTokens,
+          cache_write_tokens: cacheWriteTokens,
+          in_cnt: inputTokens,
+          out_cnt: outputTokens,
+          reason_cnt: reasoningTokens,
+          cache_read: cacheReadTokens,
+          cache_hit_ratio: cacheHitRatio,
+          cost_usd: costUsd,
+          is_free: isFree,
+          t_total: totalTokens,
+          t_max: maxContextTokens,
+          t_sys: tSys,
+          t_tools: tTools,
+          t_hist: tHist,
         },
       });
       return;

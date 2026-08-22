@@ -507,7 +507,7 @@ ${getCollaborationStyles()}
     <div class="deck-main">
     <div class="chat-toolbar">
       <span>你只和头犬说话 —— 它自主派活、审核回报，触发门会弹回这里。</span>
-      <span id="chat-context-gauge" class="badge mono" style="background:rgba(217,119,6,0.1);color:#d97706;border:1px solid rgba(217,119,6,0.25);padding:2px 8px;border-radius:12px;font-size:11px" title="实时上下文用量 / 最大 200k 窗口">📊 上下文: 5.7k / 200k (2.8%)</span>
+      <span id="chat-context-gauge" class="badge mono" style="background:rgba(217,119,6,0.1);color:#d97706;border:1px solid rgba(217,119,6,0.25);padding:2px 8px;border-radius:12px;font-size:11px;cursor:help" title="实时模型运作遥测与上下文监控">📊 上下文: 0.6k / 200k (0.3%) | ⚡ 缓存: 0% | 💰 $0.000</span>
       <label style="display:inline-flex;align-items:center;gap:4px">📁 工作区 <select id="chat-workspace-select" style="width:auto;max-width:160px;padding:3px 8px;font-size:12px"></select><button class="act" id="chat-workspace-browse-btn" type="button" style="padding:2px 6px;font-size:11px;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)" title="调起系统文件管理器选取本地文件夹">📁 浏览</button><button class="act" id="chat-workspace-tree-btn" type="button" style="padding:2px 6px;font-size:11px;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)" title="打开网页目录树选择器">🗂️ 目录树</button></label>
       <label>头犬 <select id="chat-head-select" style="width:auto;padding:3px 8px;font-size:12px"></select></label>
       <label id="chat-head-provider-wrap" style="display:none">Provider <select id="chat-head-provider" style="width:auto;padding:3px 8px;font-size:12px"></select></label>
@@ -2799,17 +2799,52 @@ ${getCollaborationStyles()}
   function updateContextGauge() {
     var gaugeEl = document.getElementById('chat-context-gauge');
     if (!gaugeEl) return;
-    var sessionParam = chatSessionId ? '?session=' + encodeURIComponent(chatSessionId) : '';
-    getJson('/api/chat/context-gauge' + sessionParam).then(function (data) {
+    var params = [];
+    if (chatSessionId) params.push('session=' + encodeURIComponent(chatSessionId));
+    var headSelect = document.getElementById('chat-head-select');
+    var variantSelect = document.getElementById('chat-head-variant');
+    if (variantSelect && variantSelect.value) {
+      params.push('model=' + encodeURIComponent(variantSelect.value));
+    } else if (headSelect && headSelect.value) {
+      params.push('adapter=' + encodeURIComponent(headSelect.value));
+    }
+    var query = params.length > 0 ? '?' + params.join('&') : '';
+    getJson('/api/chat/context-gauge' + query).then(function (data) {
       if (!data || !data.ok || !data.gauge) return;
       var g = data.gauge;
       var kTotal = ((g.t_total || 0) / 1000).toFixed(1) + 'k';
-      var kMax = ((g.t_max || 200000) / 1000).toFixed(0) + 'k';
-      gaugeEl.textContent = '📊 上下文: ' + kTotal + ' / ' + kMax + ' (' + g.percent + '%)';
-      gaugeEl.title = '系统: ' + g.t_sys + ' · 工具: ' + g.t_tools + ' · 历史: ' + g.t_hist + ' · 缓存命中: ' + Math.round(g.cache_hit_ratio * 100) + '%';
+      var kMax = (g.t_max >= 1000000) ? ((g.t_max / 1000000).toFixed(1) + 'M') : (((g.t_max || 200000) / 1000).toFixed(0) + 'k');
+      var cachePct = Math.round((g.cache_hit_ratio || 0) * 100);
+      var inK = ((g.in_cnt || 0) / 1000).toFixed(1) + 'k';
+      var outK = ((g.out_cnt || 0) / 1000).toFixed(1) + 'k';
+      var costStr = g.is_free ? '免额度 免费' : ('$' + Number(g.cost_usd || 0).toFixed(4));
+
+      gaugeEl.textContent = '📊 上下文: ' + kTotal + ' / ' + kMax + ' (' + g.percent + '%) | ⚡ 缓存: ' + cachePct + '% | 📥 ' + inK + ' 📤 ' + outK + ' | 💰 ' + costStr;
+
+      gaugeEl.title = '模型: ' + (g.model_id || '未知') +
+        '\\n• 窗口上限: ' + (g.t_max || 0) +
+        '\\n• 当前水位: ' + (g.t_total || 0) + ' (' + g.percent + '%)' +
+        '\\n• 📥 输入: ' + (g.in_cnt || 0) +
+        '\\n• 📤 输出: ' + (g.out_cnt || 0) +
+        (g.reason_cnt ? ('\\n• 🧠 思考推理: ' + g.reason_cnt) : '') +
+        '\\n• ⚡ 缓存命中: ' + cachePct + '% (读 ' + (g.cache_read || 0) + ')' +
+        '\\n• 💰 预估费用: ' + (g.is_free ? '0 USD (免费模型)' : ('$' + Number(g.cost_usd || 0).toFixed(6)));
+
+      // 动态颜色提示
+      if (g.is_free) {
+        gaugeEl.style.color = '#10b981';
+        gaugeEl.style.background = 'rgba(16,185,129,0.1)';
+        gaugeEl.style.borderColor = 'rgba(16,185,129,0.25)';
+      } else if (g.percent > 75) {
+        gaugeEl.style.color = '#ef4444';
+        gaugeEl.style.background = 'rgba(239,68,68,0.1)';
+        gaugeEl.style.borderColor = 'rgba(239,68,68,0.25)';
+      } else {
+        gaugeEl.style.color = '#d97706';
+        gaugeEl.style.background = 'rgba(217,119,6,0.1)';
+        gaugeEl.style.borderColor = 'rgba(217,119,6,0.25)';
+      }
     }).catch(function () {});
-
-
   }
 
   function triggerChatCompact() {
@@ -4035,12 +4070,14 @@ ${getCollaborationStyles()}
   document.getElementById('chat-session-select').addEventListener('change', function () {
     switchChatSession(this.value);
   });
-  // GOAL-017B #2/#3：级联选择联动（harness 切换 → provider 切换 → 变体重算 + 徽章链刷新）。
+  // GOAL-017B #2/#3：级联选择联动（harness 切换 → provider 切换 → 变体重算 + 徽章链刷新 + 上下文水位与费率刷新）。
   document.getElementById('chat-head-select').addEventListener('change', renderHeadProviderOptions);
   document.getElementById('chat-head-select').addEventListener('change', renderHeadVariantOptions);
+  document.getElementById('chat-head-select').addEventListener('change', updateContextGauge);
   var chatHeadProv = document.getElementById('chat-head-provider');
-  if (chatHeadProv) chatHeadProv.addEventListener('change', renderHeadVariantOptions);
+  if (chatHeadProv) chatHeadProv.addEventListener('change', function () { renderHeadVariantOptions(); updateContextGauge(); });
   document.getElementById('chat-head-variant').addEventListener('change', renderHeadDogBadge);
+  document.getElementById('chat-head-variant').addEventListener('change', updateContextGauge);
 
   document.getElementById('chat-head-variant').addEventListener('change', function () {
     renderDynamicThinkingOptions(this.value);

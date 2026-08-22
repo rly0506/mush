@@ -139,12 +139,12 @@ export function classifyModelTier(
     modelId === contract.expected_model_id ||
     (contract.variants && contract.variants.includes(modelId)) ||
     (contract.adapter_id.includes('deepseek') && modelId.startsWith('deepseek-v4')) ||
-    (contract.adapter_id.includes('kimi') && (modelId === 'tbtk-kimi-k3' || modelId === 'kimi-k1.5'));
+    (contract.adapter_id.includes('kimi') && (modelId === 'tbtk-kimi-k3' || modelId === 'kimi-k1.5')) ||
+    (contract.adapter_id.includes('opencode') && (modelId.includes('free') || modelId === 'grok-4.5' || modelId === 'glm-5.3'));
 
   if (isKnownConfigured) {
     return 'T2_CONFIGURED';
   }
-
 
   // 3. 通道参数支持检查：若该犬不支持 --model 旗标（如 kimi/dsh/zcode），且非配置模型，标记为受阻
   const supportsModelFlag =
@@ -152,7 +152,8 @@ export function classifyModelTier(
     contract.protocol === 'pi-rpc' ||
     contract.adapter_id.startsWith('agy') ||
     contract.adapter_id.includes('claude') ||
-    contract.adapter_id.includes('codex');
+    contract.adapter_id.includes('codex') ||
+    contract.adapter_id.includes('opencode');
 
   if (!supportsModelFlag) {
     return 'T0_BLOCKED';
@@ -323,7 +324,7 @@ export function parseCcSwitchProviders(appType: string): {
         if (pModels.length === 0) {
           if (appType === 'claude') pModels = ['claude-sonnet-4-6', 'claude-opus-4-6-thinking'];
           else if (appType === 'codex') pModels = ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.2'];
-          else if (appType === 'opencode') pModels = ['grok-4.5'];
+          else if (appType === 'opencode') pModels = ['opencode/free', 'openrouter/free', 'qwen-2.5-coder-32b:free', 'deepseek-r1:free', 'glm-4-flash:free', 'grok-4.5', 'glm-5.3'];
           else pModels = ['default-model'];
         } else if (appType === 'codex') {
           const codexFamily = ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.2'];
@@ -828,8 +829,16 @@ export function discoverHarnessGroupedModels(contract: AdapterContract): Harness
         grouped['OpenAI (Codex)'] = ['gpt-5.6-codex', 'gpt-5.2-preview', 'o3-mini'];
         grouped['OpenAI (Codex)'].forEach((m) => models.add(m));
       } else {
-        grouped['OpenCode (Community)'] = ['grok-4.5', 'glm-5.3'];
-        grouped['OpenCode (Community)'].forEach((m) => models.add(m));
+        grouped['OpenCode (Free & Community)'] = [
+          'opencode/free',
+          'openrouter/free',
+          'qwen-2.5-coder-32b:free',
+          'deepseek-r1:free',
+          'glm-4-flash:free',
+          'grok-4.5',
+          'glm-5.3',
+        ];
+        grouped['OpenCode (Free & Community)'].forEach((m) => models.add(m));
       }
     }
   }

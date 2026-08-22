@@ -63,6 +63,13 @@ export const DEFAULT_MODEL_PRICING: Record<string, ModelPricingRate> = {
   'grok-4.5-latest': { inputPerMillion: 2.00, outputPerMillion: 10.00, cacheReadPerMillion: 0.50, cacheWritePerMillion: 2.00 },
 };
 
+export const FREE_MODEL_PRICING: ModelPricingRate = {
+  inputPerMillion: 0,
+  outputPerMillion: 0,
+  cacheReadPerMillion: 0,
+  cacheWritePerMillion: 0,
+};
+
 export const FALLBACK_PRICING: ModelPricingRate = {
   inputPerMillion: 1.0,
   outputPerMillion: 3.0,
@@ -70,8 +77,30 @@ export const FALLBACK_PRICING: ModelPricingRate = {
   cacheWritePerMillion: 1.0,
 };
 
+/**
+ * 判定模型是否为 0-Token / 免费 / 本地开源模型。
+ */
+export function isFreeModel(modelId: string): boolean {
+  if (!modelId || modelId === 'UNKNOWN') return false;
+  const key = modelId.toLowerCase().trim();
+  return (
+    key.includes(':free') ||
+    key.endsWith('/free') ||
+    key.includes('openrouter/free') ||
+    key.includes('opencode/free') ||
+    key.startsWith('free/') ||
+    key.startsWith('ollama/') ||
+    key.startsWith('local/') ||
+    key.includes('glm-4-flash:free') ||
+    key.includes('gemini-2.0-flash-exp:free') ||
+    key.includes('qwen-2.5-coder-32b:free') ||
+    key.includes('deepseek-r1:free')
+  );
+}
+
 export function findPricingRate(modelId: string): ModelPricingRate {
   if (!modelId || modelId === 'UNKNOWN') return FALLBACK_PRICING;
+  if (isFreeModel(modelId)) return FREE_MODEL_PRICING;
   const key = modelId.toLowerCase().trim();
   if (DEFAULT_MODEL_PRICING[key]) return DEFAULT_MODEL_PRICING[key];
 
@@ -91,6 +120,7 @@ export function findPricingRate(modelId: string): ModelPricingRate {
 }
 
 export function calculateUsageCost(modelId: string, usage: TokenUsageStats): number {
+  if (isFreeModel(modelId)) return 0;
   const rate = findPricingRate(modelId);
   const inputCost = (usage.inputTokens / 1_000_000) * rate.inputPerMillion;
   const outputCost = (usage.outputTokens / 1_000_000) * rate.outputPerMillion;
@@ -98,3 +128,104 @@ export function calculateUsageCost(modelId: string, usage: TokenUsageStats): num
   const cacheWriteCost = ((usage.cacheWriteTokens || 0) / 1_000_000) * (rate.cacheWritePerMillion || rate.inputPerMillion * 1.25);
   return Number((inputCost + outputCost + cacheReadCost + cacheWriteCost).toFixed(6));
 }
+
+export const DEFAULT_MODEL_CONTEXT_LIMITS: Record<string, number> = {
+  // Gemini / AGY Family: 1M or 2M tokens
+  'gemini-3.7-flash-high': 1_048_576,
+  'gemini-3.7-flash-medium': 1_048_576,
+  'gemini-3.7-flash-low': 1_048_576,
+  'gemini-3.7-flash': 1_048_576,
+  'gemini-3.1-pro-high': 2_097_152,
+  'gemini-3.1-pro-low': 2_097_152,
+  'gemini-3.1-pro': 2_097_152,
+  'gemini-2.5-pro': 2_097_152,
+  'gemini-2.5-flash': 1_048_576,
+  'gemini-2.0-flash': 1_048_576,
+  'gemini-2.0-pro': 2_097_152,
+
+  // Claude Family: 200k tokens
+  'claude-sonnet-5': 200_000,
+  'claude-opus-5': 200_000,
+  'claude-fable-5': 200_000,
+  'claude-sonnet-4-6': 200_000,
+  'claude-sonnet-4-5': 200_000,
+  'claude-opus-4-6': 200_000,
+  'claude-opus-4-8': 200_000,
+  'claude-haiku-4-5': 200_000,
+  'claude-3-7-sonnet': 200_000,
+  'claude-3-5-sonnet': 200_000,
+
+  // Kimi Family: K3 is 1M tokens, k1.5 is 128k
+  'kimi-k3': 1_000_000,
+  'tbtk-kimi-k3': 1_000_000,
+  'kimi-k1.5': 128_000,
+  'moonshot-v1-128k': 128_000,
+  'moonshot-v1-32k': 32_000,
+
+  // DeepSeek Family: 128k
+  'deepseek-v4-pro': 131_072,
+  'deepseek-v4-flash': 131_072,
+  'deepseek-chat': 131_072,
+  'deepseek-reasoner': 131_072,
+  'deepseek-v3': 131_072,
+  'deepseek-r1': 131_072,
+
+  // GPT / Codex Family: 128k or 200k
+  'gpt-5.6-sol': 200_000,
+  'gpt-5.6': 200_000,
+  'gpt-5.1-codex-max': 200_000,
+  'gpt-5': 200_000,
+  'gpt-4.5': 128_000,
+  'gpt-4.1': 128_000,
+  'gpt-4.1-mini': 128_000,
+  'o3-mini': 200_000,
+  'o1': 200_000,
+  'gpt-4o': 128_000,
+
+  // GLM / ZCode Family: 128k
+  'zai/glm-5.3': 131_072,
+  'zai/glm-5.2': 131_072,
+  'glm-5.3': 131_072,
+  'glm-4-plus': 131_072,
+
+  // Grok Family: 500k
+  'grok-4.5': 500_000,
+  'grok-4.5-latest': 500_000,
+  'grok-4.6': 500_000,
+
+  // OpenCode / Free / Small models
+  'opencode/free': 131_072,
+  'openrouter/free': 131_072,
+  'qwen-2.5-coder-32b:free': 131_072,
+  'deepseek-r1:free': 131_072,
+};
+
+/**
+ * 动态获取指定模型的最大上下文窗口容量（Tokens）。
+ */
+export function getModelContextLimit(modelId: string): number {
+  if (!modelId || modelId === 'UNKNOWN') return 131_072;
+  const key = modelId.toLowerCase().trim();
+  if (DEFAULT_MODEL_CONTEXT_LIMITS[key]) return DEFAULT_MODEL_CONTEXT_LIMITS[key];
+
+  // Exact or contains match in dictionary
+  for (const [k, v] of Object.entries(DEFAULT_MODEL_CONTEXT_LIMITS)) {
+    if (key.includes(k) || k.includes(key)) {
+      return v;
+    }
+  }
+
+  // Smart family heuristic
+  if (key.includes('gemini') || key.includes('agy')) return 1_048_576; // 1M default for Gemini
+  if (key.includes('kimi-k3') || key.includes('kimi-3')) return 1_000_000; // 1M default for K3
+  if (key.includes('grok')) return 500_000; // 500k default for Grok
+  if (key.includes('claude') || key.includes('sonnet') || key.includes('opus') || key.includes('gpt-5') || key.includes('o3') || key.includes('o1')) {
+    return 200_000;
+  }
+  if (key.includes('deepseek') || key.includes('dsh') || key.includes('glm') || key.includes('kimi') || key.includes('gpt-4')) {
+    return 131_072;
+  }
+
+  return 131_072; // Standard default 128k
+}
+
