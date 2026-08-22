@@ -522,6 +522,7 @@ ${getCollaborationStyles()}
 
       <label>会话 <select id="chat-session-select" style="width:auto;padding:3px 8px;font-size:12px"><option value="">（新会话）</option></select></label>
       <span class="mono" id="chat-session-label"></span>
+      <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer" title="独奏直聊模式：仅与头犬一对一单聊，头犬独立完成所有分析与写码，不唤醒或派发任何子犬"><input type="checkbox" id="chat-solo-toggle"> 🔕 独奏直聊</label>
       <label><input type="checkbox" id="notify-toggle"> 浏览器通知</label>
       <button class="act" id="chat-compact-btn" type="button" style="padding:3px 10px;font-size:12px;background:rgba(16,185,129,0.1);color:#059669;border:1px solid rgba(16,185,129,0.3)" title="提取结构化会话不变式并压缩上下文">📦 状态压缩</button>
       <button class="act cancel" id="chat-new-session" type="button" style="padding:3px 10px;font-size:12px">新会话</button>
@@ -2758,6 +2759,8 @@ ${getCollaborationStyles()}
     if (headSel && headSel.value) payload.adapter_id = headSel.value;
     if (variantSel && variantSel.value) payload.model_id = variantSel.value;
     if (effortSel && effortSel.value) payload.effort = effortSel.value;
+    var soloToggle = document.getElementById('chat-solo-toggle');
+    if (soloToggle && soloToggle.checked) payload.solo = true;
     postJson('/api/chat', payload).then(function (result) {
       var data = result.body || {};
       if (result.status === 202 && data.ok) {

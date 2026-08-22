@@ -215,6 +215,15 @@ export function getModelContextLimit(modelId: string): number {
     }
   }
 
+  // Explicit suffix/tag detection (e.g., -1m, -2m, -256k, -long)
+  if (key.includes('2m') || key.includes('2048k')) return 2_097_152;
+  if (key.includes('1m') || key.includes('1000k') || key.includes('1024k') || key.includes('-long')) return 1_048_576;
+  if (key.includes('500k') || key.includes('512k')) return 524_288;
+  if (key.includes('256k')) return 262_144;
+  if (key.includes('128k')) return 131_072;
+  if (key.includes('64k')) return 65_536;
+  if (key.includes('32k')) return 32_768;
+
   // Smart family heuristic
   if (key.includes('gemini') || key.includes('agy')) return 1_048_576; // 1M default for Gemini
   if (key.includes('kimi-k3') || key.includes('kimi-3')) return 1_000_000; // 1M default for K3

@@ -1106,6 +1106,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
             adapter_id: typeof body.adapter_id === 'string' ? body.adapter_id : undefined,
             effort: typeof body.effort === 'string' ? body.effort : undefined,
             attachments: Array.isArray(body.attachments) ? body.attachments as any : undefined,
+            solo: body.solo === true,
           });
           sendJson(response, 202, { ok: true, ...result });
         } catch (error) {

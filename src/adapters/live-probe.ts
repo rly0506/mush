@@ -300,8 +300,15 @@ export function parseCcSwitchProviders(appType: string): {
         settings_config: string | null;
       }>;
 
+      let hasCurrentMarked = false;
       for (const r of rows) {
-        const isCurrent = r.id === currentId || r.is_current === 1;
+        let isCurrent = false;
+        if (currentId) {
+          isCurrent = r.id === currentId;
+        } else if (r.is_current === 1 && !hasCurrentMarked) {
+          isCurrent = true;
+        }
+        if (isCurrent) hasCurrentMarked = true;
         let pModels: string[] = [];
         try {
           const cfg = JSON.parse(r.settings_config || '{}') as Record<string, unknown>;
@@ -598,6 +605,19 @@ export function getHarnessHierarchy(contractOrId: AdapterContract | string): Har
 
   // Sort: current active provider first
   providers.sort((a, b) => (b.is_current ? 1 : 0) - (a.is_current ? 1 : 0));
+
+  // 严格确保全列表有且仅有第 1 个 provider 带有 is_current: true
+  let foundActive = false;
+  for (const p of providers) {
+    if (p.is_current && !foundActive) {
+      foundActive = true;
+    } else {
+      p.is_current = false;
+    }
+  }
+  if (!foundActive && providers.length > 0) {
+    providers[0].is_current = true;
+  }
 
   if (providers.length === 0) {
     providers.push({

@@ -47,6 +47,14 @@ export const HEAD_DOG_CHARTER = `[系统角色设定]
   3. 安全与质量把关：严格执行单机安全红线，审查工犬回执，给出明确的验收裁决。
 请用专业、精炼、清晰的中文回复人类 Owner。`;
 
+export const SOLO_HEAD_DOG_CHARTER = `[系统角色设定：独奏直聊模式（Solo Direct Mode）]
+你与人类 Owner 处于 1 对 1 沉浸式直聊模式。
+在此模式下：
+  1. 你全权负责当前需求的一切思考、方案规划、代码生成与答疑；
+  2. 严禁向外部工犬派发子任务或转交第三方 Agent；
+  3. 请直接输出完整、详尽、高质量的解决方案和代码实现。`;
+
+
 export class ChatService extends EventEmitter {
   private readonly runtimeRoot: string;
   private readonly pipeline: DispatchPipeline;
@@ -124,7 +132,7 @@ export class ChatService extends EventEmitter {
    *  立即返回 202 异步受理回执；后台异步执行并通过 SSE chat 帧流式推送；
    *  校验错误（空消息/未知/未验证 adapter/非法 effort）仍同步抛（HTTP 400）。
    */
-  async post(input: { message: string; resume?: string; adapter_id?: string; effort?: string; attachments?: AttachmentInput[] }): Promise<ChatAck> {
+  async post(input: { message: string; resume?: string; adapter_id?: string; effort?: string; attachments?: AttachmentInput[]; solo?: boolean }): Promise<ChatAck> {
     const message = String(input.message ?? '').trim();
     if (message === '') throw new Error('message must be non-blank');
     const requestedAdapter =
@@ -158,7 +166,7 @@ export class ChatService extends EventEmitter {
     });
 
     // 后台执行：ADMITTED → EXECUTE(增量) → HEARTBEAT → REPORT。
-    const run = this.execute(adapterId, effort, sessionId, dispatchId, message, storedAttachments);
+    const run = this.execute(adapterId, effort, sessionId, dispatchId, message, storedAttachments, input.solo === true);
     this.pending.set(dispatchId, run);
     void run.finally(() => this.pending.delete(dispatchId));
 
@@ -179,6 +187,7 @@ export class ChatService extends EventEmitter {
     dispatchId: string,
     message: string,
     attachments: StoredAttachment[] = [],
+    solo: boolean = false,
   ): Promise<void> {
     const startedAt = Date.now();
     this.emitFrame('ADMITTED', sessionId, dispatchId, { status: 'ADMITTED' });
@@ -189,10 +198,11 @@ export class ChatService extends EventEmitter {
       : '';
     // 累加增量文本作为回复全文（REPORT 用）；若通道未给增量，回退 stdout_tail。
     let replyAccum = '';
+    const activeCharter = solo ? SOLO_HEAD_DOG_CHARTER : HEAD_DOG_CHARTER;
     try {
       const record = await this.pipeline.dispatch({
         adapter_id: adapterId,
-        prompt: HEAD_DOG_CHARTER + transcript + (attachments.length > 0 ? '\n\n[附加本地图片/多模态视觉文件]:\n' + attachments.map((a, i) => `  ${i + 1}. ${a.name} -> ${a.localPath}`).join('\n') : '') + '\n\nOwner: ' + message,
+        prompt: activeCharter + transcript + (attachments.length > 0 ? '\n\n[附加本地图片/多模态视觉文件]:\n' + attachments.map((a, i) => `  ${i + 1}. ${a.name} -> ${a.localPath}`).join('\n') : '') + '\n\nOwner: ' + message,
         effort,
         real: true, // 聊天即真实执行；GP-32/D30：owner 亲自敲字即批准（originOwner）
         timeout_s: 300,
