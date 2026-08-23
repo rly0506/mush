@@ -30,11 +30,11 @@ test('GOAL-066 MVP Desktop Packaging & Pilot Release Suite', async (t) => {
     assert.match(content, /责任限制/);
   });
 
-  await t.test('3. package.json contains v0.1.0-pilot version and Apache-2.0 license', () => {
+  await t.test('3. package.json contains v0.1.1-pilot version and Apache-2.0 license', () => {
     const pkgPath = path.join(root, 'package.json');
     assert.ok(existsSync(pkgPath));
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
-    assert.equal(pkg.version, '0.1.0-pilot');
+    assert.equal(pkg.version, '0.1.1-pilot');
     assert.equal(pkg.license, 'Apache-2.0');
     assert.ok(pkg.scripts?.start);
     assert.ok(pkg.scripts?.['build:desktop']);

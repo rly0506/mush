@@ -330,3 +330,11 @@
 | # | 决策点 | 决议 | 依据 |
 | --- | --- | --- | --- |
 | D80 | src/loop 子系统定性归档为 Fixture 参照资产；单机威胁模型在契约中明示 | (1) **loop 归档（F2 选 B）**：`src/loop/*`（LoopStateMachine/approval-gate/review/scan/closure/role-swap）定性为 **M1 奠基参照与离线机检 fixture 资产**，保留全部文件与测试；生产治理链路由 DispatchPipeline（dispatch.ts 审批卡 + 一次性令牌 + 生命周期事件）承担，二者不再追求合流，架构重复就此封账；(2) **威胁模型明示（S5 选 A）**：mush 为单机 loopback 工具，「本机即信任边界」——GET 只读端点免 Caller Token、Token 本身可本机获取，其安全定位是 **CSRF/跨站防线** 而非身份鉴别；此取舍写入 api-contract.md 威胁模型章节；(3) **代码侧配套**：fs-tree 阻断 UNC 路径（封死跨站触发 SMB 探测的凭据泄漏原语），time-travel 双侧路径包含性校验，memory/distill session_id 白名单。 | owner 2026-08-22 对 GOAL-067 四项争议点逐一裁决（F1 选 A 补路由 / F2 选 B 归档 / F3 折中真数据+标注 / S5 选 A 文档+UNC 阻断）；七组并行深审证实 loop 生产零接线且规则已分叉，GET 免 token 为既有设计立场 |
+
+---
+
+## 2026-08-23 第四十一批决议（GOAL-068/069 收官、原生选目录建完即切与试运行版本升级）
+
+| # | 决策点 | 决议 | 依据 |
+| --- | --- | --- | --- |
+| D81 | GOAL-068/GOAL-069 正式 DONE；原生目录选择「建完即切」缺陷修复；试运行版本升级 v0.1.1-pilot | (1) owner 判定 GOAL-068（多项目完全数据隔离与热切换引擎，commit `0606cb9`）与 GOAL-069（TypeScript 严格类型门禁，commit `4311740`）正式 DONE；(2) 修复 `POST /api/workspaces/browse-native` 新建成功分支不选中的缺陷，对齐契约 v1.42「选定即设为激活工作区」语义：新建或既有目录一律 selectWorkspace + activateWorkspaceContext 热切换数据面，前端统一 `onWorkspaceSwitched()` 级联刷新（任务池/聊天历史/看板）；(3) 试运行版本号升级至 `v0.1.1-pilot`（package.json / package-lock / EULA / 发版指南 / 桌面打包脚本 / g066 机检断言同步）。 | owner 2026-08-23 批复「A.DONE / B.可以执行」；机检验收 typecheck 零错误 + 576/576 全绿 |

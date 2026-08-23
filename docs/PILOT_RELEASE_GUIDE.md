@@ -1,6 +1,6 @@
 # mush 商业化试运行发版指南 (Pilot Release Guide)
 
-**版本**: `v0.1.0-pilot`  
+**版本**: `v0.1.1-pilot`  
 **代号**: 原厂战衣联邦 (Native Harness Federation)  
 
 ---
@@ -24,7 +24,7 @@ mush 不把大模型抹平成均码的裸 API，而是作为**本地总线编排
 我们提供两种极简分发形态，适配不同开发者习惯：
 
 ### 🌟 形态 1：绿色免安装桌面包（最推荐，0 配置解压即用）
-1. 从 Releases 或网盘下载 **`mush-v0.1.0-pilot-windows-x64.zip`**；
+1. 从 Releases 或网盘下载 **`mush-v0.1.1-pilot-windows-x64.zip`**；
 2. 解压到任意本地目录（如 `D:\mush` 或 `C:\Tools\mush`）；
 3. 双击运行解压后文件夹根目录下的 **`mush-start.cmd`**（或右键发送到桌面快捷方式）；
 4. 系统将自动在后台拉起本地守护服务，并在默认浏览器中自动弹出协同看板：`http://127.0.0.1:4790/`。

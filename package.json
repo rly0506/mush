@@ -1,6 +1,6 @@
 {
   "name": "mush",
-  "version": "0.1.0-pilot",
+  "version": "0.1.1-pilot",
   "private": true,
   "description": "个人跨 harness 原生多 Agent 协同工作台（雪橇队）",
   "license": "Apache-2.0",

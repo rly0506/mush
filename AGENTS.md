@@ -77,7 +77,7 @@ mush 是个人跨 harness 多 agent 编排工具（雪橇队）。你在本仓�
 - **RM-009：通用挂载、动态思维链、工犬直连与智能 Resume** ✅（GOAL-058 ~ GOAL-062，自由工作区挂载/多厂商思维链动态Spec/头像直连抽屉/Child Auto-Resume/DoD收官工具/多Provider动态发现与犬队医生 D76~D77）；
 - **RM-010：商业化就绪、零信任安全加固与 MVP 发版** ✅（GOAL-063 ~ GOAL-066，Caller-Token 零信任鉴权闭环/CSRF与沙箱白名单/服务端权威预算与台账持久化/EPIPE与进程树杀/Fail-Closed纠偏/Apache-2.0与EULA/桌面便携打包 D79）。
 
-**基线 557 tests 100% 全绿（24 suites, 0 fail）**；版本升级至 `v0.1.0-pilot`；奠基决议落地至 `D79`。
+**基线 576 tests 100% 全绿（24 suites, 0 fail）+ typecheck 零错误门禁**；版本升级至 `v0.1.1-pilot`；奠基决议落地至 `D81`。
 犬队在册（deepseek/claude/kimi/zcode/codex/opencode/pi/agy；codex 因 F-50 故障禁任头犬；pi-rpc 通道实测贯通以绕开 DEF-13 上游挂起）。
 findings 默认裁决：docs/auto-decisions-log.md（D16）。
 GitHub 私有远端同步为常规动作（D19）；无人值守调度器仍默认关（D8）。

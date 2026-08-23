@@ -764,10 +764,11 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
               try {
                 dispatch.createWorkspace(selected);
               } catch {
-                dispatch.selectWorkspace(selected);
-                // GOAL-068：原生目录选择即选中——热切换数据面上下文。
-                activateWorkspaceContext(selected);
+                // 目录已登记（already exists）或不可建——统一交由下方选中路径处理。
               }
+              dispatch.selectWorkspace(selected);
+              // GOAL-068 / B1 建完即切：原生目录选定即选中并热切换数据面上下文。
+              activateWorkspaceContext(selected);
               sendJson(response, 200, { ok: true, path: selected, workspaces: dispatch.listWorkspaces() });
             } catch (regErr) {
               sendJson(response, 200, { ok: true, path: selected, warning: regErr instanceof Error ? regErr.message : String(regErr), workspaces: dispatch.listWorkspaces() });

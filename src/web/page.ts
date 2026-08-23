@@ -1489,8 +1489,8 @@ ${getCollaborationStyles()}
           workspaces = data.workspaces;
           renderWorkspaces();
         }
-        toast('已成功选取并登记工作区: ' + data.path, true);
-        refresh();
+        toast('已选取并切换工作区: ' + data.path, true);
+        onWorkspaceSwitched();
       } else if (data.cancelled) {
         toast('已取消文件夹选择', false);
       } else if (data.error) {

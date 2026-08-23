@@ -17,7 +17,13 @@ test('1. Board page HTML renders workspace native browse and tree picker buttons
   assert.ok(html.includes('id="ws-dir-list-container"'), 'ws-dir-list-container must exist');
 });
 
-test('2. GET /api/workspaces/fs-tree returns drives or subdirectories', async () => {
+test('2. Native picker success cascades full workspace-switch refresh', () => {
+  const html = renderBoardPage();
+  const m = /postJson\('\/api\/workspaces\/browse-native'[\s\S]{0,500}?onWorkspaceSwitched\(\)/.exec(html);
+  assert.ok(m, 'browse-native handler must cascade onWorkspaceSwitched');
+});
+
+test('3. GET /api/workspaces/fs-tree returns drives or subdirectories', async () => {
   const root = mkdtempSync(path.join(tmpdir(), 'mush-test-ws-'));
   const approvalRoot = path.join(root, 'approval-requests');
   const workspaceRoot = path.join(root, 'workspace');
