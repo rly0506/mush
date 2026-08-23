@@ -113,6 +113,8 @@ export interface BoardServerOptions {
   /** GOAL-030（GP-32②）：调用者身份鉴别 Token 与安全拦截。 */
   callerToken?: string;
   enforceCallerToken?: boolean;
+  /** Browse-Fix-1：原生目录弹窗脚本路径覆写（测试注入无 UI 桩脚本用）。 */
+  browseFolderScript?: string;
 }
 
 export interface BoardServer {
@@ -747,9 +749,10 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         }
         try {
           const { execFile } = await import('node:child_process');
-          const psScript = existsSync(path.resolve('scripts/browse-folder.ps1'))
-            ? path.resolve('scripts/browse-folder.ps1')
-            : path.resolve(workspaceRoot, 'scripts/browse-folder.ps1');
+          const psScript = options.browseFolderScript
+            ?? (existsSync(path.resolve('scripts/browse-folder.ps1'))
+              ? path.resolve('scripts/browse-folder.ps1')
+              : path.resolve(workspaceRoot, 'scripts/browse-folder.ps1'));
           const child = execFile('powershell', ['-NoProfile', '-STA', '-File', psScript], { timeout: 120000, encoding: 'utf8' }, (err, stdout) => {
             if (err) {
               sendJson(response, 200, { ok: false, error: err.message });
@@ -774,8 +777,10 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
               sendJson(response, 200, { ok: true, path: selected, warning: regErr instanceof Error ? regErr.message : String(regErr), workspaces: dispatch.listWorkspaces() });
             }
           });
-          request.once('close', () => {
-            if (!child.killed) {
+          // 仅在客户端真正过早断开时收割子进程（response 未写完即关闭）。
+          // 不可用 request 'close'：Node>=15 语义下报文收全即触发，会误杀正常弹窗。
+          response.once('close', () => {
+            if (!response.writableEnded && !child.killed) {
               try { child.kill(); } catch {}
             }
           });
