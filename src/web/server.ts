@@ -315,7 +315,11 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       workspaceRoot: resolved,
       approvalRoot: nextApproval,
       ledgerPath: path.join(nextRuntime, 'budget-ledger.jsonl'),
-      registryPath: path.join(nextRuntime, 'capability-registry.json'),
+      // D82 批次修复：能力注册表与实测探针缓存是机器级事实（通道实证/模型清单），
+      // 全上下文共享同一份文件——不随工作区热切换被清零（否则 codex/opencode
+      // 切项目后被打回"未实证"）。
+      registryPath: dispatch.capabilityRegistryPath,
+      liveProbesPath: dispatch.liveProbeCachePath,
       persistence: nextPersistence,
       masterGate,
       onEvent: (event) => broadcast(event),

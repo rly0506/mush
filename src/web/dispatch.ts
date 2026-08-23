@@ -1519,6 +1519,17 @@ export class DispatchPipeline {
     return { ...this.liveProbes };
   }
 
+  /** 机器级共享文件路径：能力注册表。实证状态是机器级事实（D82 批次修复），
+   *  跨工作区上下文必须一致，不得随热切换落入 per-project runtime。 */
+  get capabilityRegistryPath(): string {
+    return this.registryPath;
+  }
+
+  /** 机器级共享文件路径：模型实测探针缓存（GOAL-025）。 */
+  get liveProbeCachePath(): string {
+    return this.liveProbesPath;
+  }
+
   /** G009 & GOAL-025：在册犬只名册（派发下拉/看板视图的取数源）——合同表投影 + 实测状态回填。
    * 只含身份字段，不含 executable 路径等敏感细节。
    * 测试假犬（fake-t1）不进名册——owner 2026-08-17 反馈：生产下拉不应出现
