@@ -130,6 +130,8 @@ export interface DispatchRequestSnapshot {
   workspace: string;
   timeout_s: number;
   model_id?: string;
+  /** D82 批次：本次任务指定的领队头犬（实证在册 + 头犬白名单校验后落快照）。 */
+  head_id?: string;
   profile?: string;
   stream_id?: string;
   goal_id?: string;
@@ -417,6 +419,32 @@ function applyProfile(contract: AdapterContract, profileName: string): AdapterCo
     throw new InputError(`adapter ${contract.adapter_id} has malformed --profile default`);
   }
   args[index + 1] = profileName;
+  return validateAdapterContract({ ...contract, arguments: args });
+}
+
+/** D82 批次：effort 值规范化——各通道 CLI 旗标值统一小写（codex/claude --effort、
+ *  opencode --variant、reasoning_effort 均小写）；token 预算数值原样；开关转小写。 */
+function normalizeEffortValue(effort: string): string {
+  if (/^\d+$/.test(effort)) return effort;
+  if (['TRUE', 'FALSE'].includes(effort)) return effort.toLowerCase();
+  return effort.toLowerCase();
+}
+
+/** D82 批次（思维强度全链路补全）：把请求档位真正注入合同 CLI 参数。
+ *  GP-22 此前只做校验层——档位在 spawn 前被静默丢弃，前端选 MAX 实际不生效；
+ *  本函数按合同 effort_injection（kind=flag）追加/改写旗标值。 */
+function applyEffortInjection(contract: AdapterContract, effort: string): AdapterContract {
+  const injection = contract.effort_injection;
+  if (injection === undefined || injection.kind !== 'flag' || injection.name === undefined) return contract;
+  const value = normalizeEffortValue(effort);
+  const args = [...contract.arguments];
+  const idx = args.indexOf(injection.name);
+  if (idx >= 0) {
+    if (idx + 1 >= args.length) throw new InputError(`adapter ${contract.adapter_id} has malformed ${injection.name} default`);
+    args[idx + 1] = value;
+  } else {
+    args.push(injection.name, value);
+  }
   return validateAdapterContract({ ...contract, arguments: args });
 }
 
@@ -853,6 +881,16 @@ export class DispatchPipeline {
     if (!effortLevels.includes(effort) && !isNumericEffort && !isToggleEffort) {
       throw new InputError(`effort must be one of ${effortLevels.join('|')} for ${adapterId}`);
     }
+    // D82 批次：档位真正进入 spawn 命令行（此前校验后被丢弃）。
+    effectiveContract = applyEffortInjection(effectiveContract, effort);
+    // D82 批次：派发可指定头犬——仅接受实证在册且头犬白名单内的通道。
+    const headId = typeof body.head_id === 'string' && body.head_id.trim() !== '' ? body.head_id.trim() : undefined;
+    if (headId !== undefined) {
+      const headCapable = new Set<string>([...VERIFIED_WHITELIST, ...this.registryVerified]);
+      if (!headCapable.has(headId)) {
+        throw new InputError(`head_id '${headId}' is not a verified head-capable adapter`);
+      }
+    }
     const serverCap = this.budgetCaps[adapterId] ?? DEFAULT_BUDGET_CAP_USD;
     const requestedCap = body.cap_usd !== undefined ? Number(body.cap_usd) : serverCap;
     if (!Number.isFinite(requestedCap) || requestedCap <= 0) throw new InputError('cap_usd must be > 0');
@@ -929,6 +967,7 @@ export class DispatchPipeline {
       cap_usd: capUsd,
       real,
       ...(modelId !== undefined ? { model_id: modelId } : {}),
+      ...(headId !== undefined ? { head_id: headId } : {}),
       ...(profile !== undefined ? { profile } : {}),
       ...(resolvedStream !== null ? { stream_id: resolvedStream.stream_id } : {}),
       ...(goalId !== undefined ? { goal_id: goalId } : {}),

@@ -646,6 +646,10 @@ ${getCollaborationStyles()}
           </div>
         </div>
         <div>
+          <label for="dispatch-head">头犬（本次任务的领队犬）</label>
+          <select id="dispatch-head"><option value="">（跟随工坊当前头犬默认）</option></select>
+        </div>
+        <div>
           <label for="dispatch-effort">effort 档位（D20）</label>
           <select id="dispatch-effort">
             <option>LOW</option>
@@ -1153,6 +1157,25 @@ ${getCollaborationStyles()}
       }).join('');
       renderDispatchProviderOptions();
 
+      // D82 批次：头犬指定下拉——实证在册（verified）且头犬白名单内的通道；
+      // 留空 = 跟随工坊当前头犬默认。
+      var headSelect = document.getElementById('dispatch-head');
+      if (headSelect) {
+        var prevHead = headSelect.value;
+        var HEAD_WHITELIST_LOCAL = { 'deepseek-dsh': 1, 'claude-code': 1, 'kimi-code': 1, 'zcode': 1, 'agy': 1 };
+        var headOpts = ['<option value="">（跟随工坊当前头犬默认）</option>'];
+        roster.forEach(function (r) {
+          var capable = r.verified && ((r.role === 'head') || HEAD_WHITELIST_LOCAL[r.adapter_id] === 1);
+          if (capable && r.adapter_id !== 'head-dog' && r.adapter_id !== 'fake-t1') {
+            headOpts.push('<option value="' + esc(r.adapter_id) + '">🐕 ' + esc(r.adapter_id) + '</option>');
+          }
+        });
+        headSelect.innerHTML = headOpts.join('');
+        if (prevHead && headOpts.some(function (o) { return o.indexOf('value="' + esc(prevHead) + '"') >= 0; })) {
+          headSelect.value = prevHead;
+        }
+      }
+
       // GOAL-028: 独立 Verifier 下拉（排除当前选中的生成犬）
       var verifierSelect = document.getElementById('dispatch-verifier');
       if (verifierSelect) {
@@ -1349,6 +1372,25 @@ ${getCollaborationStyles()}
       options = [
         { label: '深度思考 (Deep Think)', value: 'on', selected: true },
         { label: '快速响应 (Fast)', value: 'off' },
+      ];
+    } else if (m.indexOf('deepseek-v4') >= 0 || m.indexOf('deepseek/v4') >= 0) {
+      // D82 批次：DeepSeek V4 分级思维——官方 reasoning_effort low/high/max
+      // （xhigh→max、low/medium→high 兼容映射；max = Think Max 满档深度思考）。
+      options = [
+        { label: '关闭思考 (Off)', value: 'OFF' },
+        { label: '低 (low)', value: 'LOW' },
+        { label: '高 (high · 默认)', value: 'HIGH', selected: true },
+        { label: '满血 (max · Think Max)', value: 'MAX' },
+      ];
+    } else if (m.indexOf('opencode/') === 0 || m.indexOf('preview-f') >= 0 || m.indexOf('hy3') >= 0 || m.indexOf('mimo') >= 0 || m.indexOf('nemotron') >= 0 || m.indexOf('big-pickle') >= 0 || m.indexOf('muse-spark') >= 0) {
+      // D82 批次：opencode 承载模型（OX alpha / x-preview-f-free 等）——
+      // CLI --variant 直通底层 provider 的 reasoning effort，含 MAX 档。
+      options = [
+        { label: '极简 (minimal)', value: 'MINIMAL' },
+        { label: '低 (low)', value: 'LOW' },
+        { label: '中 (medium)', value: 'MEDIUM', selected: true },
+        { label: '高 (high)', value: 'HIGH' },
+        { label: '满血 (max)', value: 'MAX' },
       ];
     } else {
       options = [
@@ -1612,6 +1654,8 @@ ${getCollaborationStyles()}
     if (modelSel && modelSel.value) body.model_id = modelSel.value;
     var topologySel = document.getElementById('dispatch-topology');
     if (topologySel && topologySel.value) body.topology_mode = topologySel.value;
+    var headSel = document.getElementById('dispatch-head');
+    if (headSel && headSel.value) body.head_id = headSel.value;
     var verifierSel = document.getElementById('dispatch-verifier');
     if (verifierSel && verifierSel.value) body.verifier_dog = verifierSel.value;
     postJson('/api/dispatch', body).then(function (result) {

@@ -1282,6 +1282,49 @@ export function getModelThinkingSpec(modelId: string): ThinkingCapabilitySpec {
     };
   }
 
+  // 4.5 D82 批次：DeepSeek V4（v4-flash / v4-pro，含经 opencode 转介的 deepseek/*）。
+  // 官方 thinking.type=enabled + reasoning_effort ∈ {low, high, max}
+  // （api-docs.deepseek.com/guides/thinking_mode，2026-04 起；xhigh→max、
+  // low/medium→high 为兼容映射；max = Think Max 50K+ tokens）。
+  if (m.includes('deepseek-v4') || m.includes('deepseek/v4')) {
+    return {
+      type: 'categorical',
+      options: [
+        { label: '关闭思考 (Off)', value: 'off' },
+        { label: '低 (low)', value: 'low' },
+        { label: '高 (high · 默认)', value: 'high' },
+        { label: '满血 (max · Think Max)', value: 'max' },
+      ],
+      default_value: 'high',
+    };
+  }
+
+  // 4.8 D82 批次：opencode 承载的任意模型（OX alpha / x-preview-f-free /
+  // hy3-free / mimo / nemotron 等）。CLI --variant 直通底层 provider 的
+  // reasoning effort（minimal..max，opencode run --help 原文）。
+  if (
+    m.startsWith('opencode/') ||
+    m.includes('preview-f') ||
+    m.includes('hy3') ||
+    m.includes('mimo') ||
+    m.includes('nemotron') ||
+    m.includes('big-pickle') ||
+    m.includes('muse-spark')
+  ) {
+    return {
+      type: 'categorical',
+      options: [
+        { label: '极简 (minimal)', value: 'minimal' },
+        { label: '低 (low)', value: 'low' },
+        { label: '中 (medium)', value: 'medium' },
+        { label: '高 (high)', value: 'high' },
+        { label: '满血 (max)', value: 'max' },
+      ],
+      default_value: 'medium',
+      param_flag: '--variant',
+    };
+  }
+
   // 5. Moonshot Kimi (K1.5 / K3)
   if (m.includes('kimi') || m.includes('moonshot')) {
     return {
