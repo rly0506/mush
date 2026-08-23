@@ -62,6 +62,7 @@ export function isFreeModel(modelId: string): boolean {
   return (
     key.includes(':free') ||
     key.endsWith('/free') ||
+    key.endsWith('-free') ||
     key.includes('openrouter/free') ||
     key.includes('opencode/free') ||
     key.startsWith('free/') ||

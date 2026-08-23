@@ -1,6 +1,6 @@
 # GOAL-070: opencode free 模型通道接入 (OpenCode Free Model Channel Integration)
 
-- 状态：`READY`（RM-011 M0；owner 2026-08-23 规划会认可）
+- 状态：`DONE`（RM-011 M0；owner 2026-08-23 规划会认可）
 - 来源：owner 追问「opencode 为什么没接 free 模型」→ 规划会立项；本机通道活性已被实测证明
 - 优先级：高
 - 依赖：无（RM-011 首个里程碑，为 M2 soak 提供零成本执行档）

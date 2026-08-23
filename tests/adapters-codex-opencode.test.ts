@@ -18,14 +18,17 @@ test('codex contract is T1 codex exec with prompt as final argument', () => {
   assert.equal(contract.expected_model_id, 'UNKNOWN');
 });
 
-test('opencode contract is T1 opencode run with prompt as final argument', () => {
+test('opencode contract is T1 opencode run with -m free default model injection (GOAL-070)', () => {
   const contract = buildOpencodeContract();
   assert.equal(contract.adapter_id, 'opencode');
   assert.equal(contract.executable, 'opencode');
-  assert.deepEqual(contract.arguments, ['run']);
+  assert.deepEqual(contract.arguments, ['run', '-m', 'x-preview-f-free']);
   assert.equal(contract.protocol, 't1');
   assert.equal(contract.prompt_transport, 'argument');
-  assert.equal(contract.expected_model_id, 'UNKNOWN');
+  assert.equal(contract.expected_model_id, 'x-preview-f-free');
+  assert.equal(contract.model_flag, '-m');
+  assert.ok(contract.variants?.includes('x-preview-f-free'));
+  assert.equal(contract.effort_injection?.name, '--variant');
 });
 
 test('codex JSONL output parser extracts model and text fields', () => {

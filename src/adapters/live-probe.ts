@@ -7,10 +7,12 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { exec } from 'node:child_process';
 import path from 'node:path';
 import { homedir } from 'node:os';
 import { DatabaseSync } from 'node:sqlite';
 import type { AdapterContract } from './contract.ts';
+import { parseOpencodeModelsList } from './opencode.ts';
 
 
 export type LiveProbeStatus = 'ONLINE' | 'QUOTA_EXHAUSTED' | 'UNAVAILABLE' | 'UNKNOWN';
@@ -852,14 +854,18 @@ export function discoverHarnessGroupedModels(contract: AdapterContract): Harness
         grouped['OpenAI (Codex)'] = ['gpt-5.6-codex', 'gpt-5.2-preview', 'o3-mini'];
         grouped['OpenAI (Codex)'].forEach((m) => models.add(m));
       } else {
+        // GOAL-070：以本机 `opencode models` 实测在册清单为准的静态兜底
+        // （动态枚举见 probeAdapterLive 的 opencode 分支）。
         grouped['OpenCode (Free & Community)'] = [
-          'opencode/free',
-          'openrouter/free',
-          'qwen-2.5-coder-32b:free',
-          'deepseek-r1:free',
-          'glm-4-flash:free',
-          'grok-4.5',
-          'glm-5.3',
+          'opencode/x-preview-f-free',
+          'opencode/hy3-free',
+          'opencode/mimo-v2.5-free',
+          'opencode/muse-spark-1.2-contributor-free',
+          'opencode/nemotron-3-ultra-free',
+          'opencode/nemotron-3.5-lightning-free',
+          'botcf/kimi-k3',
+          'pixel/grok-4.5',
+          'tbtk/glm-5.3',
         ];
         grouped['OpenCode (Free & Community)'].forEach((m) => models.add(m));
       }
@@ -1123,6 +1129,33 @@ export async function probeAdapterLive(
   // 3. pi-rpc harness 探测 (避开 Windows DEF-13 CLI 挂起)
   if (contract.protocol === 'pi-rpc') {
     return buildRecord('ONLINE', finalModels.length > 0 ? finalModels : [contract.expected_model_id]);
+  }
+
+  // 3.5 GOAL-070：opencode 真实模型枚举——直接执行子命令 `opencode models`
+  // （纯本地清单输出，零 token；不能走 runner：prompt 传输会把参数当消息发给 LLM）。
+  if (adapterId === 'opencode') {
+    let listing: string | null = null;
+    try {
+      listing = await new Promise<string>((resolve, reject) => {
+        exec('opencode models', { encoding: 'utf8', timeout: 30000 }, (err, stdout) => {
+          if (err && !stdout) reject(err instanceof Error ? err : new Error(String(err)));
+          else resolve(String(stdout ?? ''));
+        });
+      });
+    } catch {
+      listing = null; // 枚举失败 → 落回通用探测路径，不因 CLI 波动放大为通道不可用。
+    }
+    if (listing !== null && listing.trim() !== '') {
+      const parsed = parseOpencodeModelsList(listing);
+      if (parsed.models.length > 0) {
+        const merged = new Set<string>(parsed.models);
+        for (const m of finalModels) merged.add(m);
+        return {
+          ...buildRecord('ONLINE', [...merged]),
+          grouped_models: { ...grouped, ...parsed.grouped },
+        };
+      }
+    }
   }
 
   // 4. 通用与 multi-source 发现探测

@@ -1501,6 +1501,16 @@ export class DispatchPipeline {
           this.liveProbes[contract.adapter_id]?.verified_models,
         );
         this.liveProbes[contract.adapter_id] = record;
+        // GOAL-070：实测枚举到的模型同步进合同 variants（仅限带 model_flag 的
+        // 通道）——派发侧 model_id 门禁（line ~793）与名册下拉同源，杜绝
+        // "看板可见却派发被拒"的裂缝。
+        if (record.status === 'ONLINE' && record.live_models.length > 0) {
+          const base = this.contracts[contract.adapter_id];
+          if (base !== undefined && base.model_flag !== undefined) {
+            const mergedVariants = [...new Set([...(base.variants ?? []), ...record.live_models])];
+            this.contracts[contract.adapter_id] = validateAdapterContract({ ...base, variants: mergedVariants });
+          }
+        }
       } catch (error) {
         this.liveProbes[contract.adapter_id] = {
           adapter_id: contract.adapter_id,
