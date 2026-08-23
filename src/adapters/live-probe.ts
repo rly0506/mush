@@ -12,7 +12,7 @@ import path from 'node:path';
 import { homedir } from 'node:os';
 import { DatabaseSync } from 'node:sqlite';
 import type { AdapterContract } from './contract.ts';
-import { parseOpencodeModelsList } from './opencode.ts';
+import { parseOpencodeModelsList, OPENCODE_NATIVE_MODELS, OPENCODE_DEFAULT_MODEL } from './opencode.ts';
 
 
 export type LiveProbeStatus = 'ONLINE' | 'QUOTA_EXHAUSTED' | 'UNAVAILABLE' | 'UNKNOWN';
@@ -469,6 +469,18 @@ export function getHarnessHierarchy(contractOrId: AdapterContract | string): Har
       } catch (err) {
         console.warn('[live-probe] getHarnessHierarchy db parse error:', err);
       }
+    }
+    // GOAL-070：opencode 内置通道置顶并标记当前激活——真实可选模型来自
+    // `opencode models` 实测枚举（free 档在列），cc-switch 转介代理降级为可选项。
+    if (appType === 'opencode') {
+      for (const p of providers) p.is_current = false;
+      providers.unshift({
+        id: 'opencode-native',
+        name: 'opencode 内置 (free)',
+        is_current: true,
+        models: [...OPENCODE_NATIVE_MODELS],
+        default_model: OPENCODE_DEFAULT_MODEL,
+      });
     }
   } else if (harnessId.includes('dsh') || harnessId.includes('deepseek')) {
     const dshSettingsPath = path.join(home, '.dsh', 'settings.yaml');

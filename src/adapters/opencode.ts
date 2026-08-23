@@ -11,8 +11,22 @@
 
 import { validateAdapterContract, type AdapterContract } from './contract.ts';
 
-/** GOAL-070：opencode 缺省模型——free 档（本机实测在册），链路验证/演练零成本。 */
-export const OPENCODE_DEFAULT_MODEL = 'x-preview-f-free';
+/** GOAL-070：opencode 缺省模型——free 档（本机实测在册，provider/model 全格式），链路验证/演练零成本。 */
+export const OPENCODE_DEFAULT_MODEL = 'opencode/x-preview-f-free';
+
+/** GOAL-070：本机 `opencode models` 实测在册清单的静态种子（探测后动态刷新）。 */
+export const OPENCODE_NATIVE_MODELS: readonly string[] = [
+  'opencode/big-pickle',
+  'opencode/hy3-free',
+  'opencode/mimo-v2.5-free',
+  'opencode/muse-spark-1.2-contributor-free',
+  'opencode/nemotron-3-ultra-free',
+  'opencode/nemotron-3.5-lightning-free',
+  'opencode/x-preview-f-free',
+  'botcf/kimi-k3',
+  'pixel/grok-4.5',
+  'tbtk/glm-5.3',
+];
 
 export function buildOpencodeContract(): AdapterContract {
   return validateAdapterContract({
@@ -23,7 +37,7 @@ export function buildOpencodeContract(): AdapterContract {
     prompt_transport: 'argument',
     expected_provider: 'opencode',
     expected_model_id: OPENCODE_DEFAULT_MODEL,
-    variants: [OPENCODE_DEFAULT_MODEL],
+    variants: [...OPENCODE_NATIVE_MODELS],
     model_flag: '-m',
     effort_levels: ['MINIMAL', 'LOW', 'MEDIUM', 'HIGH', 'MAX'],
     effort_injection: { kind: 'flag', name: '--variant' },
