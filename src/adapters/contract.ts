@@ -39,6 +39,10 @@ export interface AdapterContract {
    * 通道继承进程 cwd——实证部分 CLI 会自行解析项目根而忽略 cwd（opencode
    * 两次实测：空目录报 20/32 条），声明本旗标的通道由 runner 显式钉死工作目录。 */
   readonly cwd_flag?: string;
+  /** GOAL-075 切片2：stdout 结构化形态声明。'ndjson-events' = 进程输出为
+   * NDJSON 事件流（如 opencode --format json），由 runner 经 outputNormalizer
+   * 归一化为人类可读文本并回填 sessionId/tokens；缺省 'text' 原样透传。 */
+  readonly output_format?: 'text' | 'ndjson-events';
   /** GP-22：该通道真实可用的 effort 档位（大写规范；UI 按此渲染）。
    * 缺省 = 旧通用三档 LOW|HIGH|XHIGH（仅测试/未声明的兼容通道）。 */
   readonly effort_levels?: readonly string[];
@@ -94,6 +98,13 @@ export function validateAdapterContract(input: unknown): AdapterContract {
   if (record.cwd_flag !== undefined && (typeof record.cwd_flag !== 'string' || record.cwd_flag.trim() === '')) {
     throw new Error("adapter contract 'cwd_flag' must be a non-blank string when present");
   }
+  if (
+    record.output_format !== undefined &&
+    record.output_format !== 'text' &&
+    record.output_format !== 'ndjson-events'
+  ) {
+    throw new Error("adapter contract 'output_format' must be 'text' or 'ndjson-events' when present");
+  }
   if (record.effort_levels !== undefined) {
     if (
       !Array.isArray(record.effort_levels) ||
@@ -133,6 +144,7 @@ export function validateAdapterContract(input: unknown): AdapterContract {
     ...(record.role !== undefined ? { role: record.role } : {}),
     ...(record.resume_flag !== undefined ? { resume_flag: (record.resume_flag as string).trim() } : {}),
     ...(record.cwd_flag !== undefined ? { cwd_flag: (record.cwd_flag as string).trim() } : {}),
+    ...(record.output_format !== undefined ? { output_format: record.output_format } : {}),
     ...(record.effort_levels !== undefined ? { effort_levels: [...(record.effort_levels as string[])] } : {}),
     ...(record.effort_injection !== undefined
       ? {

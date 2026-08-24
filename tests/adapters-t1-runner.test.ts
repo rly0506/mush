@@ -338,3 +338,54 @@ test('D82 修订（DEF-14）：cwd_flag 通道显式注入工作目录到 argv',
   });
   assert.deepEqual(captured[1], ['--headless', 'no cwd']);
 });
+
+test('GOAL-075 切片2：ndjson-events 通道归一化——stdout 人类可读 + sessionId + 真实计量', async () => {
+  const ndjson = [
+    '{"type":"step_start","sessionID":"ses_fix","part":{"type":"step-start"}}',
+    '{"type":"reasoning","sessionID":"ses_fix","part":{"type":"reasoning","text":"37*29 = 1073"}}',
+    '{"type":"text","sessionID":"ses_fix","part":{"type":"text","text":"1073"}}',
+    '{"type":"step_finish","sessionID":"ses_fix","part":{"reason":"stop","tokens":{"input":24,"output":4,"reasoning":7,"cache":{"read":39040,"write":0}}}}',
+  ].join('\n');
+  const spawn: SpawnFn = () => makeFakeChild({ stdout: ndjson, stderr: '', exitCode: 0 });
+  const result = await runT1({
+    contract: makeContract({ prompt_transport: 'argument', output_format: 'ndjson-events' }),
+    prompt: 'p',
+    workspaceRoot: WORKSPACE,
+    receiptPath: RECEIPT,
+    timeoutMs: 1000,
+    spawn,
+    outputFormat: 'ndjson-events',
+    outputNormalizer: (raw) => {
+      const ev = JSON.stringify(raw).length > 0 ? raw : '';
+      // 测试注入的简化归一化器：与生产 normalizeOpencodeEvents 同构
+      const lines = ev.split('\n').map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+      const text = lines.filter((l) => l.type === 'text').map((l) => l.part.text).join('\n');
+      const thinking = lines.filter((l) => l.type === 'reasoning').map((l) => l.part.text).join('\n');
+      const finish = lines.find((l) => String(l.type).startsWith('step_finish'));
+      const t = finish && finish.part && finish.part.tokens;
+      return {
+        text,
+        thinking,
+        sessionId: 'ses_fix',
+        telemetry: t ? { input_tokens: t.input, output_tokens: t.output, cache_creation_tokens: t.cache.write, cache_read_tokens: t.cache.read, total_cost_usd: 0, cache_savings_usd: 0 } : undefined,
+      };
+    },
+  });
+  assert.match(result.stdout, /^Thinking: /, 'thinking block must be prefixed for CLI-parity display');
+  assert.ok(result.stdout.includes('1073'));
+  assert.equal(result.sessionId, 'ses_fix');
+  assert.equal(result.receipt.telemetry?.input_tokens, 24);
+  assert.equal(result.receipt.telemetry?.cache_read_tokens, 39040);
+
+  // 未声明 output_format 时原样透传（不归一化）
+  const raw2 = await runT1({
+    contract: makeContract({ prompt_transport: 'argument' }),
+    prompt: 'p2',
+    workspaceRoot: WORKSPACE,
+    receiptPath: RECEIPT,
+    timeoutMs: 1000,
+    spawn,
+    outputNormalizer: () => ({ text: 'SHOULD-NOT-APPLY' }),
+  });
+  assert.match(raw2.stdout, /"type":"step_start"/, 'without declared format stdout must stay raw');
+});

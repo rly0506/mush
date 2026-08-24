@@ -26,6 +26,7 @@ import { buildKimiContract } from '../adapters/kimi.ts';
 import { buildAgyContract } from '../adapters/agy.ts';
 import { buildHeadDogContract, extractSessionId } from '../adapters/head-dog.ts';
 import { runT1, type SpawnFn } from '../adapters/t1-runner.ts';
+import { normalizeOpencodeEvents } from '../adapters/opencode.ts';
 import { runPiRpc } from '../adapters/pi-rpc-runner.ts';
 import {
   loadLiveProbeCache,
@@ -249,6 +250,8 @@ export interface RunAdapterResult {
   childKilled: boolean;
   /** GOAL-069：真实 runner（runT1）返回完整回执；fake 可省略。 */
   receipt?: { telemetry?: import('../core/budget.ts').TokenUsageTelemetry };
+  /** GOAL-075 切片2：ndjson-events 归一化回填的结构化会话锚点；fake 可省略。 */
+  sessionId?: string;
 }
 
 export type RunAdapterFn = (
@@ -638,6 +641,14 @@ export class DispatchPipeline {
             spawn: options.spawn,
             onStdout: opts!.onStdout,
             onStderr: opts!.onStderr,
+            // GOAL-075 切片2：声明 ndjson-events 的通道由 runner 归一化 stdout，
+            // 回填 sessionId 与真实 token 计量（台账成本反馈回路）。
+            ...(contract.output_format === 'ndjson-events'
+              ? {
+                  outputFormat: 'ndjson-events' as const,
+                  outputNormalizer: (raw: string) => normalizeOpencodeEvents(raw, contract.expected_model_id),
+                }
+              : {}),
             ...(opts!.cwd !== undefined ? { cwd: opts!.cwd } : {}),
           });
           return {
@@ -646,6 +657,7 @@ export class DispatchPipeline {
             stderr: result.stderr,
             timedOut: result.timedOut,
             childKilled: result.childKilled,
+            ...(result.sessionId !== undefined ? { sessionId: result.sessionId } : {}),
           };
         } catch (error) {
           return {
@@ -1187,7 +1199,7 @@ export class DispatchPipeline {
     record.receipt_path = receiptPath;
     record.stdout_tail = tailOf(run.stdout, 2048);
     record.stderr_tail = tailOf(run.stderr, 256);
-    record.session_id = extractSessionId(run.stdout);
+    record.session_id = run.sessionId ?? extractSessionId(run.stdout);
     const telemetry = run.receipt?.telemetry;
     const receipt = {
       schema_version: 1,

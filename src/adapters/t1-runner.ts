@@ -87,6 +87,16 @@ export interface T1RunResult {
   childKilled: boolean;
   receiptPath: string;
   receipt: T1Receipt;
+  /** GOAL-075 切片2：ndjson-events 归一化回填的结构化会话锚点（ses_…）。 */
+  sessionId?: string;
+}
+
+/** GOAL-075 切片2：结构化 stdout 归一化产物（由声明 output_format 的通道提供实现）。 */
+export interface OutputNormalization {
+  text: string;
+  thinking?: string;
+  sessionId?: string;
+  telemetry?: TokenUsageTelemetry;
 }
 
 export interface T1RunOptions {
@@ -106,6 +116,11 @@ export interface T1RunOptions {
    *  stderr（实证：`$ ls -1 | wc -l`、"> build · model"），只透传 stdout
    *  看不到干活过程。缺失 = 只累积。 */
   onStderr?: (chunk: string) => void;
+  /** GOAL-075 切片2：stdout 结构化形态声明 + 归一化器（成对出现）。
+   *  进程退出后把 NDJSON 事件流转成人类可读文本，回填 sessionId/tokens。
+   *  在途流式 chunk 保持原始形态（节流在宿主侧）。 */
+  outputFormat?: 'text' | 'ndjson-events';
+  outputNormalizer?: (stdout: string) => OutputNormalization;
 }
 
 /** G009（DEF-03）：Windows npm-global 的 .cmd 垫片不能被 node 直接 spawn
@@ -428,6 +443,23 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
     }
   });
 
+  // GOAL-075 切片2：ndjson-events 归一化——结构化事件流转人类可读文本
+  // （思维块前置），回填 sessionId 与真实 token 计量。失败 fail-open 保留原始
+  // 输出走旧路径（DEF-02 精神）。在途流式 chunk 不经此处（保持原始形态）。
+  let normalizedSessionId: string | undefined;
+  let explicitTelemetry: TokenUsageTelemetry | undefined;
+  if (options.outputFormat === 'ndjson-events' && options.outputNormalizer !== undefined) {
+    try {
+      const n = options.outputNormalizer(stdout);
+      const head = n.thinking !== undefined && n.thinking !== '' ? 'Thinking: ' + n.thinking + '\n\n' : '';
+      stdout = head + n.text;
+      if (n.sessionId !== undefined && n.sessionId !== '') normalizedSessionId = n.sessionId;
+      if (n.telemetry !== undefined) explicitTelemetry = n.telemetry;
+    } catch {
+      // 受控降级：归一化异常时按原始输出继续。
+    }
+  }
+
   if (options.identityVerifier !== undefined) {
     try {
       options.identityVerifier({ stdout, stderr, exitCode, contract });
@@ -436,7 +468,7 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
     }
   }
 
-  const telemetry = parseTokenTelemetry(stdout, stderr, contract.expected_model_id);
+  const telemetry = explicitTelemetry ?? parseTokenTelemetry(stdout, stderr, contract.expected_model_id);
 
 
   const receipt: T1Receipt = {
@@ -469,5 +501,6 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
     childKilled,
     receiptPath: options.receiptPath,
     receipt,
+    ...(normalizedSessionId !== undefined ? { sessionId: normalizedSessionId } : {}),
   };
 }
