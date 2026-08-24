@@ -102,6 +102,10 @@ export interface T1RunOptions {
   /** GOAL-021 U3：增量 stdout 透传钩子（聊天流式/EXECUTE 增量事件源）。
    *  每个原始 chunk 到达即调用，宿主（dispatch/chat）负责节流合帧。缺失 = 只累积不流转。 */
   onStdout?: (chunk: string) => void;
+  /** D82 批次：增量 stderr 透传——opencode 等 CLI 的工具调用/构建进度走
+   *  stderr（实证：`$ ls -1 | wc -l`、"> build · model"），只透传 stdout
+   *  看不到干活过程。缺失 = 只累积。 */
+  onStderr?: (chunk: string) => void;
 }
 
 /** G009（DEF-03）：Windows npm-global 的 .cmd 垫片不能被 node 直接 spawn
@@ -109,28 +113,74 @@ export interface T1RunOptions {
  * `node <entry>` 调用——与对调实验的绕行方案同构，但自动化且通用。
  * 返回 null 表示无法解析（保持原样直 spawn，让错误按 DEF-02 路径受控上报）。
  * DEF-12：入口匹配扩展 .mjs/.cjs（kimi 垫片入口为 dist/main.mjs，
- * 旧正则只认 .js 导致看板真实派发 kimi 恒 ENOENT）。 */
+ * 旧正则只认 .js 导致看板真实派发 kimi 恒 ENOENT）。
+ * D82 批次：原生 .exe 垫片（opencode 等 Go/Rust 系 CLI）——垫片内容指向
+ * .exe 而非 JS 入口，旧正则必然失配 → 裸名 spawn 恒 ENOENT。新增 exe 计划：
+ * 直接 spawn 解析出的绝对 exe 路径；并在 PATH 找不到垫片时回扫 npm 全局
+ * prefix 目录（服务进程 PATH 收窄的场景）。 */
 const SHIM_ENTRY_RE = /node_modules[^\r\n"']*\.(?:mjs|cjs|js)/i;
-const shimEntryCache = new Map<string, { node: string; entry: string } | null>();
+const SHIM_EXE_RE = /node_modules[/\\][^\r\n"']*\.exe/i;
+
+export type WindowsShimResolution =
+  | { kind: 'node'; node: string; entry: string }
+  | { kind: 'exe'; exe: string };
+
+const shimEntryCache = new Map<string, WindowsShimResolution | null>();
 /** GOAL-067（P0-3）：超时 kill 后等待子进程退出的宽限期，到点强制收敛。 */
 const T1_KILL_GRACE_MS = 5_000;
-export function resolveWindowsShim(executable: string): { node: string; entry: string } | null {
+
+let npmPrefixDirsCache: string[] | undefined;
+function npmPrefixDirs(): string[] {
+  if (npmPrefixDirsCache !== undefined) return npmPrefixDirsCache;
+  let dirs: string[] = [];
+  try {
+    const out = execSync('npm config get prefix', { encoding: 'utf8', timeout: 8000 }).trim();
+    if (out !== '' && path.isAbsolute(out)) dirs = [out];
+  } catch {}
+  npmPrefixDirsCache = dirs;
+  return dirs;
+}
+
+function parseShimFile(shimPath: string, dir: string): WindowsShimResolution | null {
+  const text = readFileSync(shimPath, 'utf8');
+  const jsMatch = text.match(SHIM_ENTRY_RE);
+  if (jsMatch !== null) {
+    return { kind: 'node', node: process.execPath, entry: path.resolve(dir, jsMatch[0]) };
+  }
+  const exeMatch = text.match(SHIM_EXE_RE);
+  if (exeMatch !== null) {
+    // 垫片内多为 %dp0%\... 或 $basedir/... 相对形态——相对 dir 解析即绝对路径。
+    return { kind: 'exe', exe: path.resolve(dir, exeMatch[0]) };
+  }
+  return null;
+}
+
+export function resolveWindowsShim(executable: string): WindowsShimResolution | null {
   if (process.platform !== 'win32' || path.isAbsolute(executable) || executable.includes('/') || executable.includes('\\')) {
     return null;
   }
   if (shimEntryCache.has(executable)) return shimEntryCache.get(executable) ?? null;
-  let resolved: { node: string; entry: string } | null = null;
+  let resolved: WindowsShimResolution | null = null;
   try {
-    for (const dir of (process.env.PATH ?? '').split(path.delimiter)) {
-      if (dir.trim() === '') continue;
-      const shim = path.join(dir, `${executable}.cmd`);
-      if (!existsSync(shim)) continue;
-      const text = readFileSync(shim, 'utf8');
-      const match = text.match(SHIM_ENTRY_RE);
-      if (match === null) continue;
-      const entry = path.resolve(dir, match[0]);
-      resolved = { node: process.execPath, entry };
-      break;
+    const seen = new Set<string>();
+    const dirs = [...(process.env.PATH ?? '').split(path.delimiter), ...npmPrefixDirs()];
+    for (const rawDir of dirs) {
+      const dir = rawDir.trim();
+      if (dir === '' || seen.has(dir.toLowerCase())) continue;
+      seen.add(dir.toLowerCase());
+      for (const ext of ['.cmd', '.ps1']) {
+        const shim = path.join(dir, `${executable}${ext}`);
+        if (!existsSync(shim)) continue;
+        resolved = parseShimFile(shim, dir);
+        if (resolved !== null) break;
+      }
+      if (resolved !== null) break;
+      // 前缀目录里直接躺着的同名 .exe（无垫片形态）
+      const directExe = path.join(dir, `${executable}.exe`);
+      if (existsSync(directExe)) {
+        resolved = { kind: 'exe', exe: directExe };
+        break;
+      }
     }
   } catch {
     resolved = null; // 解析失败 fail-closed：回退直 spawn（受 DEF-02 保护）。
@@ -140,11 +190,13 @@ export function resolveWindowsShim(executable: string): { node: string; entry: s
 }
 
 function defaultSpawn(executable: string, args: string[], opts: { cwd: string }): ChildProcessLike {
-  const shim = resolveWindowsShim(executable);
+  const plan = resolveWindowsShim(executable);
   const child =
-    shim !== null
-      ? nodeSpawn(shim.node, [shim.entry, ...args], { cwd: opts.cwd, windowsHide: true })
-      : nodeSpawn(executable, args, { cwd: opts.cwd, windowsHide: true });
+    plan?.kind === 'node'
+      ? nodeSpawn(plan.node, [plan.entry, ...args], { cwd: opts.cwd, windowsHide: true })
+      : plan?.kind === 'exe'
+        ? nodeSpawn(plan.exe, args, { cwd: opts.cwd, windowsHide: true })
+        : nodeSpawn(executable, args, { cwd: opts.cwd, windowsHide: true });
   // GOAL-065: 防御 EPIPE 崩溃——子进程提前退出时忽略写入管道错误
   if (child.stdin !== null) {
     child.stdin.on('error', () => {});
@@ -267,10 +319,14 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
     throw new Error(`T1 runner only accepts protocol 't1', got '${contract.protocol}'`);
   }
   const spawn = options.spawn ?? defaultSpawn;
+  // D82 修订（DEF-14）：声明 cwd_flag 的通道显式钉死工作目录（进程 cwd 对
+  // 部分 CLI 不可靠，opencode 实证会自行解析项目根）。旗标置于 prompt 前参之前。
+  const cwdDir = options.cwd ?? options.workspaceRoot;
+  const cwdArgs = contract.cwd_flag !== undefined ? [contract.cwd_flag, cwdDir] : [];
   const args =
     contract.prompt_transport === 'argument'
-      ? [...contract.arguments, options.prompt]
-      : [...contract.arguments];
+      ? [...contract.arguments, ...cwdArgs, options.prompt]
+      : [...contract.arguments, ...cwdArgs];
   const startedAt = new Date().toISOString();
 
   let child: ChildProcessLike;
@@ -312,7 +368,9 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
     options.onStdout?.(text);
   });
   child.onStderr((chunk) => {
-    stderr += chunk.toString();
+    const text = chunk.toString();
+    stderr += text;
+    options.onStderr?.(text);
   });
 
   await new Promise<void>((resolve) => {
@@ -360,6 +418,13 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
         exitCode = 127;
         settle();
       }
+    } else {
+      // D82 修订：argument 运输必须立即关闭 stdin 写端——部分 CLI（opencode 实测）
+      // 非 TTY 场景下等 stdin EOF 才开跑，管道恒开 → 子进程永久挂起、派发必然
+      // 超时（stdout 恒空）。关闭写端 = 语义上"本 runner 不再投喂 stdin"。
+      try {
+        child.stdinEnd?.();
+      } catch {}
     }
   });
 

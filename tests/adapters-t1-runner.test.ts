@@ -252,13 +252,89 @@ test('resolveWindowsShim handles .mjs and .js entries (DEF-12 regression)', { sk
   try {
     const mjs = resolveWindowsShim('mush-def12-mjs');
     assert.ok(mjs, '.mjs entry must resolve');
-    assert.equal(path.basename(mjs.entry), 'main.mjs');
-    assert.ok(mjs.entry.toLowerCase().includes('node_modules'));
+    assert.equal(mjs.kind, 'node');
+    assert.ok(mjs.kind === 'node' && path.basename(mjs.entry) === 'main.mjs');
+    assert.ok(mjs.kind === 'node' && mjs.entry.toLowerCase().includes('node_modules'));
     const js = resolveWindowsShim('mush-def12-js');
     assert.ok(js, '.js entry must still resolve');
-    assert.equal(path.basename(js.entry), 'bin.js');
+    assert.ok(js.kind === 'node' && path.basename(js.entry) === 'bin.js');
+    // D82 批次：原生 exe 垫片（opencode 形态）→ exe 计划
+    const exeShim = [
+      '@ECHO off',
+      '""%dp0%\\node_modules\\opencode-ai\\bin\\opencode.exe"   %*',
+    ].join('\r\n');
+    writeFileSync(path.join(dir, 'mush-d82-exe.cmd'), exeShim, 'utf8');
+    const exe = resolveWindowsShim('mush-d82-exe');
+    assert.ok(exe, 'exe-target shim must resolve');
+    assert.equal(exe.kind, 'exe');
+    assert.ok(exe.kind === 'exe' && path.basename(exe.exe) === 'opencode.exe');
+    assert.ok(exe.kind === 'exe' && exe.exe.toLowerCase().includes('node_modules'));
     assert.equal(resolveWindowsShim('mush-def12-none'), null, 'no-entry shim resolves null');
   } finally {
     process.env.PATH = previousPath;
   }
+});
+
+test('D82 修订：argument 运输 spawn 后立即关闭 stdin 写端（opencode 非 TTY 恒挂回归）', async () => {
+  let child: FakeChildHandle | null = null;
+  const spawn: SpawnFn = (executable, args) => {
+    assert.equal(executable, 'fake.exe');
+    assert.deepEqual(args, ['--headless', 'fixture prompt']);
+    child = makeFakeChild({ stdout: 'ok', exitCode: 0 });
+    return child;
+  };
+  await runT1({
+    contract: makeContract({ prompt_transport: 'argument' }),
+    prompt: 'fixture prompt',
+    workspaceRoot: WORKSPACE,
+    receiptPath: RECEIPT,
+    timeoutMs: 1000,
+    spawn,
+  });
+  const handle = child as unknown as FakeChildHandle;
+  assert.equal(handle.stdinData, '', 'argument transport must not write stdin');
+  assert.equal(handle.stdinEnded, true, 'stdin write-end must close immediately: EOF-waiting CLIs (opencode) otherwise hang forever');
+});
+
+test('D82 批次：stderr 增量透传（opencode 工具活动走 stderr）', async () => {
+  const chunks: string[] = [];
+  const spawn: SpawnFn = () => makeFakeChild({ stdout: 'ok', stderr: '$ ls -1 | wc -l\n20', exitCode: 0 });
+  await runT1({
+    contract: makeContract(),
+    prompt: 'p',
+    workspaceRoot: WORKSPACE,
+    receiptPath: RECEIPT,
+    timeoutMs: 1000,
+    spawn,
+    onStderr: (chunk) => chunks.push(chunk),
+  });
+  assert.ok(chunks.join('').includes('$ ls -1'), 'stderr chunks must reach the host callback');
+});
+
+test('D82 修订（DEF-14）：cwd_flag 通道显式注入工作目录到 argv', async () => {
+  const captured: string[][] = [];
+  const spawn: SpawnFn = (_exe, args) => {
+    captured.push([...args]);
+    return makeFakeChild({ stdout: 'ok', exitCode: 0 });
+  };
+  await runT1({
+    contract: makeContract({ prompt_transport: 'argument', cwd_flag: '--dir' }),
+    prompt: 'count files',
+    workspaceRoot: WORKSPACE,
+    receiptPath: RECEIPT,
+    timeoutMs: 1000,
+    spawn,
+  });
+  assert.deepEqual(captured[0], ['--headless', '--dir', WORKSPACE, 'count files'],
+    'cwd flag+dir must sit between base args and the prompt');
+  // 未声明 cwd_flag 的通道保持原样（不注入）
+  await runT1({
+    contract: makeContract({ prompt_transport: 'argument' }),
+    prompt: 'no cwd',
+    workspaceRoot: WORKSPACE,
+    receiptPath: RECEIPT,
+    timeoutMs: 1000,
+    spawn,
+  });
+  assert.deepEqual(captured[1], ['--headless', 'no cwd']);
 });

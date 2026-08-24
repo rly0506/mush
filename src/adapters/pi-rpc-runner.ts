@@ -64,10 +64,13 @@ const COMMIT_TIMEOUT_MS = 30_000;
 const MAX_NON_TERMINAL_TURNS = 200;
 
 function defaultSpawn(executable: string, args: string[], opts: { cwd: string }) {
-  const shim = resolveWindowsShim(executable);
-  const child: ChildProcess = shim
-    ? nodeSpawn(shim.node, [shim.entry, ...args], { cwd: opts.cwd, windowsHide: true })
-    : nodeSpawn(executable, args, { cwd: opts.cwd, windowsHide: true });
+  const plan = resolveWindowsShim(executable);
+  const child: ChildProcess =
+    plan?.kind === 'node'
+      ? nodeSpawn(plan.node, [plan.entry, ...args], { cwd: opts.cwd, windowsHide: true })
+      : plan?.kind === 'exe'
+        ? nodeSpawn(plan.exe, args, { cwd: opts.cwd, windowsHide: true })
+        : nodeSpawn(executable, args, { cwd: opts.cwd, windowsHide: true });
   if (child.stdin !== null) {
     child.stdin.on('error', () => {});
   }

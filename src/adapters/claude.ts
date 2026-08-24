@@ -152,11 +152,13 @@ export async function runClaudeStreamNonceProbe(
       // GOAL-067（P0-4）：与 t1-runner defaultSpawn 完全同语义——此前副本丢失了
       // Windows shim 解析与 onError 桥接：claude 为 .cmd 垫片时 nodeSpawn 直 spawn
       // 会 ENOENT，且 error 事件无监听 → exit 永不到来、Promise 永久挂起。
-      const shim = resolveWindowsShim(executable);
+      const plan = resolveWindowsShim(executable);
       const child =
-        shim !== null
-          ? nodeSpawn(shim.node, [shim.entry, ...args], { cwd: opts.cwd, windowsHide: true })
-          : nodeSpawn(executable, args, { cwd: opts.cwd, windowsHide: true });
+        plan?.kind === 'node'
+          ? nodeSpawn(plan.node, [plan.entry, ...args], { cwd: opts.cwd, windowsHide: true })
+          : plan?.kind === 'exe'
+            ? nodeSpawn(plan.exe, args, { cwd: opts.cwd, windowsHide: true })
+            : nodeSpawn(executable, args, { cwd: opts.cwd, windowsHide: true });
       if (child.stdin !== null) {
         child.stdin.on('error', () => {});
       }

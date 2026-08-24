@@ -39,6 +39,9 @@ export function buildOpencodeContract(): AdapterContract {
     expected_model_id: OPENCODE_DEFAULT_MODEL,
     variants: [...OPENCODE_NATIVE_MODELS],
     model_flag: '-m',
+    // D82 修订（DEF-14）：opencode 实证无视进程 cwd（空目录报 20/32 条）——
+    // 显式 --dir 钉死工作目录，跨工作区文件面操作不再落错根。
+    cwd_flag: '--dir',
     effort_levels: ['MINIMAL', 'LOW', 'MEDIUM', 'HIGH', 'MAX'],
     effort_injection: { kind: 'flag', name: '--variant' },
     // GOAL-018 U3：未列入本批自动压缩/续跑主路径，暂按 none。

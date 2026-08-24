@@ -35,6 +35,10 @@ export interface AdapterContract {
   readonly role?: 'head' | 'executor';
   /** G011：会话续跑注入旗标（如 dsh 的 '--resume'）。 */
   readonly resume_flag?: string;
+  /** D82 修订（DEF-14）：工作目录注入旗标（如 opencode 的 '--dir'）。缺省 =
+   * 通道继承进程 cwd——实证部分 CLI 会自行解析项目根而忽略 cwd（opencode
+   * 两次实测：空目录报 20/32 条），声明本旗标的通道由 runner 显式钉死工作目录。 */
+  readonly cwd_flag?: string;
   /** GP-22：该通道真实可用的 effort 档位（大写规范；UI 按此渲染）。
    * 缺省 = 旧通用三档 LOW|HIGH|XHIGH（仅测试/未声明的兼容通道）。 */
   readonly effort_levels?: readonly string[];
@@ -87,6 +91,9 @@ export function validateAdapterContract(input: unknown): AdapterContract {
   if (record.resume_flag !== undefined && (typeof record.resume_flag !== 'string' || record.resume_flag.trim() === '')) {
     throw new Error("adapter contract 'resume_flag' must be a non-blank string when present");
   }
+  if (record.cwd_flag !== undefined && (typeof record.cwd_flag !== 'string' || record.cwd_flag.trim() === '')) {
+    throw new Error("adapter contract 'cwd_flag' must be a non-blank string when present");
+  }
   if (record.effort_levels !== undefined) {
     if (
       !Array.isArray(record.effort_levels) ||
@@ -125,6 +132,7 @@ export function validateAdapterContract(input: unknown): AdapterContract {
     ...(record.model_flag !== undefined ? { model_flag: (record.model_flag as string).trim() } : {}),
     ...(record.role !== undefined ? { role: record.role } : {}),
     ...(record.resume_flag !== undefined ? { resume_flag: (record.resume_flag as string).trim() } : {}),
+    ...(record.cwd_flag !== undefined ? { cwd_flag: (record.cwd_flag as string).trim() } : {}),
     ...(record.effort_levels !== undefined ? { effort_levels: [...(record.effort_levels as string[])] } : {}),
     ...(record.effort_injection !== undefined
       ? {
