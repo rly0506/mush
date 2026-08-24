@@ -32,7 +32,9 @@ export function buildOpencodeContract(): AdapterContract {
   return validateAdapterContract({
     adapter_id: 'opencode',
     executable: 'opencode',
-    arguments: ['run', '-m', OPENCODE_DEFAULT_MODEL],
+    // GOAL-075 切片：--thinking 让推理过程以 "Thinking: …" 内联 stdout 输出
+    // （x-preview-f-free 实测 20s），随既有增量透传直达抽屉/聊天，思维链可见。
+    arguments: ['run', '--thinking', '-m', OPENCODE_DEFAULT_MODEL],
     protocol: 't1',
     prompt_transport: 'argument',
     expected_provider: 'opencode',

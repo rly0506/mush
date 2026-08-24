@@ -22,7 +22,7 @@ test('opencode contract is T1 opencode run with -m free default model injection 
   const contract = buildOpencodeContract();
   assert.equal(contract.adapter_id, 'opencode');
   assert.equal(contract.executable, 'opencode');
-  assert.deepEqual(contract.arguments, ['run', '-m', 'opencode/x-preview-f-free']);
+  assert.deepEqual(contract.arguments, ['run', '--thinking', '-m', 'opencode/x-preview-f-free']);
   assert.equal(contract.protocol, 't1');
   assert.equal(contract.prompt_transport, 'argument');
   assert.equal(contract.expected_model_id, 'opencode/x-preview-f-free');
