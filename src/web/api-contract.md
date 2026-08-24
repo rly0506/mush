@@ -517,6 +517,17 @@ mush 是**单机 loopback 个人工具**，「本机即信任边界」，此为 
 
 请求 `{ "status": "READY|QUEUED|IN_FLIGHT|DONE|BLOCKED|CANCELLED" }`
 - 合法迁移白名单校验；非法迁移 `400` 带原因；任务不存在 `404`。
+- 迁移白名单（D82 修订）：`IDEA→READY|CANCELLED`；`READY→QUEUED|BLOCKED|CANCELLED`；
+  `QUEUED→IN_FLIGHT|BLOCKED|CANCELLED`；`IN_FLIGHT→DONE|BLOCKED|CANCELLED`；
+  `BLOCKED→READY|CANCELLED`；`CANCELLED→READY`（取消可重开，D82 修订前为死局）；
+  `DONE` 终态不可迁出。
+- 失败/受阻/已取消且有过派发的任务，看板提供「重新执行」：按最近一次
+  派发快照**预填派发表单**（执行犬/头犬/模型/effort/cap/real/timeout_s 全部
+  可调），提交走正常派发链，回链 task_id 并把任务经 READY/QUEUED 复活至
+  IN_FLIGHT。服务端 `POST /api/dispatch/:id/rerun` 盲重放仍保留；干跑重跑时
+  恰为旧缺省 5s 的超时（缺陷指纹）抬升至 120s，显式值与 real 重跑忠实保留。
+- 派发表单新增 `timeout_s` 可选字段（5..3600，缺省干跑 120 / 真实 900）——
+  此前表单无超时入口，旧缺省 5s 使带工具调用的干跑必然超时。
 
 ## GET /api/activity（v1.11）
 

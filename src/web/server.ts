@@ -222,6 +222,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       registryPath: path.join(workspaceRoot, 'runtime', 'capability-registry.json'),
       persistence,
       masterGate,
+      streamLiveOutput: true,
       onEvent: (event) => broadcast(event),
     });
   // GOAL-033（GP-31）：会话工作流管理器
@@ -322,6 +323,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       liveProbesPath: dispatch.liveProbeCachePath,
       persistence: nextPersistence,
       masterGate,
+      streamLiveOutput: true,
       onEvent: (event) => broadcast(event),
     });
     wirePipelineEvents(nextDispatch, nextRuntime);

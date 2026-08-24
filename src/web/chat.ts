@@ -59,13 +59,18 @@ export class ChatService extends EventEmitter {
   private readonly runtimeRoot: string;
   private readonly pipeline: DispatchPipeline;
   private readonly onEvent?: (event: ChatFrameEvent) => void;
+  /** D82 修订：头犬聊天派发超时（秒）。旧硬编码 300s 在免费档通道抖动期
+   *  （实测 pong 单发 41~58s 波动）必然截断长回复——f62c928f 实证。
+   *  对齐 real 派发缺省 900s；可经 options 覆盖。 */
+  private readonly chatTimeoutS: number;
   private readonly pending = new Map<string, Promise<void>>();
 
-  constructor(options: { runtimeRoot: string; pipeline: DispatchPipeline; onEvent?: (event: ChatFrameEvent) => void }) {
+  constructor(options: { runtimeRoot: string; pipeline: DispatchPipeline; onEvent?: (event: ChatFrameEvent) => void; chatTimeoutS?: number }) {
     super();
     this.runtimeRoot = options.runtimeRoot;
     this.pipeline = options.pipeline;
     this.onEvent = options.onEvent;
+    this.chatTimeoutS = options.chatTimeoutS ?? 900;
   }
 
   private chatDir(): string {
@@ -205,7 +210,7 @@ export class ChatService extends EventEmitter {
         prompt: activeCharter + transcript + (attachments.length > 0 ? '\n\n[附加本地图片/多模态视觉文件]:\n' + attachments.map((a, i) => `  ${i + 1}. ${a.name} -> ${a.localPath}`).join('\n') : '') + '\n\nOwner: ' + message,
         effort,
         real: true, // 聊天即真实执行；GP-32/D30：owner 亲自敲字即批准（originOwner）
-        timeout_s: 300,
+        timeout_s: this.chatTimeoutS,
       }, {
         originOwner: true,
         dispatchId,
@@ -217,9 +222,16 @@ export class ChatService extends EventEmitter {
         },
       });
       const headText = replyAccum !== '' ? replyAccum : record.stdout_tail?.text ?? `[dry-run ${record.status}]`;
+      // D82 修订：超时/失败但已有部分产出时如实标注——f62c928f 实证 300s 截断
+      // 时 stdout 非空，已生成内容不应被终态淹没。
+      const degraded = record.status === 'TIMEOUT' || record.status === 'FAIL' || record.status === 'INTERRUPTED';
+      const partialNote =
+        degraded && headText.trim() !== '' && !headText.startsWith('[dry-run')
+          ? `\n\n[注意：本单 ${record.status}，以上为中断前已产出的部分回复；可点「重试」重发]`
+          : '';
       this.append(sessionId, {
         role: 'head',
-        text: headText,
+        text: headText + partialNote,
         at_utc: new Date().toISOString(),
         dispatch_id: record.dispatch_id,
       });

@@ -648,6 +648,7 @@ ${getCollaborationStyles()}
         <div>
           <label for="dispatch-head">头犬（本次任务的领队犬）</label>
           <select id="dispatch-head"><option value="">（跟随工坊当前头犬默认）</option></select>
+          <span id="dispatch-head-hint" class="meta" style="display:none;margin-left:6px"></span>
         </div>
         <div>
           <label for="dispatch-effort">effort 档位（D20）</label>
@@ -660,6 +661,11 @@ ${getCollaborationStyles()}
         <div>
           <label for="dispatch-cap">cap_usd（per-actor 上限）</label>
           <input type="number" id="dispatch-cap" min="0.01" step="0.01" value="5">
+        </div>
+        <div>
+          <label for="dispatch-timeout">timeout_s（秒）</label>
+          <input type="number" id="dispatch-timeout" min="5" max="3600" step="1" placeholder="缺省：干跑 120 / 真实 900">
+          <div class="hint" style="margin-top:2px">带工具调用的任务（列目录/读文件）建议 ≥180s。</div>
         </div>
         <div>
           <label for="dispatch-topology">组织架构模式 (GOAL-028)</label>
@@ -1158,21 +1164,33 @@ ${getCollaborationStyles()}
       renderDispatchProviderOptions();
 
       // D82 批次：头犬指定下拉——实证在册（verified）且头犬白名单内的通道；
-      // 留空 = 跟随工坊当前头犬默认。
+      // 留空 = 跟随工坊当前头犬默认。与工坊级联（HEAD_WHITELIST）共用同一份
+      // 白名单——此前派发侧私有一份缺项名单（漏 opencode/codex/kimi），导致
+      // 通道实测通过后仍无法在派发表单任头犬。候选缺失时给出原因提示。
       var headSelect = document.getElementById('dispatch-head');
+      var headHint = document.getElementById('dispatch-head-hint');
       if (headSelect) {
         var prevHead = headSelect.value;
-        var HEAD_WHITELIST_LOCAL = { 'deepseek-dsh': 1, 'claude-code': 1, 'kimi-code': 1, 'zcode': 1, 'agy': 1 };
         var headOpts = ['<option value="">（跟随工坊当前头犬默认）</option>'];
+        var unverifiedHeads = [];
         roster.forEach(function (r) {
-          var capable = r.verified && ((r.role === 'head') || HEAD_WHITELIST_LOCAL[r.adapter_id] === 1);
-          if (capable && r.adapter_id !== 'head-dog' && r.adapter_id !== 'fake-t1') {
-            headOpts.push('<option value="' + esc(r.adapter_id) + '">🐕 ' + esc(r.adapter_id) + '</option>');
-          }
+          var inPool = (r.role === 'head' || HEAD_WHITELIST[r.adapter_id] === 1) &&
+            r.adapter_id !== 'head-dog' && r.adapter_id !== 'fake-t1' && !r.adapter_id.startsWith('agy-');
+          if (!inPool) return;
+          if (r.verified) headOpts.push('<option value="' + esc(r.adapter_id) + '">🐕 ' + esc(r.adapter_id) + '</option>');
+          else unverifiedHeads.push(r.adapter_id);
         });
         headSelect.innerHTML = headOpts.join('');
         if (prevHead && headOpts.some(function (o) { return o.indexOf('value="' + esc(prevHead) + '"') >= 0; })) {
           headSelect.value = prevHead;
+        }
+        if (headHint) {
+          if (unverifiedHeads.length > 0) {
+            headHint.textContent = unverifiedHeads.join('、') + ' 未实证，暂不可任头犬（先跑通道验证）';
+            headHint.style.display = '';
+          } else {
+            headHint.style.display = 'none';
+          }
         }
       }
 
@@ -1410,11 +1428,15 @@ ${getCollaborationStyles()}
 
   var currentChildSessionId = null;
   var currentChildDog = null;
+  // D82 批次：直连抽屉"终端控制台"——正在直播的派发单 id 与打开中的犬只。
+  var drawerWatchId = null;
+  var drawerOpenDog = null;
 
   function openChildDogDrawer(dogName, sessionId, title) {
     var drawer = document.getElementById('child-dog-drawer');
     if (!drawer) return;
     drawer.style.display = 'flex';
+    drawerOpenDog = dogName || null;
     currentChildSessionId = sessionId || ('csess_' + (dogName || 'worker'));
     currentChildDog = dogName || null;
     document.getElementById('child-dog-drawer-title').textContent = '🐶 工犬专属终端: ' + (dogName || '工犬');
@@ -1429,20 +1451,84 @@ ${getCollaborationStyles()}
           logsEl.textContent = '=== 工犬 ' + sess.dog + ' 活跃会话 ===\\n' +
             '工作区: ' + sess.workspace + '\\n' +
             '交互轮次: ' + sess.turn_count + '\\n' +
-            '创建时间: ' + fmtTime(sess.created_at) + '\\n\\n' +
-            '已准备就绪，支持通过底部输入框直接追加指令。';
-          return;
+            '创建时间: ' + fmtTime(sess.created_at) + '\\n';
+        } else {
+          logsEl.textContent = '【会话就绪】输入指令直接与工犬交互。\\n';
         }
+      } else {
+        logsEl.textContent = '【会话就绪】输入指令直接与工犬交互。\\n';
       }
-      logsEl.textContent += '【会话就绪】输入指令直接与工犬交互。';
+      renderDrawerConsole(dogName, logsEl);
     }).catch(function () {
-      logsEl.textContent = '【终端就绪】输入指令直接与工犬交互。';
+      logsEl.textContent = '【终端就绪】输入指令直接与工犬交互。\\n';
+      renderDrawerConsole(dogName, logsEl);
+    });
+  }
+
+  /* ---------- D82 修订：直连抽屉"终端控制台" ----------
+     此前抽屉只显示会话元数据——子会话注册表只存统计、不存内容，owner 点开
+     头像什么都看不到。现分两段：① 该犬最近 5 单的状态与输出末段；② 锁定
+     最近一单为直播对象——回放其 EXECUTE 增量（stdout+stderr 双通道），此后
+     SSE 实时帧持续滚动上屏，效果对齐 CLI 里看模型干活。 */
+  function appendDrawerLive(text) {
+    var el = document.getElementById('child-dog-drawer-logs');
+    if (!el) return;
+    el.textContent += text;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function renderDrawerConsole(dogName, logsEl) {
+    var list = ((snapshot && snapshot.dispatches) || [])
+      .filter(function (d) { return d.adapter_id === dogName; })
+      .slice(0, 5);
+    var historyDone = Promise.resolve([]);
+    if (list.length > 0) {
+      historyDone = Promise.all(list.map(function (d) {
+        return getJson('/api/dispatch/' + encodeURIComponent(d.dispatch_id)).catch(function () { return null; });
+      })).then(function (results) {
+        var blocks = results.map(function (data, idx) {
+          var d = list[idx];
+          var dd = data && data.ok ? data.dispatch : null;
+          var text = '\\n[' + (dd ? dd.status : d.status) + '] ' + fmtTime(d.at_utc) + ' · ' + String(d.dispatch_id).slice(0, 8) + '…';
+          var tail = dd && dd.stdout_tail && dd.stdout_tail.text ? dd.stdout_tail.text.trim() : '';
+          if (tail === '' && dd && dd.stderr_tail && dd.stderr_tail.text) tail = '[stderr] ' + dd.stderr_tail.text.trim();
+          if (tail !== '') text += '\\n' + tail.slice(-500);
+          return text;
+        });
+        logsEl.textContent += '\\n=== 最近派发（最新 5 单）===' + blocks.join('');
+        return results;
+      });
+    } else {
+      logsEl.textContent += '\\n（该犬在当前上下文暂无派发记录）';
+    }
+    // 直播对象：该犬最近一单（含历史单回放与后续 SSE 实时帧）。
+    historyDone.then(function () {
+      var latest = latestDispatchPerAdapter()[dogName] || null;
+      drawerWatchId = latest ? latest.dispatch_id : null;
+      if (!drawerWatchId) {
+        logsEl.textContent += '\\n\\n=== 实时输出 ===\\n（提交新任务后此处实时滚动执行过程）\\n';
+        return;
+      }
+      logsEl.textContent += '\\n\\n=== 实时输出（' + String(drawerWatchId).slice(0, 8) + '…）===\\n';
+      getJson('/api/dispatch/' + encodeURIComponent(drawerWatchId)).then(function (data) {
+        if (!(data && data.ok && data.dispatch)) return;
+        var d = data.dispatch;
+        var chunks = [];
+        (d.events || []).forEach(function (ev) {
+          var st = ev.payload && typeof ev.payload.stream_text === 'string' ? ev.payload.stream_text : '';
+          if (st !== '') chunks.push(st);
+        });
+        if (chunks.length > 0) appendDrawerLive(chunks.join(''));
+        if (TERMINAL_STATUSES[d.status] === 1) appendDrawerLive('\\n〔本单已结束 · ' + d.status + '〕\\n');
+      }).catch(function () {});
     });
   }
 
   function closeChildDogDrawer() {
     var drawer = document.getElementById('child-dog-drawer');
     if (drawer) drawer.style.display = 'none';
+    drawerWatchId = null;
+    drawerOpenDog = null;
   }
 
   function sendChildDogMessage() {
@@ -1641,6 +1727,8 @@ ${getCollaborationStyles()}
     if (!adapterId) { toast('请选择犬只', false); return; }
     if (!prompt) { toast('任务不能为空', false); return; }
     var body = { adapter_id: adapterId, prompt: prompt, effort: effort, cap_usd: capUsd, real: real };
+    var timeoutRaw = document.getElementById('dispatch-timeout').value;
+    if (timeoutRaw !== '') body.timeout_s = Number(timeoutRaw);
     if (workspace) body.workspace = workspace;
     // GOAL-018B #2：工作流控制面（v1.6 mock）——显式选流 / 新开流 / 强制新窗。
     var streamSel = document.getElementById('dispatch-stream');
@@ -1744,8 +1832,20 @@ ${getCollaborationStyles()}
       stdoutBlock += '<dt style="color:var(--ink-dim)">stderr（末段' + (d.stderr_tail.truncated ? '，已截断' : '') + '）</dt>' +
         '<dd><pre class="mono" style="white-space:pre-wrap;max-height:120px;overflow:auto;margin:4px 0">' + esc(d.stderr_tail.text) + '</pre></dd>';
     }
+    // D82 批次：执行链可视——谁在干活（执行犬）、领队头犬是谁、模型/档位/模式。
+    // 数据源 = 派发请求快照（契约 v1.4 request 字段），旧记录缺省时只显示执行犬。
+    var req = d.request || {};
+    var chainBlock = '<dt style="color:var(--ink-dim)">执行链</dt><dd>' +
+      '🐕 执行犬 <strong>' + esc(d.adapter_id || '') + '</strong>（当前干活者）' +
+      ' · 领队 ' + (req.head_id ? '<span class="mono">' + esc(req.head_id) + '</span>' : '工坊默认') +
+      (req.model_id ? ' · 模型 <span class="mono">' + esc(req.model_id) + '</span>' : '') +
+      (req.effort ? ' · effort=' + esc(req.effort) : '') +
+      ' · ' + (req.real === true ? '真实执行' : 'DRY_RUN') +
+      (req.timeout_s ? ' · 超时 ' + esc(String(req.timeout_s)) + 's' : '') +
+      '</dd>';
     return '<dl style="margin:0">' +
       '<dt style="color:var(--ink-dim)">状态</dt><dd><span class="badge ' + esc(d.status) + '">' + esc(d.status) + '</span></dd>' +
+      chainBlock +
       '<dt style="color:var(--ink-dim)">回执锚点</dt><dd class="mono hash">' + esc(d.receipt_path || '（未落盘）') + '</dd>' + stdoutBlock + '</dl>' +
       (events ? '<table><tbody>' + events + '</tbody></table>' : '');
   }
@@ -2581,11 +2681,11 @@ ${getCollaborationStyles()}
 
   function armChatWatchdog() {
     disarmChatWatchdog();
-    // 服务端超时 300s（REPORT FAIL 兜底）；前端看门狗 320s 防 SSE 静默丢帧卡死 pending。
+    // 服务端聊天超时 900s（chatTimeoutS，D82 修订）；前端看门狗 920s 防 SSE 静默丢帧卡死 pending。
     chatWatchdog = setTimeout(function () {
       if (!chatPending) return;
-      chatFinishFailure('等待头犬回复超时（前端看门狗 320s），可重试。');
-    }, 320000);
+      chatFinishFailure('等待头犬回复超时（前端看门狗 920s），可重试。');
+    }, 920000);
   }
 
   function disarmChatWatchdog() {
@@ -3098,6 +3198,12 @@ ${getCollaborationStyles()}
         }).join('');
         var dispatchBtn = t.status === 'READY' || t.status === 'QUEUED'
           ? '<button class="act approve" data-task-dispatch="' + esc(t.task_id) + '" type="button">派发</button>' : '';
+        // D82 修订：失败/受阻/已取消且有过派发的任务 → 一键重新执行（重放最近一次
+        // 派发快照；服务端 rerun 会回链 task_id 并把任务复活为 IN_FLIGHT）。
+        var lastDispatchId = (t.dispatch_ids && t.dispatch_ids.length > 0)
+          ? String(t.dispatch_ids[t.dispatch_ids.length - 1]) : '';
+        var rerunBtn = (lastDispatchId !== '' && (t.status === 'BLOCKED' || t.status === 'IN_FLIGHT' || t.status === 'CANCELLED'))
+          ? '<button class="act approve" data-task-rerun="' + esc(t.task_id) + '" data-rerun-dispatch="' + esc(lastDispatchId) + '" type="button" title="按最近一次派发快照预填表单：可换头犬/执行犬/模型/超时后再提交">↻ 重新执行</button>' : '';
         var checkbox = lane === 'todo'
           ? '<input type="checkbox" class="task-select" data-task-select="' + esc(t.task_id) + '"' + (taskSelection[t.task_id] ? ' checked' : '') + ' title="选中批量派发">' : '';
         var goalBadge = t.goal_id ? '<span class="badge goal-cluster">' + esc(t.goal_id) + '</span>' : '';
@@ -3109,7 +3215,7 @@ ${getCollaborationStyles()}
           goalBadge +
           '<span>' + esc(t.source || 'manual') + '</span>' +
           '<span>派发链 ' + ((t.dispatch_ids || []).length) + '</span></div>' +
-          '<div class="task-actions">' + btns + dispatchBtn + '</div></div>';
+          '<div class="task-actions">' + btns + dispatchBtn + rerunBtn + '</div></div>';
       }).join('');
       bindBatchBar(el);
       el.querySelectorAll('.task-card').forEach(function (card) {
@@ -3140,6 +3246,15 @@ ${getCollaborationStyles()}
         btn.addEventListener('click', function (e) {
           e.stopPropagation();
           prefillDispatchFromTask(btn.getAttribute('data-task-dispatch'));
+        });
+      });
+      el.querySelectorAll('button[data-task-rerun]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var dispatchId = btn.getAttribute('data-rerun-dispatch');
+          var taskId = btn.getAttribute('data-task-rerun');
+          if (!dispatchId || !taskId) return;
+          prefillDispatchFromSnapshot(dispatchId, taskId);
         });
       });
     });
@@ -3483,6 +3598,62 @@ ${getCollaborationStyles()}
     document.getElementById('dispatch-prompt').value = task ? (task.title + (task.detail ? '\\n\\n' + task.detail : '')) : '';
     document.getElementById('dispatch-form').setAttribute('data-task-id', taskId);
     toast('已预填派发表单（#' + (task ? taskSeq(task) : '?') + '）', true);
+  }
+
+  /* ---------- D82 修订：重新执行 = 快照预填（可调头犬/执行犬/模型/超时后提交） ----------
+     此前「↻ 重新执行」直接 POST /rerun 盲重放——参数全部冻结自旧快照，owner 无法
+     换犬或调超时。现改为拉取快照预填派发表单：执行犬、头犬、模型、effort、cap、
+     real、timeout 全部可改，提交走正常派发链（含 task 回链与状态复活）。 */
+  function selectOptionByValue(sel, value) {
+    if (!sel || value === undefined || value === null || value === '') return false;
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === String(value)) { sel.selectedIndex = i; return true; }
+    }
+    return false;
+  }
+
+  // D82 修订：旧快照的 prompt 是组装版（章程缝合层可能叠了多层）。预填显示时
+  // 剥掉章程层取最内层指令；残留的项目简报层由服务端组装时按实文精确去重。
+  function stripStitchLayersForDisplay(text) {
+    var HEAD = '【mush 流内 dsh 窗口】\\n';
+    var TAIL = '\\n[新指令]\\n';
+    var out = String(text || '');
+    while (out.indexOf(HEAD) === 0) {
+      var i = out.lastIndexOf(TAIL);
+      if (i < 0) break;
+      out = out.slice(i + TAIL.length);
+    }
+    return out;
+  }
+
+  function prefillDispatchFromSnapshot(dispatchId, taskId) {
+    getJson('/api/dispatch/' + encodeURIComponent(dispatchId)).then(function (data) {
+      var req = data && data.ok && data.dispatch ? data.dispatch.request : null;
+      if (!req) {
+        toast('该派发无可回放快照，已改为任务预填', false);
+        prefillDispatchFromTask(taskId);
+        return;
+      }
+      var navBtn = document.querySelector('button[data-view="dispatch"]');
+      if (navBtn) navBtn.click();
+      var adapterSel = document.getElementById('dispatch-adapter');
+      if (!selectOptionByValue(adapterSel, req.adapter_id)) {
+        toast('快照执行犬 ' + req.adapter_id + ' 不在当前名册，请手动选择', false);
+      }
+      renderDispatchProviderOptions(); // 切犬后刷新 provider/model 级联
+      selectOptionByValue(document.getElementById('dispatch-model'), req.model_id);
+      selectOptionByValue(document.getElementById('dispatch-head'), req.head_id);
+      selectOptionByValue(document.getElementById('dispatch-effort'), req.effort);
+      document.getElementById('dispatch-prompt').value = stripStitchLayersForDisplay(req.prompt);
+      document.getElementById('dispatch-cap').value = req.cap_usd;
+      if (req.timeout_s !== undefined) document.getElementById('dispatch-timeout').value = req.timeout_s;
+      else document.getElementById('dispatch-timeout').value = '';
+      document.getElementById('dispatch-real').checked = req.real === true;
+      document.getElementById('dispatch-form').setAttribute('data-task-id', taskId);
+      toast('↻ 快照 ' + String(dispatchId).slice(0, 8) + '… 已预填——可换头犬/执行犬/调超时后再提交', true);
+    }).catch(function (error) {
+      toast('读取派发快照失败：' + error, false);
+    });
   }
 
   // 批量队列推进：派发提交成功后自动预填下一单。
@@ -4135,9 +4306,12 @@ ${getCollaborationStyles()}
     switchChatSession(this.value);
   });
   // GOAL-017B #2/#3：级联选择联动（harness 切换 → provider 切换 → 变体重算 + 徽章链刷新 + 上下文水位与费率刷新）。
+  // D82 修订：harness 切换此前漏挂徽章监听——注释声称"徽章链刷新"实际没刷，
+  // 切头犬后页头图标/名称停留旧值，直到下一次 SSE 帧才被动更新。
   document.getElementById('chat-head-select').addEventListener('change', renderHeadProviderOptions);
   document.getElementById('chat-head-select').addEventListener('change', renderHeadVariantOptions);
   document.getElementById('chat-head-select').addEventListener('change', updateContextGauge);
+  document.getElementById('chat-head-select').addEventListener('change', renderHeadDogBadge);
   var chatHeadProv = document.getElementById('chat-head-provider');
   if (chatHeadProv) chatHeadProv.addEventListener('change', function () { renderHeadVariantOptions(); updateContextGauge(); });
   document.getElementById('chat-head-variant').addEventListener('change', renderHeadDogBadge);
@@ -4556,6 +4730,12 @@ ${getCollaborationStyles()}
       }
       if (payload && payload.kind === 'dispatch') {
         trackDispatch(payload.dispatch_id, payload.adapter_id, payload.status);
+        // D82 批次：直连抽屉实时输出——直播单的 EXECUTE 增量帧滚动上屏。
+        if (drawerOpenDog !== null && payload.dispatch_id === drawerWatchId) {
+          var dp = payload.payload || {};
+          if (typeof dp.stream_text === 'string' && dp.stream_text !== '') appendDrawerLive(dp.stream_text);
+          if (payload.phase === 'REPORT' || payload.phase === 'REVIEW') appendDrawerLive('\\n〔本单结束 · ' + payload.status + '〕\\n');
+        }
         loadBudget();
         // 头犬派发进入 REPORT/REVIEW 后，头犬回复已落盘 runtime/chat —— 拉历史补齐气泡。
         // GOAL-021B：在途 chat 派发已由 kind=chat 帧渲染，跳过避免覆盖打字机/失败态。

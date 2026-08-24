@@ -51,7 +51,7 @@ test('U3: failure/timeout bubble state + retry button', () => {
   assert.match(html, /function retryChat\(/, '重试逻辑');
   assert.match(html, /chatLastMessage/, '重试数据源');
   assert.match(html, /chatFinishFailure/, '失败/超时统一出口');
-  assert.match(html, /320000/, '前端超时看门狗（320s > 服务端 300s）');
+  assert.match(html, /920000/, '前端超时看门狗（920s > 服务端 chatTimeoutS 900s，D82 修订）');
   assert.match(html, /p\.error !== undefined/, 'REPORT error 字段判定失败');
 });
 
