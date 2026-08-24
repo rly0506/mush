@@ -1,6 +1,6 @@
 # GOAL-075: 头犬对话体验升级——分通道思维链采集与派发计划门 (Head-Dog CoT & Dispatch Plan Gate)
 
-- 状态：`IN_PROGRESS`（切片1 ✅ `--thinking` 内联思维链；切片2 ✅ `--format json` NDJSON 结构化采集——stdout 归一化人类可读/`ses_` 会话锚点回填/tokens 真实计量入台账回路；下一切片 = 计划门 Plan Gate）
+- 状态：`IN_PROGRESS`（切片1 ✅ `--thinking` 思维链内联；切片2 ✅ `--format json` NDJSON 结构化采集——归一化/`ses_` 锚点/真实计量；切片3 ✅ 计划门 Plan Gate 全链（章程协议/PLAN_WAIT·DECIDED 帧/决断端点/计划卡 UI）。余项 = 三段式气泡精修与 GOAL-076 P2 合流施工）
 - 来源：owner 实战反馈（RM-011 演练期间三轮）：①"和头犬对话看不到思维链"；②"不知道也无法控制头犬何时派子级、派几个、用哪个 harness"；③总体诉求对齐 claude code / codex 级成熟 agent 对话体验
 - 优先级：高
 - 依赖：无硬依赖（建议在 RM-011 M1 演练收官后动工，避免演练基线漂移）
