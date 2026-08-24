@@ -44,7 +44,9 @@ export const TASK_TRANSITIONS: Record<TaskStatus, readonly TaskStatus[]> = {
   IN_FLIGHT: ['DONE', 'BLOCKED', 'CANCELLED'],
   BLOCKED: ['READY', 'CANCELLED'],
   DONE: [],
-  CANCELLED: [],
+  // D82 修订：取消不再是死局——owner 误取消/失败后放弃的任务可重新打开
+  // （转就绪）或经"重新执行"直接复活为 IN_FLIGHT。DONE 仍为真终态。
+  CANCELLED: ['READY'],
 };
 
 export function isTaskStatus(value: unknown): value is TaskStatus {
@@ -126,11 +128,19 @@ export function linkDispatchToTask(task: Task, dispatchId: string, now: () => Da
  * 针对已处于终态 (DONE/CANCELLED) 或已处于目标状态的任务安全幂等返回。
  */
 export function advanceTaskToStatus(task: Task, targetStatus: TaskStatus, now: () => Date): Task {
-  if (task.status === targetStatus || task.status === 'DONE' || task.status === 'CANCELLED') {
+  if (task.status === targetStatus || task.status === 'DONE') {
+    return task;
+  }
+  // D82 修订：CANCELLED 只允许沿两条复活路径前进（手动重开→READY、
+  // 重新执行→IN_FLIGHT）；其余目标（如自动归档 BLOCKED/DONE）仍视作冻结，
+  // 不因后台对账把 owner 主动取消的任务悄悄改态。
+  if (task.status === 'CANCELLED' && targetStatus !== 'READY' && targetStatus !== 'IN_FLIGHT') {
     return task;
   }
   let current = task;
   if (targetStatus === 'IN_FLIGHT') {
+    // D82 修订：CANCELLED 可经重新执行复活（先回到 READY 再走正常跃迁链）。
+    if (current.status === 'CANCELLED') current = transitionTask(current, 'READY', now);
     if (current.status === 'IDEA') current = transitionTask(current, 'READY', now);
     if (current.status === 'BLOCKED') current = transitionTask(current, 'READY', now);
     if (current.status === 'READY') current = transitionTask(current, 'QUEUED', now);
@@ -148,7 +158,7 @@ export function advanceTaskToStatus(task: Task, targetStatus: TaskStatus, now: (
     return transitionTask(current, 'BLOCKED', now);
   }
   if (targetStatus === 'READY') {
-    if (current.status === 'IDEA' || current.status === 'BLOCKED') {
+    if (current.status === 'IDEA' || current.status === 'BLOCKED' || current.status === 'CANCELLED') {
       return transitionTask(current, 'READY', now);
     }
   }

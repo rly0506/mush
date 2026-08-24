@@ -67,6 +67,7 @@ import {
   estimateTokens,
   shouldSwitchWindow,
   buildDshStitchedPrompt,
+  stripAssembledLayers,
   DSH_CHARTER_FIXED,
   readProjectBrief,
   type WorkStream,
@@ -263,6 +264,8 @@ export type RunAdapterFn = (
     cwd?: string;
     /** GOAL-021 U3：增量 stdout 透传（可选）。宿主收到原始 chunk，负责节流合帧。 */
     onStdout?: (chunk: string) => void;
+    /** D82 批次：增量 stderr 透传（可选）——CLI 工具活动/构建进度通道。 */
+    onStderr?: (chunk: string) => void;
   },
 ) => Promise<RunAdapterResult>;
 
@@ -304,6 +307,10 @@ export interface DispatchPipelineOptions {
   liveProbesPath?: string;
   /** GOAL-068（D2）：跨项目全局资金总控门（多项目热切换下防资金逃逸）。 */
   masterGate?: MasterBudgetGateLike;
+  /** D82 批次：看板实时输出——开启后 stdout/stderr 增量以 EXECUTE 事件广播
+   *  （SSE 直达浏览器，直连抽屉/派发卡可滚动观看干活过程）。默认关闭：
+   *  测试与无宿主场景维持既有单帧语义。 */
+  streamLiveOutput?: boolean;
 }
 
 export interface WorkspaceInfo {
@@ -461,6 +468,7 @@ export class DispatchPipeline {
   private contracts: Record<string, AdapterContract>;
   private readonly runAdapter: RunAdapterFn;
   private onEvent: (event: DispatchLifecycleEvent) => void;
+  private readonly streamLiveOutput: boolean;
   private readonly ledger = new UsdBudgetLedger();
   /** GOAL-068（D2）：跨项目全局资金总控门（可选；多项目热切换防逃逸）。 */
   private masterGate?: MasterBudgetGateLike;
@@ -523,6 +531,7 @@ export class DispatchPipeline {
         this.userAdapters,
       );
     this.onEvent = options.onEvent ?? (() => {});
+    this.streamLiveOutput = options.streamLiveOutput === true;
     this.now = options.now ?? (() => new Date());
     this.persistence = options.persistence ?? null;
     this.masterGate = options.masterGate;
@@ -628,6 +637,7 @@ export class DispatchPipeline {
             timeoutMs: opts!.timeoutMs,
             spawn: options.spawn,
             onStdout: opts!.onStdout,
+            onStderr: opts!.onStderr,
             ...(opts!.cwd !== undefined ? { cwd: opts!.cwd } : {}),
           });
           return {
@@ -884,9 +894,14 @@ export class DispatchPipeline {
     // D82 批次：档位真正进入 spawn 命令行（此前校验后被丢弃）。
     effectiveContract = applyEffortInjection(effectiveContract, effort);
     // D82 批次：派发可指定头犬——仅接受实证在册且头犬白名单内的通道。
+    // D82 修订：头犬资格与 GOAL-017A U2（verifiedAdapters）同一判据——
+    // 模板/注册表/实测 ONLINE 三路任一 verified 即可。旧实现只认静态白名单
+    // + 注册表两路，实测验证过的通道（opencode 等）反被拒之门外。
     const headId = typeof body.head_id === 'string' && body.head_id.trim() !== '' ? body.head_id.trim() : undefined;
     if (headId !== undefined) {
-      const headCapable = new Set<string>([...VERIFIED_WHITELIST, ...this.registryVerified]);
+      const headCapable = new Set<string>(
+        Object.keys(this.contracts).filter((id) => this.isAdapterVerified(id)),
+      );
       if (!headCapable.has(headId)) {
         throw new InputError(`head_id '${headId}' is not a verified head-capable adapter`);
       }
@@ -901,8 +916,10 @@ export class DispatchPipeline {
     const amountUsd = body.amount_usd === undefined ? 0 : Number(body.amount_usd);
     if (!Number.isFinite(amountUsd) || amountUsd < 0) throw new InputError('amount_usd must be >= 0');
     // 超时可配（秒）：真实任务远超旧 120s 硬编码（dispatch 747c7040 教训：
-    // RF-C 诊断犬 120s 被掐）。默认 real=900 / dry=5，范围 5..3600。
-    const timeoutSec = body.timeout_s === undefined ? (body.real === true ? 900 : 5) : Number(body.timeout_s);
+    // RF-C 诊断犬 120s 被掐）。默认 real=900 / dry=120，范围 5..3600。
+    // D82 修订：dry 缺省 5→120——dry_run 对 argument 运输通道仍是真实模型
+    // 往返（opencode free 实测 ~30s），旧 5s 使每次干跑必然 TIMEOUT。
+    const timeoutSec = body.timeout_s === undefined ? (body.real === true ? 900 : 120) : Number(body.timeout_s);
     if (!Number.isFinite(timeoutSec) || timeoutSec < 5 || timeoutSec > 3600) {
       throw new InputError('timeout_s must be 5..3600 seconds');
     }
@@ -960,7 +977,10 @@ export class DispatchPipeline {
         : randomUUID().replace(/-/g, '');
     const request: DispatchRequestSnapshot = {
       adapter_id: adapterId,
-      prompt,
+      // D82 修订：快照存 owner 原始指令，不存组装后 prompt——组装（章程缝合/
+      // AGENTS 简报/流历史）是执行时行为，随流状态变化；存组装版会让 rerun/
+      // 预填层层套娃（RM-011 演练实证）。最终发犬文本仍走 body.prompt 组装版。
+      prompt: rawPrompt,
       effort,
       workspace,
       timeout_s: timeoutSec,
@@ -1119,14 +1139,51 @@ export class DispatchPipeline {
             now: () => this.now().getTime(),
           })
         : null;
+    // D82 批次：看板实时输出——streamLiveOutput 开启时 stdout/stderr 双通道
+    // 增量广播。stderr 是 opencode 等 CLI 的工具活动通道（$ ls、build 进度），
+    // 看板直连抽屉靠它呈现"干活过程"。progress 标记通道来源。
+    const stderrThrottle = this.streamLiveOutput
+      ? createThrottledStream({
+          emit: (text) => {
+            this.emit(record, 'EXECUTE', real ? 'ADMITTED' : 'DRY_RUN', {
+              workspace,
+              progress: 'stderr',
+              stream_text: text,
+            });
+          },
+          now: () => this.now().getTime(),
+        })
+      : null;
+    const liveStdoutThrottle =
+      this.streamLiveOutput && streamThrottle === null
+        ? createThrottledStream({
+            emit: (text) => {
+              this.emit(record, 'EXECUTE', real ? 'ADMITTED' : 'DRY_RUN', {
+                workspace,
+                progress: 'stream',
+                stream_text: text,
+              });
+            },
+            now: () => this.now().getTime(),
+          })
+        : null;
+    const stdoutSink =
+      streamThrottle !== null
+        ? (chunk: string) => streamThrottle.push(chunk)
+        : liveStdoutThrottle !== null
+          ? (chunk: string) => liveStdoutThrottle.push(chunk)
+          : undefined;
     const run = await this.runAdapter(effectiveContract, prompt, {
       workspaceRoot: workspace,
       receiptPath,
       timeoutMs: timeoutSec * 1000,
       ...(cwd !== undefined ? { cwd } : {}),
-      ...(streamThrottle !== null ? { onStdout: (chunk: string) => streamThrottle.push(chunk) } : {}),
+      ...(stdoutSink !== undefined ? { onStdout: stdoutSink } : {}),
+      ...(stderrThrottle !== null ? { onStderr: (chunk: string) => stderrThrottle.push(chunk) } : {}),
     });
     streamThrottle?.flush();
+    liveStdoutThrottle?.flush();
+    stderrThrottle?.flush();
     record.receipt_path = receiptPath;
     record.stdout_tail = tailOf(run.stdout, 2048);
     record.stderr_tail = tailOf(run.stderr, 256);
@@ -1241,6 +1298,17 @@ export class DispatchPipeline {
     const request = original.request;
     const real = overrides.real === undefined ? request.real : overrides.real === true;
     const capUsd = overrides.cap_usd === undefined ? request.cap_usd : Number(overrides.cap_usd);
+    // D82 修订：干跑重跑的超时缺陷指纹修复——旧缺省 5s 时代落盘的快照
+    // （表单无超时字段，用户从未自选过 5s；如 RM-011 演练 04b21c32）原样重放
+    // 必然复现 TIMEOUT。仅当克隆值恰为旧缺省 5 且本次仍是干跑时抬升到新缺省
+    // 120s；显式自选的超时（如 30s）忠实保留；real 重跑完全不动；
+    // overrides.timeout_s 显式指定时永远优先。
+    const timeoutSec =
+      overrides.timeout_s !== undefined
+        ? Number(overrides.timeout_s)
+        : real || request.timeout_s !== 5
+          ? request.timeout_s
+          : 120;
     // GP-32（D30）：审批通过的重跑携带 approved_via——新派发消费原单令牌，
     // 原被拦记录折算 SUPERSEDED（终态），审计链：审批应答→令牌→新派发回执。
     const approvedVia =
@@ -1258,7 +1326,7 @@ export class DispatchPipeline {
         prompt: request.prompt,
         effort: request.effort,
         workspace: request.workspace,
-        timeout_s: request.timeout_s,
+        timeout_s: timeoutSec,
         model_id: request.model_id,
         profile: request.profile,
         stream_id: request.stream_id,
@@ -1839,8 +1907,9 @@ export class DispatchPipeline {
       stream = active;
     }
 
-    let prompt = rawPrompt;
+    // D82 修订：先剥掉历史快照叠加的组装层（旧数据自愈），再单次组装。
     const projectBrief = readProjectBrief(workspace);
+    let prompt = stripAssembledLayers(rawPrompt, projectBrief);
     if (projectBrief !== '') prompt = `[项目层 AGENTS.md]\n${projectBrief}\n\n${prompt}`;
     if (handoffToInject !== null) {
       prompt = `[最近交接]\n${handoffToInject.raw}\n\n${prompt}`;

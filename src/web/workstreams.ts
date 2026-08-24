@@ -244,6 +244,33 @@ export function buildDshStitchedPrompt(charter: string, history: string, instruc
   return DSH_STITCH_HEAD + charter + DSH_STITCH_HISTORY + history + DSH_STITCH_TAIL + instruction;
 }
 
+/** D82 修订：剥离旧版快照里叠加的组装层（dsh 章程缝合 + 项目简报前缀）。
+ *  背景：此前 request.prompt 存的是组装后 prompt，重跑/预填会把"已包一层的"
+ *  再包一层（章程×2、AGENTS×2 滚雪球，RM-011 演练实证）。本函数只认精确
+ *  标记、不做猜测：章程层取最后一个 [新指令] 之后的内容；简报层仅当开头与
+ *  当前工作区 AGENTS.md 实文完全一致时剥除。循环处理任意叠层数。 */
+export function stripAssembledLayers(prompt: string, projectBrief: string): string {
+  let out = prompt;
+  for (;;) {
+    if (projectBrief !== '' && out.startsWith('[项目层 AGENTS.md]\n')) {
+      const block = '[项目层 AGENTS.md]\n' + projectBrief + '\n\n';
+      if (out.startsWith(block)) {
+        out = out.slice(block.length);
+        continue;
+      }
+    }
+    if (out.startsWith(DSH_STITCH_HEAD)) {
+      const tailIdx = out.lastIndexOf(DSH_STITCH_TAIL);
+      if (tailIdx >= 0) {
+        out = out.slice(tailIdx + DSH_STITCH_TAIL.length);
+        continue;
+      }
+    }
+    break;
+  }
+  return out;
+}
+
 /** 项目层简报：读取工作区 AGENTS.md，超长截断（4000 字符，附截断标记）。 */
 export function readProjectBrief(workspaceRoot: string, maxChars = 4000): string {
   const file = path.join(workspaceRoot, 'AGENTS.md');

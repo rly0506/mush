@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createTask, advanceTaskToStatus, loadTasks } from '../src/web/tasks.ts';
+import { createTask, advanceTaskToStatus, transitionTask, loadTasks } from '../src/web/tasks.ts';
 import { DispatchPipeline } from '../src/web/dispatch.ts';
 import { renderBoardPage } from '../src/web/page.ts';
 
@@ -167,3 +167,58 @@ test('GOAL-024 Reconciliation: 历史与人工目检任务随 Goal 验收回执�
   }
 });
 
+
+test('D82 修订：取消不再是死局——CANCELLED 可重开/可经重新执行复活', () => {
+  const now = () => new Date('2026-08-23T14:00:00.000Z');
+  const task = createTask({ title: '误取消任务' }, now);
+  // IDEA -> CANCELLED 走单步迁移（advanceTaskToStatus 不产出取消态）
+  const cancelled = transitionTask(task, 'CANCELLED', now);
+  assert.equal(cancelled.status, 'CANCELLED');
+
+  // CANCELLED -> IN_FLIGHT（重新执行复活链：先回 READY 再走正常跃迁）
+  const revived = advanceTaskToStatus(cancelled, 'IN_FLIGHT', now);
+  assert.equal(revived.status, 'IN_FLIGHT');
+
+  // CANCELLED -> READY 手动重开
+  const reopened = advanceTaskToStatus(cancelled, 'READY', now);
+  assert.equal(reopened.status, 'READY');
+
+  // DONE 仍为真终态
+  const done = advanceTaskToStatus(reopened, 'DONE', now);
+  assert.equal(advanceTaskToStatus(done, 'IN_FLIGHT', now).status, 'DONE');
+});
+
+test('D82 Pipeline: 失败后取消的任务经 rerun 复活并重新归档（重新执行全链）', async () => {
+  const tmpDir = mkdtempSync(path.join(os.tmpdir(), 'mush-g024-rerun-'));
+  let shouldFail = true;
+  const pipeline = new DispatchPipeline({
+    workspaceRoot: path.join(tmpDir, 'workspace'),
+    approvalRoot: path.join(tmpDir, 'approvals'),
+    ledgerPath: path.join(tmpDir, 'budget-ledger.jsonl'),
+    runAdapter: async () =>
+      shouldFail
+        ? { exitCode: 1, stdout: '', stderr: 'mock failure', timedOut: false, childKilled: false }
+        : { exitCode: 0, stdout: 'mock success', stderr: '', timedOut: false, childKilled: false },
+  });
+  try {
+    const task = pipeline.createTask({ title: 'RM-011 演练·全链路四阶段', priority: '高' });
+    // 1. 首派失败（复刻 ENOENT/超时形态）→ 任务自动入受阻池
+    const first = await pipeline.dispatch({ adapter_id: 'fake-t1', prompt: 'drill', task_id: task.task_id });
+    assert.equal(first.status, 'FAIL');
+    const blocked = pipeline.listTasks().find((t) => t.task_id === task.task_id);
+    assert.equal(blocked?.status, 'BLOCKED');
+
+    // 2. owner 挫败之下误取消（旧状态机里这是死局）
+    pipeline.transitionTask(task.task_id, 'CANCELLED');
+
+    // 3. 一键重新执行：重放最近一次派发快照
+    shouldFail = false;
+    const second = await pipeline.rerun(first.dispatch_id);
+    assert.equal(second.status, 'DRY_RUN');
+    const revived = pipeline.listTasks().find((t) => t.task_id === task.task_id);
+    assert.equal(revived?.status, 'DONE', 'CANCELLED 任务经 rerun 复活并重新归档为 DONE');
+    assert.deepEqual(revived?.dispatch_ids, [first.dispatch_id, second.dispatch_id], '新旧派发都回链任务');
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
+});

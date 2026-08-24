@@ -5,7 +5,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { DispatchPipeline, type RunAdapterFn } from '../src/web/dispatch.ts';
 import { startBoardServer, type BoardServer } from '../src/web/server.ts';
-import { parseHandoffBlock, DSH_CHARTER_FIXED, DSH_STITCH_HEAD, DSH_STITCH_HISTORY } from '../src/web/workstreams.ts';
+import { parseHandoffBlock, DSH_CHARTER_FIXED, DSH_STITCH_HEAD, DSH_STITCH_HISTORY, buildDshStitchedPrompt, stripAssembledLayers } from '../src/web/workstreams.ts';
 
 // GOAL-018（rm004-p18a）— work-stream / 真续跑 / 换窗 / HANDOFF / 项目层简报。
 
@@ -240,4 +240,71 @@ test('U3: adapter contracts declare context_management tiers', () => {
   assert.equal(block?.next, 'D');
   assert.equal(block?.open_issues, 'E');
   assert.match(block?.sha256 ?? '', /^[0-9a-f]{64}$/);
+});
+
+test('D82 修订：stripAssembledLayers 精确剥离叠加的章程层与项目简报层', () => {
+  const raw = 'S1 演练指令：输出一行 JSON';
+  const brief = '# mush — agent 工作区指引\n（测试简报正文）';
+  // 单层章程
+  const single = buildDshStitchedPrompt(DSH_CHARTER_FIXED, '历史A', raw);
+  assert.equal(stripAssembledLayers(single, ''), raw);
+  // 双层套娃（旧缺陷形态）：stitch(brief + stitch(brief + raw))
+  const inner = '[项目层 AGENTS.md]\n' + brief + '\n\n' + buildDshStitchedPrompt(DSH_CHARTER_FIXED, '', '[项目层 AGENTS.md]\n' + brief + '\n\n' + raw);
+  const outer = buildDshStitchedPrompt(DSH_CHARTER_FIXED, '', inner);
+  assert.equal(stripAssembledLayers(outer, brief), raw);
+  // 简报实文不匹配时不剥（不猜测旧内容）
+  assert.notEqual(stripAssembledLayers(inner, '另一份简报'), raw);
+  // 纯净输入原样返回
+  assert.equal(stripAssembledLayers(raw, brief), raw);
+});
+
+test('D82 修订：快照存原始指令；重跑组装恰好一次不再层层套娃', async () => {
+  const root = fixtureRoot();
+  const seen: string[] = [];
+  const pipeline = new DispatchPipeline({
+    workspaceRoot: root,
+    approvalRoot: path.join(root, 'approvals'),
+    ledgerPath: path.join(root, 'ledger.jsonl'),
+    runAdapter: (async (_contract, prompt) => {
+      seen.push(String(prompt));
+      return { exitCode: 0, stdout: 'ok', stderr: '', timedOut: false, childKilled: false };
+    }) as RunAdapterFn,
+  });
+  const raw = 'S1 演练指令：输出一行 JSON';
+  const first = await pipeline.dispatch({ adapter_id: 'opencode', prompt: raw });
+  // 发犬的是组装版（恰好一层章程），快照存原始指令
+  assert.equal(seen.length, 1);
+  assert.ok(seen[0].startsWith(DSH_STITCH_HEAD), 'dog must receive stitched prompt');
+  assert.equal(seen[0].split(DSH_STITCH_HEAD).length - 1, 1, 'exactly one stitch layer');
+  assert.ok(seen[0].includes(raw));
+  assert.equal(first.request?.prompt, raw, 'snapshot must store raw owner intent');
+
+  // 重跑：不得出现第二层章程/第二份简报
+  await pipeline.rerun(first.dispatch_id);
+  assert.equal(seen.length, 2);
+  assert.equal(seen[1].split(DSH_STITCH_HEAD).length - 1, 1, 'rerun must not stack another stitch layer');
+  assert.ok(seen[1].includes(raw));
+});
+
+test('D82 批次：streamLiveOutput 开启时 stderr 增量以 EXECUTE 事件广播；缺省关闭不产生', async () => {
+  const root = fixtureRoot();
+  const mk = (live: boolean) =>
+    new DispatchPipeline({
+      workspaceRoot: path.join(root, live ? 'live' : 'quiet'),
+      approvalRoot: path.join(root, live ? 'live-appr' : 'quiet-appr'),
+      ledgerPath: path.join(root, live ? 'live-ledger' : 'quiet-ledger', 'ledger.jsonl'),
+      streamLiveOutput: live,
+      runAdapter: (async (_contract, _prompt, opts) => {
+        opts?.onStderr?.('[tool] $ ls -1 | wc -l');
+        return { exitCode: 0, stdout: 'done', stderr: '', timedOut: false, childKilled: false };
+      }) as RunAdapterFn,
+    });
+  const liveRec = await mk(true).dispatch({ adapter_id: 'fake-t1', prompt: 'watch me' });
+  const liveExec = liveRec.events.filter((ev) => ev.phase === 'EXECUTE' && typeof ev.payload.stream_text === 'string');
+  assert.ok(liveExec.some((ev) => ev.payload.progress === 'stderr' && String(ev.payload.stream_text).includes('$ ls')),
+    'stderr chunk must be broadcast as EXECUTE event when streamLiveOutput is on');
+
+  const quietRec = await mk(false).dispatch({ adapter_id: 'fake-t1', prompt: 'quiet' });
+  const quietExec = quietRec.events.filter((ev) => ev.phase === 'EXECUTE' && typeof ev.payload.stream_text === 'string');
+  assert.equal(quietExec.length, 0, 'no incremental frames by default');
 });

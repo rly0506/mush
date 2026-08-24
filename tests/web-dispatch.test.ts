@@ -327,6 +327,25 @@ test('GP-10: rerun clones request snapshot without amount_usd risk field', async
   assert.equal(rerun.status, 'DRY_RUN');
 });
 
+test('D82 修订: rerun 把旧缺省 5s 干跑超时（缺陷指纹）抬升至 120s；显式值与 override 忠实保留', async () => {
+  const root = fixtureRoot();
+  const pipeline = makePipeline(root);
+  // 复刻旧缺省时代落盘的快照：timeout_s=5 的干跑（用户从未自选过 5s）
+  const poisoned = await pipeline.dispatch({ adapter_id: 'fake-t1', prompt: 'poisoned', timeout_s: 5 });
+  assert.equal(poisoned.request?.timeout_s, 5);
+  const healed = await pipeline.rerun(poisoned.dispatch_id);
+  assert.equal(healed.request?.timeout_s, 120, 'defect-fingerprint 5s must lift to new dry default on rerun');
+
+  // 显式 override 永远优先
+  const pinned = await pipeline.rerun(poisoned.dispatch_id, { timeout_s: 45 });
+  assert.equal(pinned.request?.timeout_s, 45);
+
+  // 显式自选的非 5 超时不被篡改（GP-10 测试已断言 30→30，此处补干跑边界）
+  const explicit = await pipeline.dispatch({ adapter_id: 'fake-t1', prompt: 'explicit', timeout_s: 30 });
+  const rerunExplicit = await pipeline.rerun(explicit.dispatch_id);
+  assert.equal(rerunExplicit.request?.timeout_s, 30);
+});
+
 test('GP-10: POST /api/dispatch/:id/rerun endpoint creates a new dispatch', async () => {
   const root = fixtureRoot();
   const pipeline = makePipeline(root);
