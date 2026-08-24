@@ -1336,6 +1336,36 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       });
       return;
     }
+    // GOAL-075 切片3：派发计划门 owner 决断端点
+    const planDecide = /^\/api\/chat\/plan\/([0-9a-f]{32})\/decide$/.exec(url.pathname);
+    if (request.method === 'POST' && planDecide !== null) {
+      guarded(response, async () => {
+        let body: Record<string, unknown>;
+        try {
+          body = JSON.parse(await readBody(request)) as Record<string, unknown>;
+        } catch {
+          sendJson(response, 400, { ok: false, error: 'body must be JSON' });
+          return;
+        }
+        const decision = body.decision === 'approve' || body.decision === 'reject' ? body.decision : null;
+        if (decision === null) {
+          sendJson(response, 400, { ok: false, error: "decision must be 'approve' or 'reject'" });
+          return;
+        }
+        try {
+          const result = chat.decidePlan(
+            planDecide[1],
+            decision,
+            Array.isArray(body.amended_steps) ? (body.amended_steps as any[]) : undefined,
+          );
+          broadcast({ type: 'chat_plan_decided', plan_id: planDecide[1], decision });
+          sendJson(response, 200, { ...result });
+        } catch (error) {
+          sendJson(response, 404, { ok: false, error: error instanceof Error ? error.message : String(error) });
+        }
+      });
+      return;
+    }
     // GOAL-032 (GP-19): 智能代码上下文自动装配接口
     if (route === 'POST /api/context/assemble') {
       guarded(response, async () => {

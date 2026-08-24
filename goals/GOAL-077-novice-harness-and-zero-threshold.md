@@ -43,3 +43,14 @@
 ## 5. 边界与风险
 
 - WorkBuddy 为腾讯闭源商业产品，"接入"若指其作为执行端，须以其实际开放的本地协议为准；若无可编程入口，则本 Goal 的落点转为**产品形态对标**（自然语言单入口 + 自动编排）而非通道接入——两种路线 owner 定夺后更新本节。
+
+## 附录 A：WorkBuddy 接入可行性调研（2026-08-25 实测结论）
+
+| 假设 | 结论 | 依据 |
+|---|---|---|
+| WorkBuddy 作为 mush 的**执行通道** | ❌ 当前不可行 | 腾讯云技术库明确：未确认存在独立 WorkBuddy CLI、无头接口、CI 调用或脚本 API；桌面 GUI 形态，无 headless 入口 |
+| mush 作为 WorkBuddy 的**能力提供方**（反向路线） | ✅ 长期方向 | WorkBuddy 内置 MCP 协议并支持第三方 MCP 服务器——mush 可实现 MCP Server 把犬队/派发能力暴露给它及一切 MCP 宿主 |
+| 同家族替代通道 | ✅ 新候选 | **CodeBuddy CLI**（同属腾讯云 CodeBuddy 团队）：支持无头环境自然语言驱动、CI/CD 自动化；另有 CodeBuddy Agent SDK 提供完整编程接口——按既有 T1 合同模式接入即可，比 WorkBuddy 更契合 |
+| 产品形态对标 | ✅ 确认 | 免部署 1 分钟上岗、自然语言单入口、Skills 技能包、IM 直连（企微/QQ/飞书/钉钉）、Ollama 本地模型兼容 |
+
+**施工建议排序**：(1) CodeBuddy CLI 按 T1 模式接入（小白档首个开箱即用通道）；(2) 引导状态机 + novice/pro 分级；(3) mush-MCP-Server（让 WorkBuddy 类宿主反向消费犬队）列为独立后续 Goal。

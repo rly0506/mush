@@ -35,8 +35,65 @@ export interface ChatFrameEvent {
   kind: 'chat';
   session_id: string;
   dispatch_id: string;
-  phase: 'ADMITTED' | 'EXECUTE' | 'HEARTBEAT' | 'REPORT';
+  phase: 'ADMITTED' | 'EXECUTE' | 'HEARTBEAT' | 'REPORT' | 'PLAN_WAIT' | 'PLAN_DECIDED';
   payload: Record<string, unknown>;
+}
+
+/** GOAL-075 切片3：计划门协议段（追加进非 solo 章程；solo 直聊不受门控）。 */
+export const PLAN_GATE_CHARTER_SECTION = `
+
+[派发计划门（Plan Gate）协议]
+当且仅当 Owner 的请求需要多步骤执行、或需要向工犬派发子任务时：不要直接执行，也不要输出长篇方案正文——
+只输出一个 <PLAN> 块（块外最多允许两句话说明）：
+<PLAN>
+{"goal_summary":"一句话目标","steps":[{"dog":"执行犬adapter_id","model":"provider/model 可省略","task":"该步任务描述","cap_usd":0.1,"timeout_s":300}],"est_cost_usd":0}
+</PLAN>
+规则：steps 每项对应一次派发；dog 必须使用在册通道名；cap 与 timeout 保守估计。
+单轮问答、代码答疑、小段代码编写等无需派发子任务的请求：正常直接回答，禁止输出 <PLAN>。`;
+
+export interface DispatchPlanStep {
+  dog: string;
+  model?: string;
+  task: string;
+  cap_usd?: number;
+  timeout_s?: number;
+}
+
+export interface DispatchPlan {
+  goal_summary?: string;
+  steps: DispatchPlanStep[];
+  est_cost_usd?: number;
+}
+
+export interface PendingPlan {
+  plan_id: string;
+  session_id: string;
+  dispatch_id: string;
+  adapter_id: string;
+  effort: string;
+  solo: boolean;
+  plan: DispatchPlan;
+  status: 'WAITING' | 'APPROVED' | 'REJECTED';
+  created_at: string;
+}
+
+/** 从头犬回复中提取 <PLAN> 块；缺失/畸形（无 steps 或 step 缺 dog/task）返回 null
+ * ——畸形按"未触发计划门"处理，头犬回复照常展示（fail-safe，不吞回复）。 */
+export function extractPlanBlock(text: string): { plan: DispatchPlan } | null {
+  const m = /<PLAN>\s*([\s\S]*?)\s*<\/PLAN>/.exec(text);
+  if (m === null) return null;
+  try {
+    const parsed = JSON.parse(m[1]) as DispatchPlan;
+    if (!Array.isArray(parsed.steps) || parsed.steps.length === 0) return null;
+    const stepsOk = parsed.steps.every(
+      (s) => s !== null && typeof s === 'object' && typeof s.dog === 'string' && s.dog.trim() !== '' &&
+        typeof s.task === 'string' && s.task.trim() !== '',
+    );
+    if (!stepsOk) return null;
+    return { plan: parsed };
+  } catch {
+    return null;
+  }
 }
 
 export const HEAD_DOG_CHARTER = `[系统角色设定]
@@ -64,6 +121,8 @@ export class ChatService extends EventEmitter {
    *  对齐 real 派发缺省 900s；可经 options 覆盖。 */
   private readonly chatTimeoutS: number;
   private readonly pending = new Map<string, Promise<void>>();
+  /** GOAL-075 切片3：待决断派发计划（plan_id → 计划；内存态，重载后未决计划失效）。 */
+  private readonly plans = new Map<string, PendingPlan>();
 
   constructor(options: { runtimeRoot: string; pipeline: DispatchPipeline; onEvent?: (event: ChatFrameEvent) => void; chatTimeoutS?: number }) {
     super();
@@ -89,7 +148,7 @@ export class ChatService extends EventEmitter {
   }
 
   private emitFrame(
-    phase: 'ADMITTED' | 'EXECUTE' | 'HEARTBEAT' | 'REPORT',
+    phase: 'ADMITTED' | 'EXECUTE' | 'HEARTBEAT' | 'REPORT' | 'PLAN_WAIT' | 'PLAN_DECIDED',
     sessionId: string,
     dispatchId: string,
     payload: Record<string, unknown>,
@@ -203,7 +262,7 @@ export class ChatService extends EventEmitter {
       : '';
     // 累加增量文本作为回复全文（REPORT 用）；若通道未给增量，回退 stdout_tail。
     let replyAccum = '';
-    const activeCharter = solo ? SOLO_HEAD_DOG_CHARTER : HEAD_DOG_CHARTER;
+    const activeCharter = solo ? SOLO_HEAD_DOG_CHARTER : HEAD_DOG_CHARTER + PLAN_GATE_CHARTER_SECTION;
     try {
       const record = await this.pipeline.dispatch({
         adapter_id: adapterId,
@@ -229,17 +288,45 @@ export class ChatService extends EventEmitter {
         degraded && headText.trim() !== '' && !headText.startsWith('[dry-run')
           ? `\n\n[注意：本单 ${record.status}，以上为中断前已产出的部分回复；可点「重试」重发]`
           : '';
+      // GOAL-075 切片3：计划门拦截——头犬输出 <PLAN> 块时转为待决断计划，
+      // 气泡折叠为一句等待语（原始计划进 PLAN_WAIT 帧），owner 批准后自动续跑。
+      const planHit = solo ? null : extractPlanBlock(headText);
+      let bubbleText = headText + partialNote;
+      let planIdForFrame: string | undefined;
+      if (planHit !== null) {
+        const planId = randomUUID().replace(/-/g, '');
+        this.plans.set(planId, {
+          plan_id: planId,
+          session_id: sessionId,
+          dispatch_id: dispatchId,
+          adapter_id: adapterId,
+          effort,
+          solo,
+          plan: planHit.plan,
+          status: 'WAITING',
+          created_at: new Date().toISOString(),
+        });
+        planIdForFrame = planId;
+        bubbleText =
+          `📋 已生成派发计划（${planHit.plan.steps.length} 步` +
+          (planHit.plan.est_cost_usd !== undefined ? ` · 预估 $${planHit.plan.est_cost_usd}` : '') +
+          `），等待 owner 决断。`;
+      }
       this.append(sessionId, {
         role: 'head',
-        text: headText + partialNote,
+        text: bubbleText,
         at_utc: new Date().toISOString(),
         dispatch_id: record.dispatch_id,
       });
       this.emitFrame('REPORT', sessionId, dispatchId, {
         status: record.status,
         elapsed_ms: Date.now() - startedAt,
-        reply: headText,
+        reply: bubbleText,
+        ...(planIdForFrame !== undefined ? { plan_id: planIdForFrame } : {}),
       });
+      if (planHit !== null && planIdForFrame !== undefined) {
+        this.emitFrame('PLAN_WAIT', sessionId, dispatchId, { plan_id: planIdForFrame, plan: planHit.plan });
+      }
     } catch (error) {
       const text = `[error] 头犬回复失败：${error instanceof Error ? error.message : String(error)}`;
       this.append(sessionId, { role: 'head', text, at_utc: new Date().toISOString(), dispatch_id: dispatchId });
@@ -250,6 +337,43 @@ export class ChatService extends EventEmitter {
         reply: text,
       });
     }
+  }
+
+  /** GOAL-075 切片3：owner 对派发计划的决断。批准 = 以同会话续跑执行（计划
+   * 全文随续跑指令下发，头犬按计划派发工犬）；可携 amended_steps 修订后执行；
+   * 否决 = 计划终结，不产生任何派发。 */
+  decidePlan(
+    planId: string,
+    decision: 'approve' | 'reject',
+    amendedSteps?: DispatchPlanStep[],
+  ): { ok: true; status: PendingPlan['status'] } {
+    const pending = this.plans.get(planId);
+    if (pending === undefined) throw new Error(`plan not found: ${planId}`);
+    if (pending.status !== 'WAITING') throw new Error(`plan already decided (${pending.status}): ${planId}`);
+    if (decision === 'approve') {
+      const steps = (amendedSteps ?? pending.plan.steps).filter(
+        (s) => s !== null && typeof s === 'object' && typeof s.dog === 'string' && typeof s.task === 'string',
+      );
+      if (steps.length === 0) throw new Error('amended steps must be non-empty');
+      pending.status = 'APPROVED';
+      const continuation =
+        '[Owner 决断：计划已批准]\n请严格按以下计划立即执行（自行向对应工犬派发），完成后给出验收结论：\n' +
+        JSON.stringify({ goal_summary: pending.plan.goal_summary, steps }, null, 2);
+      const dispatchId = randomUUID().replace(/-/g, '');
+      const run = this.execute(pending.adapter_id, pending.effort, pending.session_id, dispatchId, continuation, [], pending.solo);
+      this.pending.set(dispatchId, run);
+      void run.finally(() => this.pending.delete(dispatchId));
+      this.emitFrame('PLAN_DECIDED', pending.session_id, pending.dispatch_id, {
+        plan_id: planId,
+        decision,
+        new_dispatch_id: dispatchId,
+        steps,
+      });
+      return { ok: true, status: pending.status };
+    }
+    pending.status = 'REJECTED';
+    this.emitFrame('PLAN_DECIDED', pending.session_id, pending.dispatch_id, { plan_id: planId, decision });
+    return { ok: true, status: pending.status };
   }
 
   async whenSettled(dispatchId?: string): Promise<void> {

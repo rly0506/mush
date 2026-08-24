@@ -34,6 +34,7 @@ export function renderBoardPage(callerToken?: string): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="mush-caller-auth" content="${typeof callerToken === 'string' ? callerToken.replace(/"/g, '&quot;') : ''}">
 <title>mush 看板 · 雪橇队指挥台</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ctext y='19' font-size='19'%3E%F0%9F%90%95%3C/text%3E%3C/svg%3E">
 <style>
 ${getCollaborationStyles()}
   :root {
@@ -1324,7 +1325,9 @@ ${getCollaborationStyles()}
       select.insertAdjacentHTML('afterbegin', '<option value="" selected>（未选择，默认服务目录）</option>');
     }
     var current = workspaces.filter(function (w) { return w.selected; })[0];
-    document.getElementById('workspace-current').textContent = current ? normalizeDisplayPath(current.path) : 'workspace: 服务 cwd';
+    document.getElementById('workspace-current').textContent = current
+      ? normalizeDisplayPath(current.path)
+      : 'workspace: 服务 cwd（未选择，派发默认落此处）';
     renderChatWorkspaceOptions();
   }
 
@@ -2891,6 +2894,72 @@ ${getCollaborationStyles()}
         chatTypewriterKick(); // 渐显播完后由 tick 内 chatFinalizeReport 定版
       }
     }
+    // GOAL-075 切片3：计划门——PLAN_WAIT 渲染计划卡（批准/修订/否决）。
+    if (frame.phase === 'PLAN_WAIT') {
+      renderPlanCard(p.plan_id, p.plan);
+    }
+    if (frame.phase === 'PLAN_DECIDED') {
+      markPlanCardDecided(p.plan_id, p.decision, p.new_dispatch_id);
+    }
+  }
+
+  /* ---------- GOAL-075 切片3：派发计划卡 ---------- */
+  function renderPlanCard(planId, plan) {
+    var stream = chatStreamEl();
+    var card = document.createElement('div');
+    card.className = 'chat-row';
+    card.setAttribute('data-plan-card', planId);
+    var steps = (plan && plan.steps) || [];
+    var rows = steps.map(function (s, i) {
+      return '<tr><td>#' + (i + 1) + '</td><td>' + esc(s.dog) + (s.model ? ' <span class="mono">' + esc(s.model) + '</span>' : '') +
+        '</td><td>' + esc(s.task || '') + '</td></tr>';
+    }).join('');
+    card.innerHTML =
+      '<div class="who">📋 派发计划 · 等待 owner 决断</div>' +
+      '<div class="plan-card" style="border:1px solid var(--line);border-radius:6px;padding:8px;margin:4px 0">' +
+      (plan && plan.goal_summary ? '<div style="margin-bottom:4px"><strong>' + esc(plan.goal_summary) + '</strong></div>' : '') +
+      (steps.length
+        ? '<table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr>' +
+          '<th style="text-align:left">#</th><th style="text-align:left">执行犬</th><th style="text-align:left">任务</th></tr></thead><tbody>' +
+          rows + '</tbody></table>'
+        : '<div class="empty">（计划内容为空）</div>') +
+      (plan && plan.est_cost_usd !== undefined ? '<div class="meta" style="margin-top:4px">预估成本 $' + esc(String(plan.est_cost_usd)) + '</div>' : '') +
+      '<div style="display:flex;gap:6px;margin-top:8px" data-plan-actions="' + esc(planId) + '">' +
+      '<button class="act approve" data-plan-decide="approve" type="button">✓ 批准执行</button>' +
+      '<button class="act cancel" data-plan-decide="reject" type="button">✗ 否决</button>' +
+      '<span class="hint" style="align-self:center">修订：直接回复新计划要点后让头犬重出计划</span>' +
+      '</div></div>';
+    stream.appendChild(card);
+    card.querySelectorAll('button[data-plan-decide]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        decidePlan(planId, btn.getAttribute('data-plan-decide'));
+      });
+    });
+    stream.scrollTop = stream.scrollHeight;
+  }
+
+  function decidePlan(planId, decision) {
+    var actions = document.querySelector('[data-plan-actions="' + planId + '"]');
+    if (actions) actions.innerHTML = '<span class="hint">处理中…</span>';
+    postJson('/api/chat/plan/' + encodeURIComponent(planId) + '/decide', { decision: decision })
+      .then(function (result) {
+        if (!(result.body && result.body.ok)) {
+          if (actions) actions.innerHTML = '<span class="hint">决断失败：' + esc((result.body && result.body.error) || result.status) + '</span>';
+        }
+        // 成功路径由 PLAN_DECIDED SSE 帧驱动 markPlanCardDecided。
+      })
+      .catch(function (error) {
+        if (actions) actions.innerHTML = '<span class="hint">请求失败：' + esc(String(error)) + '</span>';
+      });
+  }
+
+  function markPlanCardDecided(planId, decision, newDispatchId) {
+    var actions = document.querySelector('[data-plan-actions="' + planId + '"]');
+    if (!actions) return;
+    var verdict = decision === 'approve'
+      ? '✅ 已批准' + (newDispatchId ? '，续跑单 ' + esc(String(newDispatchId).slice(0, 8)) + '… 进行中' : '')
+      : '❌ 已否决';
+    actions.innerHTML = '<span class="badge ' + (decision === 'approve' ? 'PASS' : 'FAIL') + '">' + verdict + '</span>';
   }
 
   function sendChat() {

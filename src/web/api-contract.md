@@ -718,6 +718,22 @@ status ∈ `DRY_RUN | ADMITTED | BLOCKED_WAITING_OWNER | BLOCKED_ENV | FAIL | PA
 `{ "ok": true, "turns": [ {role, text, at_utc, dispatch_id?} ] }`
 - 缺 session → `400`；缺文件 → `200` + 空 `turns`；limit 缺省 50、负值按 1。
 
+### POST /api/chat/plan/:plan_id/decide（v1.13，GOAL-075 切片3）
+
+派发计划门 owner 决断。头犬回复含 `<PLAN>{...}</PLAN>` 块时，聊天层拦截为
+待决断计划并推送 SSE `phase:'PLAN_WAIT'` 帧（payload 含 plan_id 与计划全文）；
+本端点完成决断：
+
+- 请求 `{ "decision": "approve" | "reject", "amended_steps"?: [{dog, task, model?, cap_usd?, timeout_s?}] }`
+- approve：以同会话续跑执行（批准的计划全文随指令下发，头犬按计划派发工犬），
+  自动产生新 dispatch 并推 `PLAN_DECIDED` 帧（含 new_dispatch_id）；
+- reject：计划终结，零派发；
+- 未决计划重载后失效（内存态）；畸形 PLAN 块按未触发处理（fail-safe 不吞回复）；
+  solo 独奏模式不受门控。
+- 响应 `{ "ok": true, "status": "APPROVED|REJECTED" }`；未找到/已决断 `404`。
+
+聊天帧相位扩展（v1.13）：`ADMITTED | EXECUTE | HEARTBEAT | REPORT | PLAN_WAIT | PLAN_DECIDED`
+
 ### roster role / verified 字段（v1.3 / v1.5）
 
 `GET /api/snapshot` 及 roster 消费点的犬只条目新增 `"role": "head" | "executor"`
