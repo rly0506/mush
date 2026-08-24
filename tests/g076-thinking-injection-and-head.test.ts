@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { getModelThinkingSpec } from '../src/adapters/live-probe.ts';
@@ -90,6 +90,41 @@ test('D82 Pipeline: dispatch accepts verified head_id and records it in request 
       pipeline.dispatch({ adapter_id: 'zcode', prompt: 'smoke', dry_run: true, head_id: 'fake-t1' }),
       /not a verified head-capable adapter/,
     );
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('D82 修订：实测验证（probe ONLINE）的通道可任头犬（opencode 三重锁死回归）', async () => {
+  const tmpDir = mkdtempSync(path.join(tmpdir(), 'mush-g076d-'));
+  try {
+    // 预置实测探针缓存：opencode ONLINE → isAdapterVerified 第三路放行。
+    // 旧门禁只认静态白名单+注册表两路，此形态被误拒。
+    const wsRoot = path.join(tmpDir, 'workspace');
+    mkdirSync(path.join(wsRoot, 'runtime'), { recursive: true });
+    writeFileSync(
+      path.join(wsRoot, 'runtime', 'live-probes.json'),
+      JSON.stringify({
+        schema_version: 1,
+        probes: {
+          opencode: {
+            adapter_id: 'opencode',
+            status: 'ONLINE',
+            live_models: ['x-preview-f-free'],
+            checked_at_utc: '2026-08-23T00:00:00.000Z',
+          },
+        },
+      }),
+      'utf8',
+    );
+    const pipeline = makePipeline(tmpDir, () => {});
+    const record: DispatchRecord = await pipeline.dispatch({
+      adapter_id: 'zcode',
+      prompt: 'smoke',
+      dry_run: true,
+      head_id: 'opencode',
+    });
+    assert.equal(record.request?.head_id, 'opencode');
   } finally {
     rmSync(tmpDir, { recursive: true, force: true });
   }
