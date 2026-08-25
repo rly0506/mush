@@ -23,6 +23,8 @@ function arg(name, fallback) {
 const minutes = Number(arg('minutes', '480'));
 const intervalSec = Number(arg('interval', '30'));
 const model = String(arg('model', 'opencode/x-preview-f-free'));
+const adapter = String(arg('adapter', 'opencode'));
+const effort = String(arg('effort', 'LOW'));
 const workspace = String(arg('workspace', '')) || mkdtempSync(path.join(tmpdir(), 'g072-soak-'));
 mkdirSync(workspace, { recursive: true });
 
@@ -35,6 +37,9 @@ const pipeline = new DispatchPipeline({
   approvalRoot: path.join(workspace, '.soak-approvals'),
   ledgerPath: path.join(runtimeDir, 'budget-ledger.jsonl'),
 });
+
+// --model default = 不传 model_id，走合同缺省（不支持 -m 切模型的通道必用此项）
+const MODEL_ARG = model === 'default' || model === '' ? {} : { model_id: model };
 
 const PROMPTS = [
   '只回复一个词：ok',
@@ -80,11 +85,11 @@ while (Date.now() < deadline) {
   const t0 = Date.now();
   try {
     const rec = await pipeline.dispatch({
-      adapter_id: 'opencode',
-      model_id: model,
+      adapter_id: adapter,
+      ...MODEL_ARG,
       prompt,
       dry_run: true,
-      effort: 'LOW',
+      effort,
       cap_usd: 0.1,
       timeout_s: 120,
       goal_id: 'G072-SOAK',
