@@ -561,6 +561,10 @@ ${getCollaborationStyles()}
         <h3 class="rail-title">预算</h3>
         <div id="rail-budget"></div>
       </div>
+      <div class="rail-block">
+        <h3 class="rail-title">无人值守（G073）</h3>
+        <div id="rail-unattended" style="font-size:12px">加载中…</div>
+      </div>
     </aside>
   </section>
   <section id="view-tasks" class="view">
@@ -4106,6 +4110,41 @@ ${getCollaborationStyles()}
     }).join('');
   }
 
+  /* ---------- GOAL-073：无人值守档位面板 + 熔断状态灯（栏内迷你版） ---------- */
+  function loadUnattendedRail() {
+    var el = document.getElementById('rail-unattended');
+    if (!el) return;
+    getJson('/api/unattended/policy').then(function (res) {
+      if (!(res.body && res.body.ok)) { el.textContent = '（不可用）'; return; }
+      var p = res.body.policy || {};
+      var b = res.body.breaker || {};
+      var light = b.halted ? '<span class="badge FAIL">🔴 熔断</span>' : '<span class="badge" style="background:rgba(16,185,129,0.15);color:#047857">🟢 正常</span>';
+      var opts = ['L0', 'L1', 'L2'].map(function (lv) {
+        return '<option value="' + lv + '"' + (p.level === lv ? ' selected' : '') + '>' + lv + '</option>';
+      }).join('');
+      el.innerHTML =
+        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">' + light +
+        '<span>档位 <select id="unattended-level" style="font-size:11px;padding:0 4px">' + opts + '</select>' +
+        (p.auto_approve_cap_usd > 0 ? ' ≤$' + esc(String(p.auto_approve_cap_usd)) : '') + '</span></div>' +
+        (b.halted ? '<div style="color:#b45309;margin-bottom:4px">' + esc(b.halt_reason || '已停机') +
+          ' <button type="button" class="act cancel" id="btn-breaker-reset" style="padding:0 6px;font-size:11px">复位</button></div>'
+          : '<div class="hint" style="font-size:11px">L1/L2 低额自动批 · 超额弹卡</div>');
+      var sel = document.getElementById('unattended-level');
+      if (sel) sel.addEventListener('change', function () {
+        postJson('/api/unattended/policy', { level: sel.value }).then(function (r) {
+          if (r.body && r.body.ok) { toast('无人值守档位：' + r.body.policy.level, true); loadUnattendedRail(); }
+          else toast('设置失败：' + ((r.body && r.body.error) || r.status), false);
+        }).catch(function (e) { toast('设置失败：' + e, false); });
+      });
+      var rst = document.getElementById('btn-breaker-reset');
+      if (rst) rst.addEventListener('click', function () {
+        postJson('/api/unattended/breaker/reset', { by: 'owner-panel' }).then(function () {
+          toast('熔断器已复位', true); loadUnattendedRail();
+        }).catch(function (e) { toast('复位失败：' + e, false); });
+      });
+    }).catch(function () { el.textContent = '（不可用）'; });
+  }
+
   function renderAll() {
     if (!snapshot) return;
     document.getElementById('generated').textContent = '快照 ' + escTime(snapshot.generated_at_utc) + '（本地时间）';
@@ -4117,6 +4156,7 @@ ${getCollaborationStyles()}
     renderBudget();
     renderApprovals();
     renderRailApprovals();
+    loadUnattendedRail(); // GOAL-073：档位面板与熔断状态灯
     renderRailDogs();
     renderRailBudget();
     renderRecentActivity();

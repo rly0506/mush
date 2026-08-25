@@ -718,6 +718,20 @@ status ∈ `DRY_RUN | ADMITTED | BLOCKED_WAITING_OWNER | BLOCKED_ENV | FAIL | PA
 `{ "ok": true, "turns": [ {role, text, at_utc, dispatch_id?} ] }`
 - 缺 session → `400`；缺文件 → `200` + 空 `turns`；limit 缺省 50、负值按 1。
 
+### GET/PUT /api/unattended/policy（v1.13，GOAL-073）
+
+- GET：`{ ok, policy: {level, auto_approve_cap_usd, daily_auto_budget_usd, task_whitelist_prefixes}, breaker: BreakerState }`（policy 为 clamp 后生效值）；
+- PUT `{ level?: 'L0'|'L1'|'L2', auto_approve_cap_usd?, daily_auto_budget_usd?, task_whitelist_prefixes? }`：
+  owner 显式操作（Caller-Token）；未携带合法 level 按 L0 处理（fail-closed）；
+  额度受 master cap 硬约束（clamp）；落盘 `<runtime>/unattended-policy.json` 并广播
+  `unattended_policy_updated`。
+
+### GET /api/unattended/breaker（v1.13，GOAL-073）
+
+`{ ok, breaker, chain_intact, bundle? }`；`?bundle=1` 附完整审计回放包。
+`POST /api/unattended/breaker/reset { by }`：owner 复位（停机后恢复唯一途径），广播 `unattended_breaker_reset`。
+熔断语义：连败 N 次（默认3）/预算斜率超阈（默认 $5/min）/单任务超时硬顶（默认 15min）→ 停机；停机期间真实派发 REJECTED、干跑放行；重启后保持停机。
+
 ### POST /api/workspaces/observe（v1.13，GOAL-071）
 
 冻结区观察模式——意向项目/.agent-bridge 只读参演：
