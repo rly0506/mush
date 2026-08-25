@@ -58,6 +58,9 @@ import type { QuickActionPayload } from '../companion/tray-service.ts';
 import { getModelContextLimit, isFreeModel, calculateUsageCost } from './pricing.ts';
 import { ChildSessionRegistry } from '../core/child-sessions.ts';
 import { MasterBudgetGate, loadMasterCap } from '../core/budget-master.ts';
+import { loadUnattendedPolicy, saveUnattendedPolicy, clampPolicyToMasterCap, type UnattendedPolicy } from '../core/unattended-policy.ts';
+import { CircuitBreaker } from '../core/circuit-breaker.ts';
+import { certifyUnattendedReadiness, renderReadinessMarkdown } from '../core/readiness-certifier.ts';
 import { getHarnessDoctorReport } from '../adapters/live-probe.ts';
 
 export interface BoardServerOptions {
@@ -194,6 +197,11 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
   });
   // GOAL-071：观察模式共享状态——热切换重建管线时跨上下文保持（同 masterGate 模式）。
   const observationState: { path: string | null } = { path: null };
+  // GOAL-073：无人值守分级授权共享实例——档位对象可被 PUT 原位更新（同引用
+  // 即时生效于所有上下文管线）；熔断器停机状态跨重启/切换保持（fail-safe）。
+  const unattendedPolicy = loadUnattendedPolicy(runtimeRoot);
+  const unattendedBreaker = new CircuitBreaker(path.join(runtimeRoot, 'unattended-breaker.json'));
+  const unattendedShared = { policy: unattendedPolicy, breaker: unattendedBreaker };
 
   // GOAL-030（GP-32②）：会话级 Caller Token 初始化
   const callerToken = options.callerToken ?? randomUUID().replace(/-/g, '');
@@ -225,6 +233,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       persistence,
       masterGate,
       observationState,
+      unattended: unattendedShared,
       streamLiveOutput: true,
       onEvent: (event) => broadcast(event),
     });
@@ -327,6 +336,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       persistence: nextPersistence,
       masterGate,
       observationState,
+      unattended: unattendedShared,
       streamLiveOutput: true,
       onEvent: (event) => broadcast(event),
     });
@@ -1001,6 +1011,82 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
           const message = error instanceof Error ? error.message : String(error);
           sendJson(response, error instanceof InputError ? 400 : 500, { ok: false, error: message });
         }
+      });
+      return;
+    }
+    // GOAL-073：无人值守档位查询/设置 + 熔断状态
+    if (route === 'GET /api/unattended/policy') {
+      sendJson(response, 200, {
+        ok: true,
+        policy: clampPolicyToMasterCap(unattendedShared.policy, masterGate.cap),
+        breaker: unattendedShared.breaker.snapshot(),
+      });
+      return;
+    }
+    if (route === 'PUT /api/unattended/policy') {
+      guarded(response, async () => {
+        let body: Record<string, unknown>;
+        try {
+          body = JSON.parse(await readBody(request)) as Record<string, unknown>;
+        } catch {
+          sendJson(response, 400, { ok: false, error: 'body must be JSON' });
+          return;
+        }
+        // 默认恒 L0：PUT 未显式携带合法 level 时按 L0 处理（fail-closed）。
+        const level = body.level === 'L1' || body.level === 'L2' ? body.level : 'L0';
+        const cap = typeof body.auto_approve_cap_usd === 'number' && body.auto_approve_cap_usd > 0 ? body.auto_approve_cap_usd : 0;
+        const daily = typeof body.daily_auto_budget_usd === 'number' && body.daily_auto_budget_usd >= 0 ? body.daily_auto_budget_usd : 0;
+        const prefixes = Array.isArray(body.task_whitelist_prefixes)
+          ? (body.task_whitelist_prefixes as unknown[]).filter((p): p is string => typeof p === 'string')
+          : [];
+        // 档位提升必须 owner 显式操作：Caller-Token 鉴权（guarded）即留痕边界；
+        // 额度受 master cap 硬约束（clamp）。
+        const next: UnattendedPolicy = clampPolicyToMasterCap(
+          { level, auto_approve_cap_usd: cap, daily_auto_budget_usd: daily, task_whitelist_prefixes: prefixes },
+          masterGate.cap,
+        );
+        Object.assign(unattendedShared.policy, next);
+        saveUnattendedPolicy(runtimeRoot, unattendedShared.policy);
+        broadcast({ type: 'unattended_policy_updated', level });
+        sendJson(response, 200, { ok: true, policy: unattendedShared.policy });
+      });
+      return;
+    }
+    if (route === 'GET /api/unattended/breaker') {
+      const withBundle = url.searchParams.get('bundle') === '1';
+      sendJson(response, 200, {
+        ok: true,
+        breaker: unattendedShared.breaker.snapshot(),
+        ...(withBundle ? { bundle: JSON.parse(unattendedShared.breaker.exportBundle()) } : {}),
+        chain_intact: unattendedShared.breaker.verifyEventChain(),
+      });
+      return;
+    }
+    if (route === 'POST /api/unattended/breaker/reset') {
+      guarded(response, async () => {
+        let by = 'owner';
+        try {
+          const body = JSON.parse(await readBody(request)) as Record<string, unknown>;
+          if (typeof body.by === 'string' && body.by.trim() !== '') by = body.by.trim();
+        } catch {}
+        unattendedShared.breaker.reset(by);
+        broadcast({ type: 'unattended_breaker_reset' });
+        sendJson(response, 200, { ok: true, breaker: unattendedShared.breaker.snapshot() });
+      });
+      return;
+    }
+    // GOAL-074：放闸就绪认证——逐项机检，fail-closed。
+    if (route === 'GET /api/unattended/readiness') {
+      const report = certifyUnattendedReadiness({
+        repoRoot: startupWorkspaceRoot,
+        runtimeRoot,
+        breaker: unattendedShared.breaker,
+      });
+      sendJson(response, 200, {
+        ok: true,
+        ready: report.ready,
+        items: report.items,
+        markdown: renderReadinessMarkdown(report),
       });
       return;
     }

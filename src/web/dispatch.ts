@@ -27,6 +27,8 @@ import { buildAgyContract } from '../adapters/agy.ts';
 import { buildHeadDogContract, extractSessionId } from '../adapters/head-dog.ts';
 import { runT1, type SpawnFn } from '../adapters/t1-runner.ts';
 import { normalizeOpencodeEvents } from '../adapters/opencode.ts';
+import { arbitrateUnattended, type UnattendedPolicy } from '../core/unattended-policy.ts';
+import type { CircuitBreaker } from '../core/circuit-breaker.ts';
 import { runPiRpc } from '../adapters/pi-rpc-runner.ts';
 import {
   loadLiveProbeCache,
@@ -345,6 +347,9 @@ export interface DispatchPipelineOptions {
   /** GOAL-071：观察模式共享状态（热切换重建管线时跨上下文保持；缺省实例私有）。
    *  server 层以同一对象注入所有上下文管线。 */
   observationState?: { path: string | null };
+  /** GOAL-073：无人值守分级授权（档位策略对象 + 熔断器实例；server 层共享注入）。
+   *  缺省不启用 = 恒 L0 全弹卡行为。 */
+  unattended?: { policy: UnattendedPolicy; breaker: CircuitBreaker };
   /** D82 批次：看板实时输出——开启后 stdout/stderr 增量以 EXECUTE 事件广播
    *  （SSE 直达浏览器，直连抽屉/派发卡可滚动观看干活过程）。默认关闭：
    *  测试与无宿主场景维持既有单帧语义。 */
@@ -515,6 +520,21 @@ export class DispatchPipeline {
   /** GOAL-071：观察模式状态（可注入共享对象——热切换重建管线时跨上下文保持，
    * 与 masterGate 同模式；缺省实例私有）。 */
   private readonly observationState: { path: string | null };
+  /** GOAL-073：无人值守分级授权（档位策略 + 失控熔断器）；缺省未启用=恒 L0 行为。 */
+  private readonly unattended?: { policy: UnattendedPolicy; breaker: CircuitBreaker };
+  /** GOAL-073：当日自动批累计与自增。 */
+  private autoSpentToday(): number {
+    const key = new Date().toISOString().slice(0, 10);
+    return this.autoSpendByDay.get(key) ?? 0;
+  }
+
+  private bumpAutoSpend(usd: number): void {
+    const key = new Date().toISOString().slice(0, 10);
+    this.autoSpendByDay.set(key, Math.round(((this.autoSpendByDay.get(key) ?? 0) + usd) * 1_000_000) / 1_000_000);
+  }
+
+  /** 当日自动批累计（YYYY-MM-DD → USD），内存态（重启清零，fail-safe 偏保守）。 */
+  private readonly autoSpendByDay = new Map<string, number>();
   private now: () => Date;
   private readonly persistence: BoardPersistence | null;
   private readonly profilesRoot: string;
@@ -573,6 +593,7 @@ export class DispatchPipeline {
       );
     this.onEvent = options.onEvent ?? (() => {});
     this.observationState = options.observationState ?? { path: null };
+    this.unattended = options.unattended;
     this.streamLiveOutput = options.streamLiveOutput === true;
     this.now = options.now ?? (() => new Date());
     this.persistence = options.persistence ?? null;
@@ -1114,6 +1135,43 @@ export class DispatchPipeline {
       return record;
     }
 
+    // GOAL-073：无人值守分级仲裁——熔断停机即拒；L1/L2 低额自动批走自铸
+    // 一次性令牌（复用下方原子消费路径），台账留痕 auto_approved。
+    let autoApproved = false;
+    let autoApproveReason = '';
+    if (this.unattended !== undefined && real === true && internal?.originOwner !== true) {
+      if (this.unattended.breaker.halted) {
+        record.status = 'REJECTED';
+        record.error = `circuit breaker halted: ${this.unattended.breaker.snapshot().halt_reason ?? 'unknown'}`;
+        this.emit(record, 'ADMISSION', 'FAIL', { circuit_breaker: true });
+        this.emit(record, 'REVIEW', 'REJECTED', { reason: record.error });
+        this.records.set(dispatchId, record);
+        this.persistence?.saveDispatchHeader(record);
+        return record;
+      }
+      const arb = arbitrateUnattended({
+        level: this.unattended.policy.level,
+        cap_usd: capUsd,
+        auto_approve_cap_usd: this.unattended.policy.auto_approve_cap_usd,
+        daily_auto_budget_usd: this.unattended.policy.daily_auto_budget_usd,
+        task_whitelist_prefixes: this.unattended.policy.task_whitelist_prefixes,
+        goal_id: goalId,
+        daily_auto_spent_usd: this.autoSpentToday(),
+      });
+      if (arb.decision === 'auto-approve') {
+        mkdirSync(this.approvalTokensPath, { recursive: true });
+        writeFileSync(
+          path.join(this.approvalTokensPath, `dispatch-${dispatchId}.token.json`),
+          JSON.stringify({ auto_approved: true, reason: arb.reason, at_utc: new Date().toISOString() }),
+          'utf8',
+        );
+        autoApproved = true;
+        autoApproveReason = arb.reason;
+        this.bumpAutoSpend(capUsd);
+        this.unattended.breaker.recordAutoSpend(capUsd);
+      }
+    }
+
     const admission = this.ledger.admit({
       actorId: adapterId,
       capUsd,
@@ -1125,6 +1183,7 @@ export class DispatchPipeline {
         profile,
         prompt_sha256: sha256Hex(prompt),
         ...(masterCheck !== undefined ? { master_remaining_usd: masterCheck.remaining_usd } : {}),
+        ...(autoApproved ? { auto_approved: true, auto_approve_reason: autoApproveReason } : {}),
         workspace,
       },
     });
@@ -1240,6 +1299,7 @@ export class DispatchPipeline {
         : liveStdoutThrottle !== null
           ? (chunk: string) => liveStdoutThrottle.push(chunk)
           : undefined;
+    const execStartedAt = Date.now(); // GOAL-073：熔断器单任务超时计量起点
     const run = await this.runAdapter(effectiveContract, prompt, {
       workspaceRoot: workspace,
       receiptPath,
@@ -1344,6 +1404,13 @@ export class DispatchPipeline {
 
     this.emit(record, 'REPORT', record.status, { receipt_path: receiptPath, exit_code: run.exitCode });
     this.emit(record, 'REVIEW', record.status, { verdict: pass ? 'PASS' : 'FAIL' });
+    // GOAL-073：熔断器反馈回路——真实单才计入（干跑/诊断噪声不触发熔断）。
+    if (this.unattended !== undefined && real === true) {
+      const durationMs = Date.now() - execStartedAt;
+      if (pass) this.unattended.breaker.recordSuccess();
+      else if (run.timedOut) this.unattended.breaker.recordTimeout(durationMs, dispatchId);
+      else this.unattended.breaker.recordFailure({ dispatch_id: dispatchId });
+    }
     // GOAL-071：观察态零写入事后审计——对比运行前后内存清单，任何新增即违规留痕。
     if (observationRun && observationBaseline !== null) {
       const created = walkListingDepthLimited(workspace).filter((x) => !observationBaseline!.includes(x));
