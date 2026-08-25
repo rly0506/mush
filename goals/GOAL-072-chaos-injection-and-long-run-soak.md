@@ -1,6 +1,7 @@
 # GOAL-072: 故障注入与长时序稳定性 soak (Chaos Injection & Long-Run Soak)
 
-- 状态：`READY`（RM-011 M2）
+- 状态：`IN_PROGRESS`（RM-011 M2；混沌矩阵 4 用例全绿 + soak 执行器入库，8h 长跑独立进程进行中——收官后归档曲线刷新 E4 并转 DONE）
+- 状态备注：`READY`（RM-011 M2 原值，2026-08-25 开工）
 - 来源：头犬提案，owner 规划会批准 RM-011 骨架（含本里程碑）
 - 优先级：中
 - 依赖：GOAL-070（soak 用 free 模型零成本执行）, GOAL-071（真实负载路径为混沌靶标）

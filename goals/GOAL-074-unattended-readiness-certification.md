@@ -1,6 +1,7 @@
 # GOAL-074: 放闸就绪认证与演练战报总纲 (Unattended Readiness Certification)
 
-- 状态：`READY`（RM-011 M4 终局）
+- 状态：`IN_PROGRESS`（RM-011 M4 终局；认证引擎/端点/初版报告落地，当前 NOT_READY——E4 8h soak 收官后重跑 `node scripts/readiness-certify.mjs` 刷新为 READY 即总纲收官；soak 摘要位于独立工作区 runtime，刷新前拷贝至 `<repo>/runtime/soak-summary.json`）
+- 状态备注：`READY`（RM-011 M4 原值，2026-08-25 开工）
 - 来源：头犬提案，owner 规划会批准；D8 默认值翻转权归 owner，本 Goal 只交认证证据
 - 优先级：中
 - 依赖：GOAL-073
