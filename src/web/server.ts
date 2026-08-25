@@ -192,6 +192,8 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     filePath: process.env.MUSH_MASTER_LEDGER_PATH ?? path.join(homedir(), '.mush', 'master-ledger.jsonl'),
     capUsd: options.masterCapUsd ?? loadMasterCap(),
   });
+  // GOAL-071：观察模式共享状态——热切换重建管线时跨上下文保持（同 masterGate 模式）。
+  const observationState: { path: string | null } = { path: null };
 
   // GOAL-030（GP-32②）：会话级 Caller Token 初始化
   const callerToken = options.callerToken ?? randomUUID().replace(/-/g, '');
@@ -222,6 +224,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       registryPath: path.join(workspaceRoot, 'runtime', 'capability-registry.json'),
       persistence,
       masterGate,
+      observationState,
       streamLiveOutput: true,
       onEvent: (event) => broadcast(event),
     });
@@ -323,6 +326,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       liveProbesPath: dispatch.liveProbeCachePath,
       persistence: nextPersistence,
       masterGate,
+      observationState,
       streamLiveOutput: true,
       onEvent: (event) => broadcast(event),
     });
@@ -595,6 +599,8 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       // G009 修复：在册犬只名册（派发合同表）——下拉取数源应为注册名册而非
       // 活动投影（actors 只在有 loop 事件流后才有值，冷启动必然为空）。
       snapshot.roster = dispatch.roster();
+      // GOAL-071：观察模式状态（UI 徽标数据源）。
+      if (dispatch.observingWorkspace !== null) snapshot.observing_path = dispatch.observingWorkspace;
       sendJson(response, 200, snapshot);
       return;
     }
@@ -965,6 +971,35 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         } catch (error) {
           if (error instanceof InputError) sendJson(response, 400, { ok: false, error: error.message });
           else sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+        }
+      });
+      return;
+    }
+    // GOAL-071：观察模式——冻结区（意向项目/.agent-bridge）零写入参演。
+    // body.path 非空 = 进入观察态（仅冻结区路径允许，否则 400）；空 path = 退出观察态。
+    if (route === 'POST /api/workspaces/observe') {
+      guarded(response, async () => {
+        let body: Record<string, unknown>;
+        try {
+          body = JSON.parse(await readBody(request)) as Record<string, unknown>;
+        } catch {
+          sendJson(response, 400, { ok: false, error: 'body must be JSON' });
+          return;
+        }
+        const targetPath = typeof body.path === 'string' ? body.path.trim() : '';
+        if (targetPath === '') {
+          dispatch.exitObservation();
+          broadcast({ type: 'observation_exited' });
+          sendJson(response, 200, { ok: true, observing: false });
+          return;
+        }
+        try {
+          const result = dispatch.enterObservation(targetPath);
+          broadcast({ type: 'observation_started', path: result.path });
+          sendJson(response, 200, { ok: true, ...result });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          sendJson(response, error instanceof InputError ? 400 : 500, { ok: false, error: message });
         }
       });
       return;

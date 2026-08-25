@@ -242,6 +242,38 @@ export function createThrottledStream(options: ThrottledStreamOptions): Throttle
   };
 }
 
+/** GOAL-071：观察模式只读参演章程——冻结区写面约束的提示级实现
+ * （GP-14 运行时隔离到位前，配套事后零写入审计兜底）。 */
+const OBSERVATION_CHARTER = `[观察模式｜只读参演]
+你处于黄金参照区（宪法冻结区）的观察模式，本目录受最高级别写面保护。
+绝对禁止：创建/修改/删除/移动任何文件或目录；禁止一切写命令（echo >、重定向、git commit/checkout/clean、npm install 等）。
+只允许：读取与分析类操作（dir/ls、type/cat、git status/log/diff/show、grep/findstr）。
+产出方式：所有结论与分析直接写在回复文本中，不落盘。`;
+
+/** 深度受限目录清单（观察模式审计用）：不写任何临时文件到被测区。 */
+function walkListingDepthLimited(dir: string, maxDepth = 3, maxEntries = 5000): string[] {
+  const out: string[] = [];
+  const walk = (d: string, rel: string, lvl: number): void => {
+    if (lvl > maxDepth || out.length >= maxEntries) return;
+    let entries: string[];
+    try {
+      entries = readdirSync(d);
+    } catch {
+      return;
+    }
+    for (const name of entries) {
+      if (out.length >= maxEntries) return;
+      const relPath = rel !== '' ? `${rel}\\${name}` : name;
+      out.push(relPath);
+      try {
+        if (statSync(path.join(d, name)).isDirectory()) walk(path.join(d, name), relPath, lvl + 1);
+      } catch {}
+    }
+  };
+  walk(dir, '', 0);
+  return out.sort();
+}
+
 export interface RunAdapterResult {
   exitCode: number;
   stdout: string;
@@ -310,6 +342,9 @@ export interface DispatchPipelineOptions {
   liveProbesPath?: string;
   /** GOAL-068（D2）：跨项目全局资金总控门（多项目热切换下防资金逃逸）。 */
   masterGate?: MasterBudgetGateLike;
+  /** GOAL-071：观察模式共享状态（热切换重建管线时跨上下文保持；缺省实例私有）。
+   *  server 层以同一对象注入所有上下文管线。 */
+  observationState?: { path: string | null };
   /** D82 批次：看板实时输出——开启后 stdout/stderr 增量以 EXECUTE 事件广播
    *  （SSE 直达浏览器，直连抽屉/派发卡可滚动观看干活过程）。默认关闭：
    *  测试与无宿主场景维持既有单帧语义。 */
@@ -477,6 +512,9 @@ export class DispatchPipeline {
   private masterGate?: MasterBudgetGateLike;
   private readonly records = new Map<string, DispatchRecord>();
   private selectedWorkspace: string | null = null;
+  /** GOAL-071：观察模式状态（可注入共享对象——热切换重建管线时跨上下文保持，
+   * 与 masterGate 同模式；缺省实例私有）。 */
+  private readonly observationState: { path: string | null };
   private now: () => Date;
   private readonly persistence: BoardPersistence | null;
   private readonly profilesRoot: string;
@@ -534,6 +572,7 @@ export class DispatchPipeline {
         this.userAdapters,
       );
     this.onEvent = options.onEvent ?? (() => {});
+    this.observationState = options.observationState ?? { path: null };
     this.streamLiveOutput = options.streamLiveOutput === true;
     this.now = options.now ?? (() => new Date());
     this.persistence = options.persistence ?? null;
@@ -868,6 +907,10 @@ export class DispatchPipeline {
       earlyWorkspace,
     );
     body.prompt = prep.prompt;
+    // GOAL-071：观察模式——冻结区零写入参演。提示级写面约束（GP-14 到位前的
+    // owner 批准口径）+ 事后审计兜底；快照仍存 owner 原始指令。
+    const observationDispatch = this.observationState.path !== null && earlyWorkspace === this.observationState.path;
+    if (observationDispatch) body.prompt = OBSERVATION_CHARTER + '\n\n' + body.prompt;
     if (prep.resumeSession !== undefined && body.resume_session === undefined) {
       body.resume_session = prep.resumeSession;
     }
@@ -941,7 +984,9 @@ export class DispatchPipeline {
     // F-41（安全审查 2026-08-17）：workspace 白名单——dispatch 只允许落在
     // 服务根目录或已登记（known-workspaces/当前选中）的工作区，防止任意
     // 本地目录被选为犬的执行范围（纵深防御，配合 DEF-04 Host 校验）。
-    if (workspace !== this.workspaceRoot && !this.isKnownWorkspace(workspace)) {
+    // GOAL-071：观察态派发豁免工作区登记（冻结区不注册、不落元数据）。
+    const observationRun = observationDispatch || (this.observationState.path !== null && workspace === this.observationState.path);
+    if (!observationRun && workspace !== this.workspaceRoot && !this.isKnownWorkspace(workspace)) {
       throw new InputError(`workspace not registered: ${workspace}（先经 POST /api/workspaces/select 登记）`);
     }
 
@@ -1130,10 +1175,20 @@ export class DispatchPipeline {
       }
     }
 
-    const receiptDir = path.join(workspace, '.mush-receipts');
+    // GOAL-071：观察态回执重定向——冻结区内不落任何文件（含回执），
+    // 回执归档到宿主 runtime 的 observation 子目录，审计链不断。
+    const receiptDir = observationRun
+      ? path.join(this.workspaceRoot, '.mush-receipts', 'observation')
+      : path.join(workspace, '.mush-receipts');
     mkdirSync(receiptDir, { recursive: true });
     const receiptPath = path.join(receiptDir, `dispatch-${dispatchId}.json`);
-    this.emit(record, 'EXECUTE', real ? 'ADMITTED' : 'DRY_RUN', { workspace });
+    this.emit(record, 'EXECUTE', real ? 'ADMITTED' : 'DRY_RUN', {
+      workspace,
+      ...(observationRun ? { observation: true } : {}),
+    });
+    // 观察态零写入审计基线：运行前内存快照（深度3/上限5000项），不写被测区。
+    let observationBaseline: string[] | null = null;
+    if (observationRun) observationBaseline = walkListingDepthLimited(workspace);
     // GOAL-021 U3：仅当宿主请求流式（internal.onStdout）时，才把原始 stdout
     // 节流合帧（≥200ms 或 512B）为 EXECUTE 增量事件，并转发合并文本给宿主。
     // 无宿主回调 = 维持既有行为（一次性 REPORT，不外加 EXECUTE 增量帧）。
@@ -1289,6 +1344,19 @@ export class DispatchPipeline {
 
     this.emit(record, 'REPORT', record.status, { receipt_path: receiptPath, exit_code: run.exitCode });
     this.emit(record, 'REVIEW', record.status, { verdict: pass ? 'PASS' : 'FAIL' });
+    // GOAL-071：观察态零写入事后审计——对比运行前后内存清单，任何新增即违规留痕。
+    if (observationRun && observationBaseline !== null) {
+      const created = walkListingDepthLimited(workspace).filter((x) => !observationBaseline!.includes(x));
+      if (created.length > 0) {
+        this.emit(record, 'REVIEW', record.status, {
+          observation_violation: true,
+          created_paths: created.slice(0, 50),
+        });
+        record.error = [record.error, `观察模式违规写入 ${created.length} 项（见事件链）`].filter(Boolean).join('；');
+      } else {
+        this.emit(record, 'REVIEW', record.status, { observation_zero_write: true });
+      }
+    }
     if (resolvedStream !== null) {
       this.recordStreamDispatch(resolvedStream, dispatchId, adapterId, record.session_id, prompt, run);
     }
@@ -1372,6 +1440,8 @@ export class DispatchPipeline {
       kind: 'dispatch',
       gate: 'D30-real-dispatch',
       dispatch_id: record.dispatch_id,
+      // GOAL-071：观察态派发在审批卡如实标注（冻结区只读参演）。
+      ...(this.observationState.path !== null && request.workspace === this.observationState.path ? { observation: true } : {}),
       // owner 2026-08-17 反馈：审批名必须带 Goal 编号利于人识别 + 任务池关联。
       title: `真实派发：${record.adapter_id}${request.goal_id !== undefined ? ' · ' + request.goal_id : ''}`,
       actor_id: record.adapter_id,
@@ -1750,6 +1820,33 @@ export class DispatchPipeline {
   recent(limit = 20): DispatchRecord[] {
     return [...this.records.values()].slice(-limit).reverse();
   }
+
+  /** GOAL-071：冻结区特征判定（意向项目黄金参照 / .agent-bridge 任意仓）。 */
+  static isFrozenZoneLike(p: string): boolean {
+    const lower = p.toLowerCase();
+    return lower.includes('意向项目') || lower.includes('.agent-bridge');
+  }
+
+  /** GOAL-071：进入观察模式——仅冻结区路径可观察；不注册工作区、不写任何
+   * 元数据到目标（零写入承诺从进入这一刻开始）。 */
+  enterObservation(target: string): { observing: boolean; path: string } {
+    const resolved = path.resolve(target);
+    if (!existsSync(resolved) || !DispatchPipeline.isFrozenZoneLike(resolved)) {
+      throw new InputError(`observation mode only applies to existing frozen-zone paths (意向项目/.agent-bridge): ${resolved}`);
+    }
+    this.observationState.path = resolved;
+    return { observing: true, path: resolved };
+  }
+
+  exitObservation(): void {
+    this.observationState.path = null;
+  }
+
+  /** 当前观察目标；null = 未处于观察态（server 快照/UI 徽标数据源）。 */
+  get observingWorkspace(): string | null {
+    return this.observationState.path;
+  }
+
 
   /** GOAL-017A & GOAL-056：预算投影——cap 读持久化；spent 仅 real 且 amount>0；
    * admission_count 含 dry-run；返回 Prompt Cache 节省汇总。 */

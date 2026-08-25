@@ -632,6 +632,8 @@ ${getCollaborationStyles()}
             <button type="button" class="act" id="btn-workspace-browse-native" title="调起系统文件管理器选取本地文件夹">📁 浏览电脑文件夹</button>
             <button type="button" class="act" id="btn-workspace-tree" title="打开网页目录树选择器">🗂️ 目录树</button>
             <button type="button" class="act approve" id="btn-workspace-register">登记</button>
+            <button type="button" class="act" id="btn-workspace-observe" title="GOAL-071：冻结区（意向项目/.agent-bridge）只读参演——零写入，回执归档到宿主 runtime">👁 观察参演</button>
+            <span id="observation-badge" style="display:none;align-self:center"><span class="badge" style="background:rgba(245,158,11,0.15);color:#b45309">👁 观察态</span> <button type="button" class="act cancel" id="btn-observation-exit" style="padding:0 6px;font-size:11px">退出</button></span>
           </div>
         </div>
         <div class="full">
@@ -1328,6 +1330,7 @@ ${getCollaborationStyles()}
     document.getElementById('workspace-current').textContent = current
       ? normalizeDisplayPath(current.path)
       : 'workspace: 服务 cwd（未选择，派发默认落此处）';
+    if (typeof refreshObservationBadge === 'function') refreshObservationBadge(); // GOAL-071：观察态徽标随快照联动
     renderChatWorkspaceOptions();
   }
 
@@ -4271,6 +4274,37 @@ ${getCollaborationStyles()}
 
   document.getElementById('btn-workspace-register').addEventListener('click', function () {
     registerWorkspace(document.getElementById('workspace-register-path').value);
+  });
+  // GOAL-071：观察模式——冻结区零写入参演（进入/退出 + 徽标联动）。
+  function refreshObservationBadge() {
+    var badge = document.getElementById('observation-badge');
+    var btn = document.getElementById('btn-workspace-observe');
+    var active = !!(snapshot && snapshot.observing_path);
+    if (badge) badge.style.display = active ? '' : 'none';
+    if (btn) {
+      btn.textContent = active ? '👁 观察中' : '👁 观察参演';
+      btn.disabled = active;
+    }
+  }
+  document.getElementById('btn-workspace-observe').addEventListener('click', function () {
+    if (snapshot && snapshot.observing_path) return; // 观察态中按钮禁用，双保险
+    var sel = document.getElementById('workspace-select');
+    var chosen = sel && sel.value ? sel.value : document.getElementById('workspace-register-path').value.trim();
+    if (!chosen) { toast('先在工作区下拉选择冻结区路径（如 D:\\意向项目）', false); return; }
+    postJson('/api/workspaces/observe', { path: chosen }).then(function (result) {
+      if (result.body && result.body.ok) {
+        toast('已进入观察模式：' + normalizeDisplayPath(result.body.path) + '（零写入参演）', true);
+        refreshObservationBadge();
+      } else {
+        toast('进入观察失败：' + ((result.body && result.body.error) || result.status), false);
+      }
+    }).catch(function (error) { toast('观察请求失败：' + error, false); });
+  });
+  document.getElementById('btn-observation-exit').addEventListener('click', function () {
+    postJson('/api/workspaces/observe', { path: '' }).then(function () {
+      toast('已退出观察模式', true);
+      refreshObservationBadge();
+    }).catch(function (error) { toast('退出失败：' + error, false); });
   });
   document.getElementById('workspace-register-path').addEventListener('keydown', function (event) {
     if (event.key === 'Enter') { event.preventDefault(); registerWorkspace(this.value); }

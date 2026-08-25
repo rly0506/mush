@@ -1,6 +1,6 @@
 # GOAL-071: 冻结区观察模式与双项目实战演练 (Frozen-Zone Observation Mode & Dual-Project Live Drill)
 
-- 状态：`READY`（RM-011 M1；owner 2026-08-23 拍板靶场方案 B）
+- 状态：`DONE`（2026-08-25：观察模式全链落地 + 双项目演练 17/17 全绿，战报 docs/dispatch/rm011-m1-dual-drill.md；写面口径=提示级章程+事后审计（owner 批准），GP-14 落地后可升级硬拦截。余项：VelocityMatrixEngine 战报导出并入 G072 前置批）
 - 来源：owner 规划会指定意向项目作为演练靶场；因宪法冻结区红线改为「观察模式只读参演 + 常规项目全写演练」双轨
 - 优先级：高
 - 依赖：GOAL-070（演练犬优先用 free 档）

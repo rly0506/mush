@@ -718,6 +718,21 @@ status ∈ `DRY_RUN | ADMITTED | BLOCKED_WAITING_OWNER | BLOCKED_ENV | FAIL | PA
 `{ "ok": true, "turns": [ {role, text, at_utc, dispatch_id?} ] }`
 - 缺 session → `400`；缺文件 → `200` + 空 `turns`；limit 缺省 50、负值按 1。
 
+### POST /api/workspaces/observe（v1.13，GOAL-071）
+
+冻结区观察模式——意向项目/.agent-bridge 只读参演：
+
+- 请求 `{ "path": "D:\\意向项目" }` 进入观察态；`{ "path": "" }` 退出；
+- 仅现存冻结区特征路径允许（路径含 `意向项目` 或 `.agent-bridge`），否则 `400`；
+- 观察态承诺：目标目录**字节级零写入**——不登记工作区、不落 `.mush/workspace.json`
+  与 runtime、派发回执重定向至宿主 `<host>/.mush-receipts/observation/`；
+- 观察态派发：免工作区登记门禁；prompt 注入只读参演章程（GP-14 运行时隔离
+  到位前的提示级口径）；运行前后内存清单比对，任何新增以
+  `observation_violation` 事件留痕并标注 record.error，合规则以
+  `observation_zero_write` 留痕；
+- 状态跨热切换上下文保持（共享 observationState）；快照新增
+  `observing_path?: string`。
+
 ### POST /api/chat/plan/:plan_id/decide（v1.13，GOAL-075 切片3）
 
 派发计划门 owner 决断。头犬回复含 `<PLAN>{...}</PLAN>` 块时，聊天层拦截为
