@@ -10,9 +10,19 @@
  * 纪律对齐 CONSTITUTION §1：DENIED 同样落账留证；撕裂行容错跳过并告警。
  */
 
-import { existsSync, mkdirSync, appendFileSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, appendFileSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { canonicalJson, sha256Hex } from './event-log.ts';
+
+function processAlive(pid: number): boolean {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return (err as NodeJS.ErrnoException)?.code === 'EPERM';
+  }
+}
 
 export interface MasterAdmissionResult {
   decision: 'ADMITTED' | 'DENIED';
@@ -89,39 +99,83 @@ export class MasterBudgetGate implements MasterBudgetGateLike {
     return Math.round(total * 1_000_000) / 1_000_000;
   }
 
+  /** GOAL-072 混沌加固：跨进程追加锁（wx 独占创建 + 陈锁接管自愈）。
+   *  序列化多进程写入，杜绝哈希链分叉；持锁者死亡或超龄即接管。 */
+  private acquireLedgerLock(timeoutMs = 5000): void {
+    const lockPath = this.filePath + '.lock';
+    mkdirSync(path.dirname(lockPath), { recursive: true });
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      try {
+        writeFileSync(lockPath, JSON.stringify({ pid: process.pid, at_utc: Date.now() }), { flag: 'wx' });
+        return;
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException)?.code;
+        if (code !== 'EEXIST') throw err;
+        let tookOver = false;
+        try {
+          const raw = JSON.parse(readFileSync(lockPath, 'utf8')) as { pid?: unknown; at_utc?: unknown };
+          const alive = typeof raw.pid === 'number' && processAlive(raw.pid);
+          const age = Date.now() - (typeof raw.at_utc === 'number' ? raw.at_utc : 0);
+          if (!alive || age > 30_000) {
+            rmSync(lockPath, { force: true });
+            tookOver = true; // 陈锁接管自愈
+          }
+        } catch {
+          rmSync(lockPath, { force: true });
+          tookOver = true;
+        }
+        if (!tookOver && Date.now() > deadline) {
+          throw new Error(`master ledger lock timeout (${lockPath})`);
+        }
+        // 自旋退避：Atomics.wait 同步休眠 5ms（Node 主线程可用）
+        try {
+          Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
+        } catch {}
+      }
+    }
+  }
+
   admit(actorId: string, workspace: string, amountUsd: number): MasterAdmissionResult {
     const amount = Math.max(0, Math.round((Number.isFinite(amountUsd) ? amountUsd : 0) * 1_000_000) / 1_000_000);
-    const spentBefore = this.spentAll();
-    const allowed = this.capUsd <= 0 || Math.round((spentBefore + amount) * 1_000_000) / 1_000_000 <= this.capUsd;
-    const decision: MasterAdmissionResult['decision'] = allowed ? 'ADMITTED' : 'DENIED';
-    const body = {
-      at_utc: new Date().toISOString(),
-      actor_id: actorId,
-      workspace,
-      decision,
-      amount_usd: amount,
-      master_cap_usd: this.capUsd,
-      spent_before_usd: spentBefore,
-      remaining_usd: Math.round((this.capUsd > 0 ? this.capUsd - (allowed ? spentBefore + amount : spentBefore) : 0) * 1_000_000) / 1_000_000,
-      previous_sha256: this.lastSha(),
-    };
-    const sha256 = sha256Hex(canonicalJson(body));
-    mkdirSync(path.dirname(this.filePath), { recursive: true });
+    this.acquireLedgerLock();
     try {
-      appendFileSync(this.filePath, JSON.stringify({ ...body, sha256 }) + '\n', 'utf8');
-      this.cachedLastSha = sha256;
-    } catch (err) {
-      // 总控账写失败不得静默：stderr 告警（链头缓存回退重算）。
-      process.stderr.write(`[mush:budget-master] failed to append master ledger: ${err instanceof Error ? err.message : String(err)}\n`);
+      // GOAL-072：锁内重读真实链头（缓存陈旧是分叉根源），追加后更新缓存。
       this.cachedLastSha = undefined;
+      const spentBefore = this.spentAll();
+      const allowed = this.capUsd <= 0 || Math.round((spentBefore + amount) * 1_000_000) / 1_000_000 <= this.capUsd;
+      const decision: MasterAdmissionResult['decision'] = allowed ? 'ADMITTED' : 'DENIED';
+      const body = {
+        at_utc: new Date().toISOString(),
+        actor_id: actorId,
+        workspace,
+        decision,
+        amount_usd: amount,
+        master_cap_usd: this.capUsd,
+        spent_before_usd: spentBefore,
+        remaining_usd: Math.round((this.capUsd > 0 ? this.capUsd - (allowed ? spentBefore + amount : spentBefore) : 0) * 1_000_000) / 1_000_000,
+        previous_sha256: this.lastSha(),
+      };
+      const sha256 = sha256Hex(canonicalJson(body));
+      mkdirSync(path.dirname(this.filePath), { recursive: true });
+      try {
+        appendFileSync(this.filePath, JSON.stringify({ ...body, sha256 }) + '\n', 'utf8');
+        this.cachedLastSha = sha256;
+      } catch (err) {
+        // 总控账写失败不得静默：stderr 告警（链头缓存回退重算）。
+        process.stderr.write(`[mush:budget-master] failed to append master ledger: ${err instanceof Error ? err.message : String(err)}\n`);
+        this.cachedLastSha = undefined;
+      }
+      return {
+        decision,
+        spent_before_usd: body.spent_before_usd,
+        remaining_usd: body.remaining_usd,
+        master_cap_usd: this.capUsd,
+        ...(allowed ? {} : { reason: 'master budget cap exceeded (cross-project)' }),
+      };
+    } finally {
+      rmSync(this.filePath + '.lock', { force: true });
     }
-    return {
-      decision,
-      spent_before_usd: body.spent_before_usd,
-      remaining_usd: body.remaining_usd,
-      master_cap_usd: this.capUsd,
-      ...(allowed ? {} : { reason: 'master budget cap exceeded (cross-project)' }),
-    };
   }
 
   /** 重放校验全局哈希链（审计导出/自检用）。 */
