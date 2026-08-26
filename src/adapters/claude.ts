@@ -130,6 +130,9 @@ export interface ClaudeStreamRunOptions {
   workspaceRoot: string;
   timeoutMs: number;
   cwd?: string;
+  /** GOAL-072：附加环境变量（如 CLAUDE_CODE_MAX_OUTPUT_TOKENS 压低预扣费，
+   *  通道矩阵实证 402 = 64000 上限超出余额时的可行解）。 */
+  extraEnv?: Record<string, string>;
   onStdout?: (chunk: string) => void;
   onStderr?: (chunk: string) => void;
   spawn?: SpawnFn;
@@ -193,7 +196,20 @@ export async function runClaudeStreamRun(options: ClaudeStreamRunOptions): Promi
   let timedOut = false;
   let killed = false;
   let exitCode = 124;
-  const child = spawn(options.contract.executable, args, { cwd: options.cwd ?? options.workspaceRoot });
+  const child = spawn(options.contract.executable, args, {
+    cwd: options.cwd ?? options.workspaceRoot,
+    ...(options.extraEnv !== undefined || process.env.MUSH_CLAUDE_MAX_OUTPUT_TOKENS !== undefined
+      ? {
+          env: {
+            ...(process.env as Record<string, string>),
+            ...(process.env.MUSH_CLAUDE_MAX_OUTPUT_TOKENS !== undefined
+              ? { CLAUDE_CODE_MAX_OUTPUT_TOKENS: process.env.MUSH_CLAUDE_MAX_OUTPUT_TOKENS }
+              : {}),
+            ...options.extraEnv,
+          },
+        }
+      : {}),
+  });
   child.onStdout((chunk) => {
     stdout += chunk.toString();
     options.onStdout?.(chunk.toString());
