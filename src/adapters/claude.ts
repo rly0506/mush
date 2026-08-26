@@ -112,6 +112,127 @@ export function parseClaudeStreamJson(stdout: string): ClaudeStream {
   };
 }
 
+export interface ClaudeStreamRunResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  timedOut: boolean;
+  childKilled: boolean;
+  /** result 文本（stream-json result 事件）；空回退原始 stdout。 */
+  resultText: string;
+  sessionId?: string;
+  totalCostUsd?: number;
+}
+
+export interface ClaudeStreamRunOptions {
+  contract: AdapterContract;
+  prompt: string;
+  workspaceRoot: string;
+  timeoutMs: number;
+  cwd?: string;
+  onStdout?: (chunk: string) => void;
+  onStderr?: (chunk: string) => void;
+  spawn?: SpawnFn;
+}
+
+/** GOAL-072 通道修复：stream-json 协议泛用执行路径——此前泛用管线只支持
+ *  t1/pi-rpc，claude-code 无法经看板派发（通道矩阵实证）。语义与 nonce 探针
+ *  同构：argument 运输 + 超时 kill + parseClaudeStreamJson 提取结果/会话/成本。 */
+export async function runClaudeStreamRun(options: ClaudeStreamRunOptions): Promise<ClaudeStreamRunResult> {
+  const spawn: SpawnFn =
+    options.spawn ??
+    ((executable, args, opts) => {
+      const plan = resolveWindowsShim(executable);
+      const child =
+        plan?.kind === 'node'
+          ? nodeSpawn(plan.node, [plan.entry, ...args], { cwd: opts.cwd, windowsHide: true })
+          : plan?.kind === 'exe'
+            ? nodeSpawn(plan.exe, args, { cwd: opts.cwd, windowsHide: true })
+            : nodeSpawn(executable, args, { cwd: opts.cwd, windowsHide: true });
+      if (child.stdin !== null) {
+        child.stdin.on('error', () => {});
+      }
+      return {
+        stdinWrite: (chunk) => {
+          try {
+            if (child.stdin !== null && child.stdin.writable) child.stdin.write(chunk);
+          } catch {}
+        },
+        stdinEnd: () => {
+          try {
+            if (child.stdin !== null && child.stdin.writable) child.stdin.end();
+          } catch {}
+        },
+        onStdout: (listener) => {
+          const decoder = new StringDecoder('utf8');
+          child.stdout.on('data', (buf: Buffer) => listener(decoder.write(buf)));
+          child.stdout.on('end', () => {
+            const tail = decoder.end();
+            if (tail) listener(tail);
+          });
+        },
+        onStderr: (listener) => {
+          const decoder = new StringDecoder('utf8');
+          child.stderr.on('data', (buf: Buffer) => listener(decoder.write(buf)));
+          child.stderr.on('end', () => {
+            const tail = decoder.end();
+            if (tail) listener(tail);
+          });
+        },
+        onExit: (listener) => child.on('exit', listener),
+        onError: (listener) => child.on('error', listener),
+        kill: () => killProcessTree(child.pid),
+      } as ChildProcessLike;
+    });
+  const args =
+    options.contract.prompt_transport === 'argument'
+      ? [...options.contract.arguments, options.prompt]
+      : [...options.contract.arguments];
+  let stdout = '';
+  let stderr = '';
+  let timedOut = false;
+  let killed = false;
+  let exitCode = 124;
+  const child = spawn(options.contract.executable, args, { cwd: options.cwd ?? options.workspaceRoot });
+  child.onStdout((chunk) => {
+    stdout += chunk.toString();
+    options.onStdout?.(chunk.toString());
+  });
+  child.onStderr((chunk) => {
+    stderr += chunk.toString();
+    options.onStderr?.(chunk.toString());
+  });
+  await new Promise<void>((resolve) => {
+    const timer = setTimeout(() => {
+      timedOut = true;
+      try {
+        child.kill();
+        killed = true;
+      } catch {}
+      resolve();
+    }, options.timeoutMs);
+    child.onExit((code) => {
+      exitCode = code ?? 1;
+      clearTimeout(timer);
+      resolve();
+    });
+    child.onError?.(() => {
+      exitCode = exitCode === 124 ? 127 : exitCode;
+    });
+  });
+  const parsed = parseClaudeStreamJson(stdout);
+  return {
+    exitCode,
+    stdout: parsed.resultText !== '' || parsed.ended ? parsed.resultText : stdout,
+    stderr,
+    timedOut,
+    childKilled: killed,
+    resultText: parsed.resultText,
+    ...(parsed.sessionId !== null ? { sessionId: parsed.sessionId } : {}),
+    ...(parsed.totalCostUsd !== null ? { totalCostUsd: parsed.totalCostUsd } : {}),
+  };
+}
+
 export interface ClaudeNonceProbeResult {
   adapterId: string;
   identity: StreamIdentity;

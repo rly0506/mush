@@ -27,6 +27,7 @@ import { buildAgyContract } from '../adapters/agy.ts';
 import { buildHeadDogContract, extractSessionId } from '../adapters/head-dog.ts';
 import { runT1, type SpawnFn } from '../adapters/t1-runner.ts';
 import { normalizeOpencodeEvents } from '../adapters/opencode.ts';
+import { runClaudeStreamRun } from '../adapters/claude.ts';
 import { arbitrateUnattended, type UnattendedPolicy } from '../core/unattended-policy.ts';
 import type { CircuitBreaker } from '../core/circuit-breaker.ts';
 import { runPiRpc } from '../adapters/pi-rpc-runner.ts';
@@ -690,6 +691,43 @@ export class DispatchPipeline {
               stderr: piResult.stderr,
               timedOut: piResult.timedOut,
               childKilled: piResult.childKilled,
+            };
+          }
+          if (contract.protocol === 'stream-json') {
+            // GOAL-072 通道修复：claude-code stream-json 执行路径——此前泛用
+            // 管线只支持 t1/pi-rpc，claude-code 无法经看板派发。成本经合成
+            // telemetry 回流台账（token 计数渠道未提供，置 0 并保留真实费用）。
+            const res = await runClaudeStreamRun({
+              contract,
+              prompt,
+              workspaceRoot: opts!.workspaceRoot,
+              timeoutMs,
+              onStdout: opts!.onStdout,
+              onStderr: opts!.onStderr,
+              spawn: options.spawn,
+              ...(opts!.cwd !== undefined ? { cwd: opts!.cwd } : {}),
+            });
+            return {
+              exitCode: res.exitCode,
+              stdout: res.stdout,
+              stderr: res.stderr,
+              timedOut: res.timedOut,
+              childKilled: res.childKilled,
+              sessionId: res.sessionId,
+              ...(res.totalCostUsd !== undefined
+                ? {
+                    receipt: {
+                      telemetry: {
+                        input_tokens: 0,
+                        output_tokens: 0,
+                        cache_creation_tokens: 0,
+                        cache_read_tokens: 0,
+                        total_cost_usd: res.totalCostUsd,
+                        cache_savings_usd: 0,
+                      },
+                    },
+                  }
+                : {}),
             };
           }
           const result = await runT1({
