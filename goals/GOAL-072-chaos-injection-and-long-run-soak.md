@@ -38,6 +38,6 @@
 | deepseek-dsh | ❌ CLI 本体损坏 | cordis 插件加载器崩溃（本机环境问题，需重装修复；D-红线禁 agent 装全局包→owner 操作） |
 | kimi-code | ❌ 余额耗尽 | 403 预扣费失败：剩 ¥0.2209 < 需 ¥0.6828 |
 | zcode | ❌ 余额耗尽 | 同一代理池：剩 ¥0.2209 < 需 ¥0.2233 |
-| claude-code | ❌ 管线缺口（新缺陷） | 合同为 stream-json 协议，泛用管线默认 runner 仅支持 t1/pi-rpc——需补 stream-json 执行路径方可派发 |
+| claude-code | ✅ 管线缺口已修复（stream-json 路径落地）；⚠️ 额度类残留 | 执行通路已通（实弹验证）；余额经 OpenRouter 免费层，**64000 max_tokens 为中继层写死**（CLAUDE_CODE_MAX_OUTPUT_TOKENS/MAX_OUTPUT_TOKENS 双环境变量实测均被无视）→ 需 owner 在 openrouter.ai/settings/credits 充值或改路由 |
 
 **owner 决策点**（三选一）：① 充值 kimi/zcode（¥10-30 级）后以该通道跑 8h；② 等 opencode free 上游恢复时段重跑（今晨曾稳定）；③ 授权补齐 claude-code stream-json 执行路径（开发量最大，但解锁订阅通道长期价值）。

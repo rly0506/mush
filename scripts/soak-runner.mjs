@@ -100,6 +100,12 @@ while (Date.now() < deadline) {
       dispatch_status: rec.status,
       duration_ms: Date.now() - t0,
       dispatch_id: rec.dispatch_id,
+      ...(rec.status !== 'PASS' && rec.status !== 'DRY_RUN'
+        ? {
+            error_head: String(rec.error || '').slice(0, 160),
+            stderr_head: String(rec.stderr_tail?.text || '').replace(/\x1b\[[0-9;]*m/g, '').slice(0, 200),
+          }
+        : {}),
     });
     console.log(`[soak] r${round} ${rec.status} ${m.rss_mb}MB handles=${m.handles} (${Math.round((Date.now() - t0) / 1000)}s)`);
   } catch (err) {
