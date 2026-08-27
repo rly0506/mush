@@ -4110,31 +4110,71 @@ ${getCollaborationStyles()}
     }).join('');
   }
 
-  /* ---------- GOAL-073：无人值守档位面板 + 熔断状态灯（栏内迷你版） ---------- */
+  /* ---------- GOAL-073：无人值守档位面板 + 熔断状态灯（栏内迷你版） ----------
+     GOAL-074 放闸向导三步：①证据清单（readiness 拉取 + 认证报告折叠）→ ②风险披露确认
+     （提升前 confirm）→ ③档位提升入口（未就绪时高阶选项禁用；后端 readiness gate 409 兜底） */
   function loadUnattendedRail() {
     var el = document.getElementById('rail-unattended');
     if (!el) return;
-    getJson('/api/unattended/policy').then(function (res) {
+    Promise.all([
+      getJson('/api/unattended/policy'),
+      getJson('/api/unattended/readiness').catch(function () { return null; })
+    ]).then(function (arr) {
+      var res = arr[0], rd = arr[1];
       if (!(res.body && res.body.ok)) { el.textContent = '（不可用）'; return; }
       var p = res.body.policy || {};
       var b = res.body.breaker || {};
+      var ready = !!(rd && rd.body && rd.body.ready);
+      var items = (rd && rd.body && rd.body.items) || [];
+      var failing = items.filter(function (i) { return i && i.passed === false; }).map(function (i) { return String(i.id); });
+      var gateTip = ready ? '就绪认证 READY' : (failing.length ? '未就绪：' + failing.join(' / ') : '就绪状态不可知（readiness 查询失败，按 fail-closed 处理）');
+      var rank = { L0: 0, L1: 1, L2: 2 };
+      var curRank = rank[p.level] || 0;
       var light = b.halted ? '<span class="badge FAIL">🔴 熔断</span>' : '<span class="badge" style="background:rgba(16,185,129,0.15);color:#047857">🟢 正常</span>';
       var opts = ['L0', 'L1', 'L2'].map(function (lv) {
-        return '<option value="' + lv + '"' + (p.level === lv ? ' selected' : '') + '>' + lv + '</option>';
+        var blocked = !ready && (rank[lv] || 0) > curRank;
+        return '<option value="' + lv + '"' + (p.level === lv ? ' selected' : '') +
+          (blocked ? ' disabled title="' + esc(gateTip) + '"' : '') + '>' + lv + '</option>';
       }).join('');
       el.innerHTML =
         '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">' + light +
         '<span>档位 <select id="unattended-level" style="font-size:11px;padding:0 4px">' + opts + '</select>' +
         (p.auto_approve_cap_usd > 0 ? ' ≤$' + esc(String(p.auto_approve_cap_usd)) : '') + '</span></div>' +
+        '<div class="hint" style="font-size:11px;color:' + (ready ? 'var(--ok)' : '#b45309') + '">' +
+        (ready ? '放闸就绪认证通过' : '就绪认证未过 · 档位提升已锁') +
+        ' <button type="button" class="act" id="btn-readiness-md" style="padding:0 6px;font-size:10px;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)">认证报告</button></div>' +
+        '<pre id="readiness-md" style="display:none;max-height:220px;overflow:auto;font-size:10px;white-space:pre-wrap;border:1px solid var(--line);border-radius:4px;padding:4px;margin:3px 0"></pre>' +
         (b.halted ? '<div style="color:#b45309;margin-bottom:4px">' + esc(b.halt_reason || '已停机') +
           ' <button type="button" class="act cancel" id="btn-breaker-reset" style="padding:0 6px;font-size:11px">复位</button></div>'
           : '<div class="hint" style="font-size:11px">L1/L2 低额自动批 · 超额弹卡</div>');
+      // 向导第①步：认证报告折叠 = 证据清单
+      var mdBtn = document.getElementById('btn-readiness-md');
+      var mdBox = document.getElementById('readiness-md');
+      if (mdBtn && mdBox) mdBtn.addEventListener('click', function () {
+        if (mdBox.style.display === 'none') {
+          mdBox.textContent = (rd && rd.body && rd.body.markdown) || '';
+          mdBox.style.display = ''; mdBtn.textContent = '收起报告';
+        } else { mdBox.style.display = 'none'; mdBtn.textContent = '认证报告'; }
+      });
       var sel = document.getElementById('unattended-level');
       if (sel) sel.addEventListener('change', function () {
-        postJson('/api/unattended/policy', { level: sel.value }).then(function (r) {
+        var target = sel.value;
+        // 向导第②步：风险披露确认（仅提升需确认；降级直通）
+        if ((rank[target] || 0) > curRank && !window.confirm(
+          '【放闸风险披露】升至 ' + target + ' 后，满足额度的派发将自动批付执行。\\n' +
+          '额度受 master cap 硬约束；失控由熔断器自动停机。确认继续？')) {
+          sel.value = p.level; toast('已取消档位提升', false); return;
+        }
+        putJson('/api/unattended/policy', { level: target }).then(function (r) {
           if (r.body && r.body.ok) { toast('无人值守档位：' + r.body.policy.level, true); loadUnattendedRail(); }
-          else toast('设置失败：' + ((r.body && r.body.error) || r.status), false);
-        }).catch(function (e) { toast('设置失败：' + e, false); });
+          else {
+            var msg = (r.body && r.body.error) || r.status;
+            var f = r.body && r.body.readiness && r.body.readiness.failing;
+            if (f && f.length) msg += '｜未就绪：' + f.join(', ');
+            toast('设置失败：' + msg, false);
+            loadUnattendedRail();
+          }
+        }).catch(function (e) { toast('设置失败：' + e, false); loadUnattendedRail(); });
       });
       var rst = document.getElementById('btn-breaker-reset');
       if (rst) rst.addEventListener('click', function () {

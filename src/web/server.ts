@@ -1039,6 +1039,24 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         const prefixes = Array.isArray(body.task_whitelist_prefixes)
           ? (body.task_whitelist_prefixes as unknown[]).filter((p): p is string => typeof p === 'string')
           : [];
+        // GOAL-074 放闸门禁：档位提升必须证据链就绪（fail-closed）；
+        // 同级设置与任何降级（含回落 L0 逃生门）恒放行。D8 总开关默认值不在此处变更。
+        const levelRank: Record<string, number> = { L0: 0, L1: 1, L2: 2 };
+        if ((levelRank[level] ?? 0) > (levelRank[unattendedShared.policy.level] ?? 0)) {
+          const report = certifyUnattendedReadiness({
+            repoRoot: startupWorkspaceRoot,
+            runtimeRoot,
+            breaker: unattendedShared.breaker,
+          });
+          if (!report.ready) {
+            sendJson(response, 409, {
+              ok: false,
+              error: 'readiness gate：就绪认证 NOT_READY，档位提升被拒（降级不受限）',
+              readiness: { ready: false, failing: report.items.filter((i) => !i.passed).map((i) => i.id) },
+            });
+            return;
+          }
+        }
         // 档位提升必须 owner 显式操作：Caller-Token 鉴权（guarded）即留痕边界；
         // 额度受 master cap 硬约束（clamp）。
         const next: UnattendedPolicy = clampPolicyToMasterCap(

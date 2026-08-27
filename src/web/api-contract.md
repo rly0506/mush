@@ -725,12 +725,28 @@ status ∈ `DRY_RUN | ADMITTED | BLOCKED_WAITING_OWNER | BLOCKED_ENV | FAIL | PA
   owner 显式操作（Caller-Token）；未携带合法 level 按 L0 处理（fail-closed）；
   额度受 master cap 硬约束（clamp）；落盘 `<runtime>/unattended-policy.json` 并广播
   `unattended_policy_updated`。
+- **readiness gate（v1.13，GOAL-074）**：目标档位高于当前持久化档位（L0<L1<L2）时，
+  服务端先跑就绪认证；`ready=false` → `409 { ok:false, error,
+  readiness:{ ready:false, failing:[id…] } }`，不落盘不广播。同级设置与任何降级
+  （含回落 L0 逃生门）恒放行；D8 调度器总开关默认值不受本端点影响。
 
 ### GET /api/unattended/breaker（v1.13，GOAL-073）
 
 `{ ok, breaker, chain_intact, bundle? }`；`?bundle=1` 附完整审计回放包。
 `POST /api/unattended/breaker/reset { by }`：owner 复位（停机后恢复唯一途径），广播 `unattended_breaker_reset`。
 熔断语义：连败 N 次（默认3）/预算斜率超阈（默认 $5/min）/单任务超时硬顶（默认 15min）→ 停机；停机期间真实派发 REJECTED、干跑放行；重启后保持停机。
+
+### GET /api/unattended/readiness（v1.13，GOAL-074）
+
+放闸就绪认证——聚合 RM-011 全程证据逐项机检，任一项失败即整体 NOT_READY（fail-closed）。
+
+- 响应 `{ ok:true, ready:boolean, items:[{ id, title, passed, evidence_hash?, aux_sha256?, detail? }], markdown }`；
+  `evidence_hash` 为该项决定性证据工件的 SHA-256；E4 以 soak-metrics jsonl 为决定性工件时，
+  soak 摘要哈希归 `aux_sha256`；`markdown` 为渲染完成的认证报告全文；
+- E4 判定口径（对齐 GOAL-072 原文「句柄/RSS 双曲线」）：≥480min 完成且双曲线无增长趋势
+  （RSS 端差 ≤50MB、句柄端差 ≤20、有效 round 行 ≥10 且无损坏行）；
+  指标损坏或采样不足时退回严格口径（须零失败）——全程 fail-closed；
+- 只读端点，不改任何状态；刷新归档报告：`node scripts/readiness-certify.mjs`。
 
 ### POST /api/workspaces/observe（v1.13，GOAL-071）
 
