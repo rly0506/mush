@@ -16,7 +16,7 @@ test('dispatch form: dog selector, prompt textarea, effort/cap, dry-run|real tog
   assert.match(html, />HIGH<\/option>/);
   assert.match(html, /id="dispatch-cap"/, 'cap_usd 输入');
   assert.match(html, /id="dispatch-real"/, 'dry-run|real 切换');
-  assert.match(html, /需 approval 在案/, 'real 模式提示');
+  assert.match(html, /真实执行需预先批准在案/, '真实执行提示（G076 人话化）');
   assert.match(html, /id="btn-dispatch"/, '派发提交按钮');
 });
 

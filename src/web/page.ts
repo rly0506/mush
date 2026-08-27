@@ -38,26 +38,27 @@ export function renderBoardPage(callerToken?: string): string {
 <style>
 ${getCollaborationStyles()}
   :root {
-    color-scheme: light;
-    /* Claude Code 暖陶土纸面设计系统 (Claude Warm Terracotta & Paper Theme - D68) */
-    --bg: #f8f6f2;             /* Claude 经典温润暖纸色底，柔和护眼 */
-    --panel: #ffffff;          /* 纯净暖白卡片 */
-    --panel-hi: #f0ebe1;       /* 暖灰阶梯与悬停高亮 */
-    --panel-subtle: #fbf9f6;   /* 柔和次级底色 */
-    --line: #e3ddd3;           /* 温暖细腻陶土边框线 */
-    --line-subtle: #ede8df;
-    --ink: #2b2823;            /* 柔暖深浓缩咖啡黑主文字 */
-    --ink-dim: #6e675f;        /* 温暖陶土中灰副文本 */
-    --ink-faint: #9c9488;      /* 辅助浅灰 */
-    --accent: #cc6b49;         /* Claude 标志性暖陶土橙 (Warm Terracotta) */
-    --accent-deep: #a84e30;
-    --accent-light: rgba(204, 107, 73, 0.12);
-    --ember: #cc6b49;          /* 暖陶土强调色 */
-    --ember-tint: #faede7;     /* 柔和暖陶土 tint 底色 */
-    --danger: #c94a38;         /* 柔和朱砂红 */
-    --ok: #2e8555;             /* 柔和林木绿 */
-    --ok-tint: rgba(46, 133, 85, 0.12);
-    --info: #3b82f6;           /* 柔和晴空蓝 */
+    color-scheme: dark;
+    /* 极夜雪橇队母题（GOAL-012，owner G076 §7.5 裁定保留——暗色+ember 暖橙，不换配色。
+       D68 亮色陶土系为越权引入，本节回退恢复暗色令牌。） */
+    --bg: #0a0f16;             /* 极夜蓝黑雪原 */
+    --panel: #101722;          /* 深雪原卡片 */
+    --panel-hi: #1a2433;       /* 雪原高亮阶梯 */
+    --panel-subtle: #0d1420;   /* 次级底色 */
+    --line: #26313f;           /* 雪脊分隔线 */
+    --line-subtle: #1c2634;
+    --ink: #e6edf5;            /* 雪原主文字 */
+    --ink-dim: #93a1b3;        /* 副文本 */
+    --ink-faint: #5d6b7d;      /* 辅助浅灰 */
+    --accent: #62d8c9;         /* 极光青：雪原夜空中的极光辉 */
+    --accent-deep: #3aa89b;
+    --accent-light: rgba(98, 216, 201, 0.12);
+    --ember: #e8a94c;          /* 营地火琥珀：营地灯与篝火 */
+    --ember-tint: rgba(232, 169, 76, 0.12);
+    --danger: #e0604f;         /* 警示朱红 */
+    --ok: #4cc38a;             /* 极光绿 */
+    --ok-tint: rgba(76, 195, 138, 0.12);
+    --info: #5ea3e8;           /* 晴空蓝 */
     --whale: #4d9fe8;          /* DeepSeek 鲸蓝 */
     --sun: #e8975a;            /* Claude 日冕橙 */
     --knot: #6fd3a5;           /* OpenAI 花结绿 */
@@ -74,7 +75,6 @@ ${getCollaborationStyles()}
     --spark: #1A73E8;         /* AGY / Gemini 星火蓝 */
     --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
     --font-mono: Consolas, "Courier New", monospace;
-    /* 雪原白昼基线对照 (GOAL-020): --bg: #eef1f5; --panel: #ffffff; --ink: #1d2733; --ink-dim: #5a6675; --ink-faint: #9aa5b1; --accent: #0e9f8f; --ember: #c07a1f; --ember-tint: #fdf3e3; color-scheme: light; */
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: var(--font-body); background: var(--bg); color: var(--ink); }
@@ -82,7 +82,7 @@ ${getCollaborationStyles()}
   header {
     padding: 14px 22px; border-bottom: 1px solid var(--line);
     display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-    background: linear-gradient(180deg, #ffffff 0%, var(--bg) 100%);
+    background: linear-gradient(180deg, var(--panel) 0%, var(--bg) 100%);
   }
 
 
@@ -207,24 +207,37 @@ ${getCollaborationStyles()}
   /* GOAL-017B #6：预算 cap 行内编辑 */
   .cap-input { width: 72px; padding: 2px 6px; font-size: 12px; display: inline-block; }
   .cap-edit-msg { font-size: 11px; margin-left: 6px; }
-  nav { display: flex; gap: 4px; padding: 10px 22px 0; }
+  /* GOAL-076 返工：codex 式左侧栏导航（替代顶部横排 tab）。 */
+  .app-shell { display: grid; grid-template-columns: 200px minmax(0, 1fr); align-items: start; }
+  nav { display: flex; flex-direction: column; gap: 2px; padding: 12px 10px; border-right: 1px solid var(--line); position: sticky; top: 0; height: calc(100vh - 60px); }
   nav button {
-    background: var(--panel); color: var(--ink-dim); border: 1px solid var(--line);
-    border-bottom: none; padding: 8px 18px; cursor: pointer; font-size: 13px;
-    border-radius: 6px 6px 0 0; font-family: inherit;
+    background: transparent; color: var(--ink-dim); border: 1px solid transparent;
+    text-align: left; padding: 9px 12px; cursor: pointer; font-size: 13px;
+    border-radius: 6px; font-family: inherit; white-space: nowrap;
   }
-  nav button.active { background: var(--panel); color: var(--ink); border-color: var(--accent-deep); box-shadow: inset 0 2px 0 var(--accent); }
+  nav button:hover { background: var(--panel-hi); color: var(--ink); }
+  nav button.active { background: var(--panel); color: var(--ink); border-color: var(--line); box-shadow: inset 2px 0 0 var(--accent); }
   /* GOAL-076：控制台分组（L3 按组归类，非页签平铺） */
   .console-group { margin-bottom: 22px; }
   .console-group-title { font-size: 13px; color: var(--ink-dim); font-weight: 600; letter-spacing: 1px; margin: 0 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  /* GOAL-076 返工：派发抽屉（右滑出，遮罩可关）。 */
+  .dispatch-drawer {
+    position: fixed; top: 0; right: 0; width: 520px; max-width: 92vw; height: 100vh; z-index: 60;
+    background: var(--bg); border-left: 1px solid var(--line); box-shadow: -8px 0 28px rgba(0,0,0,0.4);
+    overflow-y: auto; padding: 16px 18px; display: none;
+  }
+  .dispatch-drawer.open { display: block !important; }
+  .dispatch-drawer-card { background: var(--panel); }
   #view-console section.view, #view-workbench section.view { display: block !important; }
-  main { padding: 18px 22px; border-top: 1px solid var(--line); max-width: 1280px; }
+  #view-workbench section.view.dispatch-drawer { display: none !important; }
+  #view-workbench section.view.dispatch-drawer.open { display: block !important; }
+  main { padding: 18px 22px; max-width: 1280px; min-width: 0; }
   section.view { display: none; }
   section.view.active { display: block; }
   table { border-collapse: collapse; width: 100%; font-size: 13px; }
   th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--ink-dim); font-weight: 600; }
-  code, .mono { font-family: var(--font-mono); font-size: 12px; color: #3d7a72; }
+  code, .mono { font-family: var(--font-mono); font-size: 12px; color: var(--accent); }
   .hash { color: var(--info); word-break: break-all; }
   .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; border: 1px solid; }
   .badge.WAITING { color: var(--ember); border-color: var(--ember); }
@@ -256,14 +269,14 @@ ${getCollaborationStyles()}
   form#dispatch-form label { font-size: 12px; color: var(--ink-dim); display: block; margin-bottom: 4px; }
   form#dispatch-form .full { grid-column: 1 / -1; }
   select, input[type=number], input[type=text], textarea {
-    width: 100%; background: #ffffff; color: var(--ink); border: 1px solid var(--line);
+    width: 100%; background: var(--panel-subtle); color: var(--ink); border: 1px solid var(--line);
     border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: inherit;
   }
   textarea { min-height: 90px; resize: vertical; }
   .hint { font-size: 11px; color: var(--ink-faint); margin-top: 4px; }
   #real-hint { color: var(--ember); display: none; }
   button.primary {
-    background: #eafaf7; color: var(--accent); border: 1px solid var(--accent);
+    background: var(--accent-light); color: var(--accent); border: 1px solid var(--accent);
     border-radius: 6px; padding: 9px 22px; font-size: 13px; cursor: pointer; font-family: inherit;
   }
   button.primary:disabled { opacity: 0.45; cursor: default; }
@@ -286,10 +299,10 @@ ${getCollaborationStyles()}
   /* 通知栈（GP-18）：多条 toast 叠放，终态成功/失败分色 */
   #toast-stack { position: fixed; bottom: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 99; }
   .toast { padding: 10px 16px; border-radius: 6px; font-size: 13px; max-width: 420px; animation: toast-in .18s ease-out; }
-  .toast.ok { background: #e8f6ee; color: var(--ok); border: 1px solid var(--ok); }
-  .toast.err { background: #fbeae8; color: var(--danger); border: 1px solid var(--danger); }
+  .toast.ok { background: var(--ok-tint); color: var(--ok); border: 1px solid var(--ok); }
+  .toast.err { background: rgba(224,96,79,0.12); color: var(--danger); border: 1px solid var(--danger); }
   @keyframes toast-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
-  .bar { height: 8px; background: #e3e8ee; border-radius: 4px; overflow: hidden; min-width: 120px; }
+  .bar { height: 8px; background: var(--panel-hi); border-radius: 4px; overflow: hidden; min-width: 120px; }
   .bar > div { height: 100%; background: var(--ok); }
   .bar.hot > div { background: var(--danger); }
   /* ---------- GOAL-012：聊天面板（对话视图 = 北极星界面） ---------- */
@@ -330,7 +343,7 @@ ${getCollaborationStyles()}
   .chat-row.head .bubble { font-weight: 600; color: var(--ink); background: var(--panel); }
   .chat-row .who { font-size: 12px; color: var(--ink-faint); margin-bottom: 3px; }
   .chat-row.user { align-self: flex-end; flex-direction: row-reverse; }
-  .chat-row.user .bubble { background: #eafaf7; border-color: var(--accent-deep); }
+  .chat-row.user .bubble { background: var(--accent-light); border-color: var(--accent-deep); }
   .chat-row.user .who { text-align: right; color: var(--accent); }
   .chat-row.head .who { color: var(--ember); }
   .chat-action-card {
@@ -351,11 +364,15 @@ ${getCollaborationStyles()}
   .thinking-elapsed { color: var(--ink-dim); }
   /* ---------- GOAL-021B & GOAL-029：异步聊天流式与 Thinking 思考链展开 ---------- */
   .chat-stage { color: var(--ink-dim); }
+  /* GOAL-076 返工：对话设置面板——配置舱默认收起，点「⚙ 设置」展开（首屏预算）。 */
+  .chat-settings-panel { display: none; flex-wrap: wrap; gap: 10px 14px; align-items: center; padding: 10px 12px; margin-bottom: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; font-size: 12px; color: var(--ink-dim); }
+  .chat-settings-panel.open { display: flex; }
+  .chat-settings-panel label { display: inline-flex; align-items: center; gap: 4px; margin: 0; }
   .chat-row.head.chat-streaming .chat-stage { color: var(--accent); }
   .chat-row.head.chat-failed .chat-stage { color: var(--danger); }
   .chat-row.head.chat-streaming .bubble { border-color: var(--accent-deep); }
   .typewriter-text::after { content: '▍'; color: var(--accent); animation: think-dot 1s ease-in-out infinite; }
-  .chat-row.head.chat-failed .bubble { background: #fbeae8; border-color: var(--danger); font-weight: 400; }
+  .chat-row.head.chat-failed .bubble { background: rgba(224,96,79,0.12); border-color: var(--danger); font-weight: 400; }
   button.chat-retry { margin-top: 6px; padding: 3px 12px; font-size: 12px; }
   /* GOAL-029: Thinking 思考链可折叠气泡 */
   .thinking-collapsible {
@@ -442,7 +459,7 @@ ${getCollaborationStyles()}
     flex: 1; padding: 6px 10px; font-size: 12px; border-radius: 6px; border: 1px solid var(--line);
     background: var(--panel); color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-family: inherit;
   }
-  .lens-btn:hover { border-color: var(--accent); color: var(--accent-deep); background: #eafaf7; }
+  .lens-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
   .task-drawer-body { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 18px; }
   .task-drawer-section h3 { margin: 0 0 10px; font-size: 13px; color: var(--ink-dim); font-weight: 600; letter-spacing: 0.5px; }
   .activity-timeline { display: flex; flex-direction: column; position: relative; padding-left: 20px; }
@@ -472,7 +489,7 @@ ${getCollaborationStyles()}
   .chat-image-item { position: relative; display: inline-flex; align-items: center; background: var(--panel-hi); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; font-size: 11px; color: var(--ink); }
   .chat-image-item img { width: 32px; height: 32px; object-fit: cover; border-radius: 4px; margin-right: 6px; border: 1px solid var(--line); }
   .chat-image-item .img-remove { margin-left: 6px; cursor: pointer; color: var(--danger); font-weight: bold; background: none; border: none; padding: 0 2px; font-size: 13px; line-height: 1; }
-  .chat-img-thumb { max-width: 260px; max-height: 200px; border-radius: 6px; border: 1px solid var(--line); margin-top: 8px; display: block; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; background: #fff; }
+  .chat-img-thumb { max-width: 260px; max-height: 200px; border-radius: 6px; border: 1px solid var(--line); margin-top: 8px; display: block; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; background: var(--panel); }
   .chat-img-thumb:hover { transform: scale(1.02); box-shadow: 0 4px 14px rgba(0,0,0,0.15); }
   /* 犬只头像手型与交互反馈 */
   .dog-avatar, .avatar, #head-dog-badge, .rail-dog-card .dog-logo, .chat-action-card .dog-logo, .roster-avatar { cursor: pointer; transition: transform 0.15s ease, filter 0.15s ease; }
@@ -488,13 +505,13 @@ ${getCollaborationStyles()}
   .ws-tree-header { padding: 14px 18px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; background: var(--bg); }
   .ws-tree-body { padding: 14px 18px; max-height: 400px; overflow-y: auto; }
   .ws-drives-bar { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
-  .ws-drive-btn { padding: 3px 10px; font-size: 12px; border-radius: 4px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
-  .ws-drive-btn:hover { background: #eafaf7; border-color: var(--accent); color: var(--accent-deep); }
+  .ws-drive-btn { padding: 3px 10px; font-size: 12px; border-radius: 4px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+  .ws-drive-btn:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
   .ws-path-bar { display: flex; gap: 6px; align-items: center; margin-bottom: 12px; }
   .ws-dir-list { display: flex; flex-direction: column; gap: 2px; }
   .ws-dir-item { padding: 6px 10px; border-radius: 4px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: var(--ink); border: 1px solid transparent; }
   .ws-dir-item:hover { background: var(--panel-hi); border-color: var(--line); }
-  .ws-dir-item.selected { background: #eafaf7; border-color: var(--accent); color: var(--accent-deep); font-weight: 500; }
+  .ws-dir-item.selected { background: var(--accent-light); border-color: var(--accent); color: var(--accent); font-weight: 500; }
   .ws-tree-footer { padding: 12px 18px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; background: var(--bg); }
 
 </style>
@@ -518,6 +535,7 @@ ${getCollaborationStyles()}
   <span class="meta" id="generated"></span>
   <span class="meta" id="sse-status">SSE 连接中…</span>
 </header>
+<div class="app-shell">
 <nav>
   <button data-view="chat" class="active">💬 对话</button>
   <button data-view="workbench">🛠️ 工作台</button>
@@ -528,7 +546,14 @@ ${getCollaborationStyles()}
     <div class="deck-main">
     <div class="chat-toolbar">
       <span>你只和头犬说话 —— 它自主派活、审核回报，触发门会弹回这里。</span>
-      <span id="chat-context-gauge" class="badge mono" style="background:rgba(217,119,6,0.1);color:#d97706;border:1px solid rgba(217,119,6,0.25);padding:2px 8px;border-radius:12px;font-size:11px;cursor:help" title="实时模型运作遥测与上下文监控">📊 上下文: 0.6k / 200k (0.3%) | ⚡ 缓存: 0% | 💰 $0.000</span>
+      <span id="chat-context-gauge" class="badge mono" style="background:rgba(232,169,76,0.12);color:var(--ember);border:1px solid rgba(232,169,76,0.3);padding:2px 8px;border-radius:12px;font-size:11px;cursor:help" title="实时模型运作遥测与上下文监控">📊 上下文: 0.6k / 200k (0.3%) | ⚡ 缓存: 0% | 💰 $0.000</span>
+      <span style="flex:1"></span>
+      <label style="display:inline-flex;align-items:center;gap:4px">会话 <select id="chat-session-select" style="width:auto;padding:3px 8px;font-size:12px"><option value="">（新会话）</option></select></label>
+      <span class="mono" id="chat-session-label"></span>
+      <button class="act" id="chat-settings-toggle" type="button" title="对话设置：工作区/头犬/模型/思维档位/会话开关" style="padding:3px 10px;font-size:12px;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)">⚙ 设置</button>
+      <button class="act cancel" id="chat-new-session" type="button" style="padding:3px 10px;font-size:12px">新会话</button>
+    </div>
+    <div class="chat-settings-panel" id="chat-settings-panel" style="display:none">
       <label style="display:inline-flex;align-items:center;gap:4px">📁 工作区 <select id="chat-workspace-select" style="width:auto;max-width:160px;padding:3px 8px;font-size:12px"></select><button class="act" id="chat-workspace-browse-btn" type="button" style="padding:2px 6px;font-size:11px;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)" title="调起系统文件管理器选取本地文件夹">📁 浏览</button><button class="act" id="chat-workspace-tree-btn" type="button" style="padding:2px 6px;font-size:11px;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)" title="打开网页目录树选择器">🗂️ 目录树</button></label>
       <label>头犬 <select id="chat-head-select" style="width:auto;padding:3px 8px;font-size:12px"></select></label>
       <label id="chat-head-provider-wrap" style="display:none">Provider <select id="chat-head-provider" style="width:auto;padding:3px 8px;font-size:12px"></select></label>
@@ -539,14 +564,9 @@ ${getCollaborationStyles()}
         <option selected>HIGH</option>
         <option>MAX</option>
       </select></label>
-
-
-      <label>会话 <select id="chat-session-select" style="width:auto;padding:3px 8px;font-size:12px"><option value="">（新会话）</option></select></label>
-      <span class="mono" id="chat-session-label"></span>
       <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer" title="独奏直聊模式：仅与头犬一对一单聊，头犬独立完成所有分析与写码，不唤醒或派发任何子犬"><input type="checkbox" id="chat-solo-toggle"> 🔕 独奏直聊</label>
       <label><input type="checkbox" id="notify-toggle"> 浏览器通知</label>
-      <button class="act" id="chat-compact-btn" type="button" style="padding:3px 10px;font-size:12px;background:rgba(16,185,129,0.1);color:#059669;border:1px solid rgba(16,185,129,0.3)" title="提取结构化会话不变式并压缩上下文">📦 状态压缩</button>
-      <button class="act cancel" id="chat-new-session" type="button" style="padding:3px 10px;font-size:12px">新会话</button>
+      <button class="act" id="chat-compact-btn" type="button" style="padding:3px 10px;font-size:12px;background:var(--ok-tint);color:var(--ok);border:1px solid var(--ok)" title="提取结构化会话不变式并压缩上下文">📦 状态压缩</button>
     </div>
     <div id="chat-stream"><div class="empty">向头犬下达第一条指令，开始对话。</div></div>
     <div id="chat-composer" style="display:flex;flex-direction:column;gap:6px">
@@ -603,7 +623,10 @@ ${getCollaborationStyles()}
         <button type="button" class="act" id="btn-tasks-refresh" style="padding:4px 10px;font-size:12px;display:inline-flex;align-items:center;gap:4px;background:var(--panel-hi);border:1px solid var(--line);border-radius:6px;cursor:pointer;color:var(--ink);" title="即刻刷新任务池与路径导图数据">🔄 刷新</button>
         <span id="tasks-refresh-status" style="font-size:11px;color:var(--ink-faint);"></span>
       </div>
-      <div style="font-size:12px;color:var(--ink-dim)">已完成 🟢 / 进行中 🔵 / 待办 ⚪ / 受阻 🔴</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:12px;color:var(--ink-dim)">已完成 🟢 / 进行中 🔵 / 待办 ⚪ / 受阻 🔴</span>
+        <button type="button" class="primary" id="btn-open-dispatch" style="padding:6px 14px;font-size:13px">＋ 派发任务</button>
+      </div>
     </div>
     <div id="tasks-board-container" class="task-board">
 
@@ -615,7 +638,7 @@ ${getCollaborationStyles()}
       <div id="tasks-dag-canvas" class="dag-canvas"></div>
     </div>
     <div class="card" style="margin-top:12px">
-      <h3>新建任务卡</h3>
+      <h3>新建任务卡 <button type="button" class="primary" id="btn-open-dispatch-2" style="padding:4px 12px;font-size:12px;margin-left:8px">＋ 派发任务</button></h3>
       <form id="task-create-form" style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;align-items:end">
         <div><label for="task-title" style="font-size:12px;color:var(--ink-dim);display:block;margin-bottom:4px">标题</label>
           <input type="text" id="task-title" placeholder="任务标题"></div>
@@ -629,9 +652,12 @@ ${getCollaborationStyles()}
         <textarea id="task-detail" maxlength="8000" placeholder="任务详情…" style="min-height:56px"></textarea></div>
     </div>
   </section>
-  <section id="view-dispatch" class="view">
-    <div class="card">
-      <h3>派发任务</h3>
+  <section id="view-dispatch" class="view dispatch-drawer" style="display:none">
+    <div class="card dispatch-drawer-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h3 style="margin:0">派发任务</h3>
+        <button type="button" class="act cancel" id="btn-close-dispatch" style="padding:2px 10px;font-size:12px">✕ 关闭</button>
+      </div>
       <form id="dispatch-form">
         <div>
           <label for="dispatch-adapter">犬只（在册，身份证明）</label>
@@ -651,7 +677,7 @@ ${getCollaborationStyles()}
         </div>
 
         <div>
-          <label for="workspace-select">workspace（工作区）</label>
+          <label for="workspace-select">工作区（视角与施工目标）</label>
           <select id="workspace-select"></select>
           <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
             <input type="text" id="workspace-register-path" placeholder="登记新路径，如 D:\\my-project" style="flex:1;min-width:180px;font-family:Consolas,monospace;font-size:12px">
@@ -667,7 +693,7 @@ ${getCollaborationStyles()}
           <textarea id="dispatch-prompt" maxlength="64000" placeholder="写给犬的任务…"></textarea>
         </div>
         <div>
-          <label for="dispatch-stream">工作流（v1.6，可选）</label>
+          <label for="dispatch-stream">工作流（可选）</label>
           <select id="dispatch-stream"><option value="">（自动归流：同犬×Goal 归活动流）</option></select>
           <div style="display:flex;gap:10px;margin-top:6px;font-size:12px;color:var(--ink-dim);align-items:center;flex-wrap:wrap">
             <label style="margin:0"><input type="checkbox" id="dispatch-new-stream"> 新开流</label>
@@ -675,12 +701,12 @@ ${getCollaborationStyles()}
           </div>
         </div>
         <div>
-          <label for="dispatch-head">头犬（本次任务的领队犬）</label>
-          <select id="dispatch-head"><option value="">（跟随工坊当前头犬默认）</option></select>
+          <label for="dispatch-head">头犬（本次任务的领队）</label>
+          <select id="dispatch-head"><option value="">（跟随对话页当前头犬）</option></select>
           <span id="dispatch-head-hint" class="meta" style="display:none;margin-left:6px"></span>
         </div>
         <div>
-          <label for="dispatch-effort">思维档位（D20）</label>
+          <label for="dispatch-effort">思维档位</label>
           <select id="dispatch-effort">
             <option>LOW</option>
             <option>HIGH</option>
@@ -697,23 +723,23 @@ ${getCollaborationStyles()}
           <div class="hint" style="margin-top:2px">带工具调用的任务（列目录/读文件）建议 ≥180s。</div>
         </div>
         <div>
-          <label for="dispatch-topology">组织架构模式 (GOAL-028)</label>
+          <label for="dispatch-topology">协作模式</label>
           <select id="dispatch-topology">
-            <option value="HIERARCHICAL">🌲 雪橇领航制 (Hierarchical - 默认)</option>
-            <option value="PIPELINE_SOP">⛓️ 工序流水线制 (Pipeline SOP)</option>
-            <option value="COMMITTEE_DEBATE">⚖️ 对席陪审辩论制 (Committee Debate)</option>
-            <option value="BOUNTY_MARKET">🏷️ 悬赏竞标市场制 (Bounty Market)</option>
+            <option value="HIERARCHICAL">🌲 雪橇领航制（默认）</option>
+            <option value="PIPELINE_SOP">⛓️ 工序流水线制</option>
+            <option value="COMMITTEE_DEBATE">⚖️ 对席陪审辩论制</option>
+            <option value="BOUNTY_MARKET">🏷️ 悬赏竞标市场制</option>
           </select>
         </div>
         <div>
-          <label for="dispatch-verifier">独立验证犬 (LLM Verifier，可选)</label>
+          <label for="dispatch-verifier">独立验证犬（可选）</label>
           <select id="dispatch-verifier">
             <option value="">（不指定，由头犬统一初审）</option>
           </select>
         </div>
         <div>
-          <label><input type="checkbox" id="dispatch-real"> real（真实执行，花钱）</label>
-          <div class="hint" id="real-hint">real 模式需 approval 在案（D6），否则 BLOCKED_WAITING_OWNER。</div>
+          <label><input type="checkbox" id="dispatch-real"> 真实执行（计费）</label>
+          <div class="hint" id="real-hint">真实执行需预先批准在案，否则挂起等待你确认。</div>
         </div>
         <div style="align-self:end"><button type="submit" class="primary" id="btn-dispatch">派发</button></div>
       </form>
@@ -728,7 +754,7 @@ ${getCollaborationStyles()}
     <div class="console-group">
       <h2 class="console-group-title">🐕 犬队与工作流</h2>
   <section id="view-dogs" class="view"><div class="roster-manage" id="roster-manage"></div><div id="dogs-table"></div></section>
-  <section id="view-streams" class="view"><div class="hint" style="margin-bottom:8px">工作流只读视图（流管理面板属 GP-31）。窗口键 = 犬×Goal；交接块随流记录归档。</div><div id="streams-list"><div class="empty">暂无工作流（v1.6 流 API 落盘后自动出现）</div></div></section>
+  <section id="view-streams" class="view"><div class="hint" style="margin-bottom:8px">工作流只读视图。窗口键 = 犬×目标；交接块随流记录归档。</div><div id="streams-list"><div class="empty">暂无工作流</div></div></section>
     </div>
     <div class="console-group">
       <h2 class="console-group-title">🛡️ 治理与资金</h2>
@@ -770,6 +796,7 @@ ${getCollaborationStyles()}
     </div>
   </section>
 </main>
+</div>
   <div id="task-drawer-overlay" class="task-drawer-overlay" style="display:none">
     <div class="task-drawer" id="task-drawer">
       <div class="task-drawer-header">
@@ -813,17 +840,17 @@ ${getCollaborationStyles()}
     <button class="act approve" id="btn-create-confirm">新建并登记</button>
   </div>
 </dialog>
-<div id="child-dog-drawer" class="drawer-overlay" style="display:none;position:fixed;top:0;right:0;width:440px;height:100%;background:#ffffff;box-shadow:-4px 0 20px rgba(0,0,0,0.1);z-index:999;border-left:1px solid var(--line);flex-direction:column">
+<div id="child-dog-drawer" class="drawer-overlay" style="display:none;position:fixed;top:0;right:0;width:440px;height:100%;background:var(--panel);box-shadow:-4px 0 20px rgba(0,0,0,0.4);color:var(--ink);z-index:999;border-left:1px solid var(--line);flex-direction:column">
   <div style="padding:12px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:var(--bg)">
     <div style="display:flex;align-items:center;gap:8px">
       <div style="font-weight:600;font-size:13px;color:var(--ink)" id="child-dog-drawer-title">🐶 工犬专属终端</div>
-      <select id="child-dog-select" style="width:auto;padding:2px 6px;font-size:12px;border:1px solid var(--line);border-radius:4px;background:#fff"></select>
+      <select id="child-dog-select" style="width:auto;padding:2px 6px;font-size:12px;border:1px solid var(--line);border-radius:4px;background:var(--panel);color:var(--ink)"></select>
     </div>
     <button id="child-dog-drawer-close" class="act cancel" style="padding:2px 8px;font-size:13px;border-radius:4px" title="关闭终端">✕</button>
   </div>
   <div id="child-dog-drawer-meta" style="padding:8px 14px;background:var(--panel-hi);border-bottom:1px solid var(--line);font-size:11px;color:var(--ink-dim)"></div>
   <div id="child-dog-drawer-logs" style="flex:1;overflow-y:auto;padding:12px;font-family:var(--font-mono);font-size:12px;white-space:pre-wrap;background:#faf8f5;line-height:1.6"></div>
-  <div style="padding:10px 14px;border-top:1px solid var(--line);display:flex;gap:8px;background:#ffffff">
+  <div style="padding:10px 14px;border-top:1px solid var(--line);display:flex;gap:8px;background:var(--panel)">
     <input type="text" id="child-dog-drawer-input" placeholder="直接向该工犬下达追加指令…" style="flex:1;padding:6px 10px;font-size:12px;border:1px solid var(--line);border-radius:6px">
     <button class="primary" id="child-dog-drawer-send" style="padding:6px 14px;font-size:12px">发送</button>
   </div>
@@ -1815,6 +1842,23 @@ ${getCollaborationStyles()}
 
   /* ---------- 派发跟踪卡片（G7B-D2：upsert 更新 + 已耗时计时 + 完成 toast） ---------- */
   /* GOAL-076 术语表：内部状态码 → 人话标签（§4.3）。class 仍用原始码挂样式，文案译出。 */
+  /* GOAL-076 返工：账号脱敏——邮箱类字符串在 UI 直出时打码（商业化门面）。 */
+  function maskAccount(text) {
+    var s = String(text == null ? '' : text);
+    return s.replace(/([A-Za-z0-9._%+-]{2})[A-Za-z0-9._%+-]*(@[A-Za-z0-9.-]+)/g, '$1***$2');
+  }
+
+  /* GOAL-076 返工：金额/数字渲染守卫——NaN/undefined 不直出，统一兜底。 */
+  function fmtUsd(v, digits) {
+    var n = Number(v);
+    if (!isFinite(n)) return '$0.0000';
+    return '$' + n.toFixed(digits === undefined ? 4 : digits);
+  }
+  function fmtNum(v, fallback) {
+    var n = Number(v);
+    return isFinite(n) ? n : (fallback === undefined ? 0 : fallback);
+  }
+
   var STATUS_LABELS = {
     DRY_RUN: '干跑演练', PASS: '通过', FAIL: '失败', RUNNING: '进行中',
     BLOCKED_WAITING_OWNER: '等待你批准', BLOCKED_ENV: '环境受阻',
@@ -2202,7 +2246,7 @@ ${getCollaborationStyles()}
 
           return '<div class="provider-card-item ' + (p.is_current ? 'active-provider' : '') + '">' +
             '<div class="provider-header-row">' +
-              '<div style="display:flex;align-items:center;gap:8px"><span>🏢 ' + esc(p.name) + '</span> ' + pTag + '</div>' +
+              '<div style="display:flex;align-items:center;gap:8px"><span>🏢 ' + esc(maskAccount(p.name)) + '</span> ' + pTag + '</div>' +
               '<button class="act" data-probe-prov="' + esc(r.adapter_id) + '" data-prov-id="' + esc(p.id) + '" type="button" style="font-size:11px;padding:2px 8px" title="定向探测该 Provider">⚡ 探测 Provider</button>' +
             '</div>' +
             '<div class="model-tree-list">' + modelsHtml + '</div>' +
@@ -2381,20 +2425,20 @@ ${getCollaborationStyles()}
         var vol = h.volume || 0;
         return '<tr><td><b>' + esc(h.harness) + '</b></td><td>' + h.sessions_count + ' 会话</td>' +
           '<td class="mono">' + (vol > 10000 ? (vol / 10000).toFixed(1) + ' 万' : vol) + '</td>' +
-          '<td class="mono" style="color:var(--accent);font-weight:600">$' + h.cost_usd.toFixed(4) + '</td></tr>';
+          '<td class="mono" style="color:var(--accent);font-weight:600">' + fmtUsd(h.cost_usd) + '</td></tr>';
       }).join('');
 
       var totalVol = u.total_volume || 0;
       usageHtml = '<div class="card" style="border:1.5px solid var(--line);background:var(--panel-hi);margin-bottom:16px">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
-        '<h3 style="margin:0;font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px">📊 本地真实会话用量与花费监控 (ccusage)</h3>' +
+        '<h3 style="margin:0;font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px">📊 本地真实会话用量与花费监控</h3>' +
         '<button class="act" id="btn-refresh-usage" type="button" style="padding:3px 10px;font-size:11px">🔄 刷新本地日志</button>' +
         '</div>' +
         '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:12px">' +
-        '<div style="background:var(--panel);padding:8px 10px;border-radius:8px;border:1px solid var(--line)"><div style="font-size:11px;color:var(--ink-dim)">今日花费 (Today)</div><div style="font-size:16px;font-weight:700;color:var(--accent);margin-top:2px">$' + u.today_cost_usd.toFixed(4) + '</div></div>' +
-        '<div style="background:var(--panel);padding:8px 10px;border-radius:8px;border:1px solid var(--line)"><div style="font-size:11px;color:var(--ink-dim)">累计花费 (All-Time)</div><div style="font-size:16px;font-weight:700;color:var(--ink);margin-top:2px">$' + u.total_cost_usd.toFixed(4) + '</div></div>' +
+        '<div style="background:var(--panel);padding:8px 10px;border-radius:8px;border:1px solid var(--line)"><div style="font-size:11px;color:var(--ink-dim)">今日花费</div><div style="font-size:16px;font-weight:700;color:var(--accent);margin-top:2px">' + fmtUsd(u.today_cost_usd) + '</div></div>' +
+        '<div style="background:var(--panel);padding:8px 10px;border-radius:8px;border:1px solid var(--line)"><div style="font-size:11px;color:var(--ink-dim)">累计花费</div><div style="font-size:16px;font-weight:700;color:var(--ink);margin-top:2px">' + fmtUsd(u.total_cost_usd) + '</div></div>' +
         '<div style="background:var(--panel);padding:8px 10px;border-radius:8px;border:1px solid var(--line)"><div style="font-size:11px;color:var(--ink-dim)">词元吞吐</div><div style="font-size:16px;font-weight:700;color:var(--ink);margin-top:2px">' + (totalVol > 10000 ? (totalVol / 10000).toFixed(1) + ' 万' : totalVol) + '</div></div>' +
-        '<div style="background:var(--panel);padding:8px 10px;border-radius:8px;border:1px solid var(--line)"><div style="font-size:11px;color:var(--ink-dim)">缓存节省 (Cache Saved)</div><div style="font-size:16px;font-weight:700;color:#059669;margin-top:2px">+$' + u.cache_savings_usd.toFixed(4) + '</div></div>' +
+        '<div style="background:var(--panel);padding:8px 10px;border-radius:8px;border:1px solid var(--line)"><div style="font-size:11px;color:var(--ink-dim)">缓存节省</div><div style="font-size:16px;font-weight:700;color:var(--ok);margin-top:2px">+' + fmtUsd(u.cache_savings_usd) + '</div></div>' +
         '</div>' +
         (hRows ? '<table style="margin-top:4px"><thead><tr><th>Harness</th><th>活跃记录</th><th>词元消耗</th><th>实际估算花费</th></tr></thead><tbody>' + hRows + '</tbody></table>' : '') +
         '</div>';
@@ -2414,15 +2458,15 @@ ${getCollaborationStyles()}
       var pct = cap > 0 ? Math.min(100, (spent / cap) * 100) : 0;
       var entries = (actor.entries || []).slice(-5).reverse().map(function (entry) {
         return '<tr><td class="mono">' + escTime(entry.at_utc) + '</td><td>' + esc(entry.decision) + '</td>' +
-          '<td>$' + Number(entry.amount_usd).toFixed(4) + '</td><td>$' + Number(entry.remaining_usd).toFixed(4) + '</td></tr>';
+          '<td>' + fmtUsd(entry.amount_usd) + '</td><td>' + fmtUsd(entry.remaining_usd) + '</td></tr>';
       }).join('');
       return '<div class="card"><h3>' + dogLogo(actor.actor_id, false) + ' ' + esc(actor.actor_id) +
-        ' <span class="badge">' + admissionCount + ' 次 admission</span></h3>' +
+        ' <span class="badge">' + admissionCount + ' 次派发记账</span></h3>' +
         '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
         '<div class="bar' + (pct > 80 ? ' hot' : '') + '"><div style="width:' + pct + '%"></div></div>' +
-        '<span class="mono">$' + spent.toFixed(4) + ' / $' + cap.toFixed(2) + '（' + pct.toFixed(0) + '%）</span>' +
-        (cacheSaved > 0 ? '<span class="badge" style="background:rgba(16,185,129,0.1);color:#059669;border:1px solid rgba(16,185,129,0.3)">⚡ 节省 $' + cacheSaved.toFixed(4) + '</span>' : '') +
-        '<span class="cap-editor">cap $<input type="number" class="cap-input" min="0.01" step="0.01" value="' + cap.toFixed(2) + '" data-cap-actor="' + esc(actor.actor_id) + '">' +
+        '<span class="mono">' + fmtUsd(spent) + ' / ' + fmtUsd(cap, 2) + '（' + pct.toFixed(0) + '%）</span>' +
+        (cacheSaved > 0 ? '<span class="badge" style="background:var(--ok-tint);color:var(--ok);border:1px solid var(--ok)">⚡ 节省 ' + fmtUsd(cacheSaved) + '</span>' : '') +
+        '<span class="cap-editor">上限 $<input type="number" class="cap-input" min="0.01" step="0.01" value="' + cap.toFixed(2) + '" data-cap-actor="' + esc(actor.actor_id) + '">' +
         '<button class="act approve" data-cap-save="' + esc(actor.actor_id) + '" type="button" style="padding:2px 10px;font-size:11px">保存</button>' +
         '<span class="cap-edit-msg" data-cap-msg="' + esc(actor.actor_id) + '"></span></span></div>' +
         (entries ? '<table style="margin-top:8px"><thead><tr><th>时间</th><th>决策</th><th>金额</th><th>余额</th></tr></thead><tbody>' + entries + '</tbody></table>' : '') +
@@ -2450,7 +2494,7 @@ ${getCollaborationStyles()}
       (d.timeout_s !== undefined || d.workspace !== undefined
         ? '<div class="rail-appr-row"><span class="rail-appr-label">超时 / 工作区</span><span class="mono">' + esc((d.timeout_s || 0) + 's / ' + (d.workspace || '')) + '</span></div>' : '') +
       (d.actor_spent_usd !== undefined || d.cap_usd !== undefined
-        ? '<div class="rail-appr-row"><span class="rail-appr-label">预算</span><span class="mono">已花 $' + (d.actor_spent_usd == null ? '?' : d.actor_spent_usd.toFixed(4)) + ' / cap $' + (d.cap_usd == null ? '?' : d.cap_usd) + '</span></div>' : '') +
+        ? '<div class="rail-appr-row"><span class="rail-appr-label">预算</span><span class="mono">已花 ' + (d.actor_spent_usd == null ? '?' : fmtUsd(d.actor_spent_usd)) + ' / 上限 ' + (d.cap_usd == null ? '?' : fmtUsd(d.cap_usd, 2)) + '</span></div>' : '') +
       '<div class="rail-appr-row"><span class="rail-appr-label">事由</span>' + esc(a.reason || '') + '</div>' +
       (d.prompt_preview !== undefined
         ? '<div class="rail-appr-row"><span class="rail-appr-label">Prompt 预览</span><pre class="mono rail-appr-prompt">' + esc(d.prompt_preview || '(空)') + '</pre></div>' : '') +
@@ -2544,8 +2588,8 @@ ${getCollaborationStyles()}
         '<dt>目标</dt><dd class="mono">' + esc(d.goal_id || '（未关联 Goal）') + '</dd>' +
         '<dt>犬只 × 强度</dt><dd class="mono">' + esc(d.adapter_id + ' × ' + d.effort) + '</dd>' +
         '<dt>超时 / 工作区</dt><dd class="mono">' + esc((d.timeout_s || 0) + 's / ' + (d.workspace || '')) + '</dd>' +
-        '<dt>预算</dt><dd class="mono">已花 $' + (d.actor_spent_usd == null ? '?' : d.actor_spent_usd.toFixed(4)) +
-        ' / cap $' + (d.cap_usd == null ? '?' : d.cap_usd) + '</dd>' +
+        '<dt>预算</dt><dd class="mono">已花 ' + (d.actor_spent_usd == null ? '?' : fmtUsd(d.actor_spent_usd)) +
+        ' / 上限 ' + (d.cap_usd == null ? '?' : fmtUsd(d.cap_usd, 2)) + '</dd>' +
         '<dt>Prompt 预览</dt><dd class="mono" style="white-space:pre-wrap;word-break:break-all;max-height:220px;overflow:auto;border:1px solid var(--line);padding:6px;border-radius:4px">' + esc(d.prompt_preview || '(空)') + '</dd>';
     }
     dl.innerHTML = html; // 兼容：drawer 详情视图仍写该 dl（DOM 保留作历史查看）
@@ -2648,7 +2692,30 @@ ${getCollaborationStyles()}
     }
   }
 
-  function appendChatRow(role, text, atUtc, dispatchId) {
+  /* GOAL-076 返工（承接 075 附录）：历史回看重建三段式——优先用持久化的
+     thinking/tools 帧；无持久化帧（旧会话）回退正文内 <think>/<tool> 解析。 */
+  function renderChatBubbleFromTurn(turn) {
+    if (!turn) return '';
+    var hasFrames = (turn.thinking && turn.thinking !== '') || (Array.isArray(turn.tools) && turn.tools.length > 0);
+    if (!hasFrames) return renderChatBubbleContent(turn.text || '');
+    var html = '';
+    if (turn.thinking) {
+      html += '<details class="thinking-collapsible">' +
+        '<summary class="thinking-summary">🧠 思考过程（已折叠）</summary>' +
+        '<div class="thinking-content">' + esc(turn.thinking) + '</div></details>';
+    }
+    if (Array.isArray(turn.tools) && turn.tools.length > 0) {
+      html += '<details class="tool-activity">' +
+        '<summary class="thinking-summary">🔧 工具活动（' + turn.tools.length + ' 项，已折叠）</summary>' +
+        '<div class="thinking-content">' + turn.tools.map(function (x) { return esc(x); }).join('\\n\\n') + '</div></details>';
+    }
+    var body = String(turn.text || '');
+    body = body.replace(new RegExp('<think>[\\\\s\\\\S]*?<\\\\/think>', 'gi'), '').replace(new RegExp('<tool>[\\\\s\\\\S]*?<\\\\/tool>', 'gi'), '').trim();
+    if (body) html += '<div class="chat-text-body">' + esc(body) + '</div>';
+    return html;
+  }
+
+  function appendChatRow(role, text, atUtc, dispatchId, turn) {
     chatClearEmpty();
     var row = document.createElement('div');
     row.className = 'chat-row ' + role;
@@ -2657,10 +2724,12 @@ ${getCollaborationStyles()}
     var avatar = isUser
       ? '<span class="avatar">' + dogLogo('paw', false) + '</span>'
       : '<span class="avatar">' + dogLogo('head-dog kimi moon', chatPending) + '</span>';
-    var bubbleHtml = role === 'head' ? renderChatBubbleContent(text) : esc(text);
+    var bubbleHtml = role === 'head'
+      ? (turn ? renderChatBubbleFromTurn(turn) : renderChatBubbleContent(text))
+      : esc(text);
     row.innerHTML = avatar + '<div><div class="who">' + esc(who) + '</div>' +
       '<div class="bubble">' + bubbleHtml + '</div>' +
-      (dispatchId ? '<div class="hint mono">dispatch ' + esc(String(dispatchId).slice(0, 12)) + '…</div>' : '') +
+      (dispatchId ? '<div class="hint mono">派发 ' + esc(String(dispatchId).slice(0, 12)) + '…</div>' : '') +
       '</div>';
     chatStreamEl().appendChild(row);
     chatTurnCount += 1;
@@ -3098,8 +3167,7 @@ ${getCollaborationStyles()}
       el.innerHTML = '';
       chatTurnCount = 0;
       var keepActions = Object.keys(chatActionSeen);
-      data.turns.forEach(function (turn) { appendChatRow(turn.role === 'user' ? 'user' : 'head', turn.text, turn.at_utc, turn.dispatch_id); });
-      // 历史重渲染后保留动作卡语义：已见 dispatch 卡片不重复追加（chatActionSeen 已在）。
+      data.turns.forEach(function (turn) { appendChatRow(turn.role === 'user' ? 'user' : 'head', turn.text, turn.at_utc, turn.dispatch_id, turn); });
       void keepActions;
       updateContextGauge();
     }).catch(function () { /* 静默：下一帧 SSE 再试 */ });
@@ -3227,7 +3295,7 @@ ${getCollaborationStyles()}
       } else {
         el.innerHTML = '';
         chatTurnCount = 0;
-        data.turns.forEach(function (turn) { appendChatRow(turn.role === 'user' ? 'user' : 'head', turn.text, turn.at_utc, turn.dispatch_id); });
+        data.turns.forEach(function (turn) { appendChatRow(turn.role === 'user' ? 'user' : 'head', turn.text, turn.at_utc, turn.dispatch_id, turn); });
       }
       renderSessionSelector();
     }).catch(function () {
@@ -4284,9 +4352,28 @@ ${getCollaborationStyles()}
   }
 
   /* ---------- 事件绑定 ---------- */
+  var chatSettingsToggle = document.getElementById('chat-settings-toggle');
+  if (chatSettingsToggle) chatSettingsToggle.addEventListener('click', function () {
+    document.getElementById('chat-settings-panel').classList.toggle('open');
+  });
+  function openDispatchDrawer() { document.getElementById('view-dispatch').classList.add('open'); }
+  function closeDispatchDrawer() { document.getElementById('view-dispatch').classList.remove('open'); }
+  var btnOpenDispatch = document.getElementById('btn-open-dispatch');
+  if (btnOpenDispatch) btnOpenDispatch.addEventListener('click', openDispatchDrawer);
+  var btnOpenDispatch2 = document.getElementById('btn-open-dispatch-2');
+  if (btnOpenDispatch2) btnOpenDispatch2.addEventListener('click', openDispatchDrawer);
+  var btnCloseDispatch = document.getElementById('btn-close-dispatch');
+  if (btnCloseDispatch) btnCloseDispatch.addEventListener('click', closeDispatchDrawer);
   var railToggle = document.getElementById('rail-toggle-btn');
   if (railToggle) railToggle.addEventListener('click', function () {
-    document.getElementById('view-chat').classList.toggle('deck-rail-open');
+    var chatView = document.getElementById('view-chat');
+    var opening = !chatView.classList.contains('deck-rail-open');
+    chatView.classList.toggle('deck-rail-open');
+    // GOAL-076 返工：点击给反馈——空态时提示，非空态展开待办栏。
+    if (opening) {
+      var waiting = (snapshot && snapshot.approvals ? snapshot.approvals.filter(function (a) { return a.status === 'WAITING'; }).length : 0);
+      toast(waiting > 0 ? '待办栏已展开：' + waiting + ' 项待你处理' : '待办栏已展开：当前无待处理审批', true);
+    }
   });
   document.querySelectorAll('nav button').forEach(function (btn) {
     btn.addEventListener('click', function () {
@@ -4669,6 +4756,16 @@ ${getCollaborationStyles()}
       (handoff.at_utc ? ' <span class="mono">' + escTime(handoff.at_utc) + '</span>' : '') + '</div>' + rows + '</div>';
   }
 
+  /* GOAL-076 返工：工作流标题人话化——原始 stream-* 内部 ID 不直出，折叠为短码锚。 */
+  function streamLabel(s) {
+    var title = s && s.title ? String(s.title) : '';
+    if (title && title.indexOf('stream-') !== 0) return title; // 有正经标题直接用
+    var goal = s && s.goal_id ? String(s.goal_id) : '';
+    var id = String((s && s.stream_id) || '');
+    var short = id.length > 8 ? id.slice(-8) : id;
+    return (goal ? goal + ' · ' : '') + '工作流 #' + short;
+  }
+
   function renderStreams() {
     var el = document.getElementById('streams-list');
     if (!el) return;
@@ -4676,14 +4773,14 @@ ${getCollaborationStyles()}
     var streamSel = document.getElementById('dispatch-stream');
     if (streamSel) {
       var prevStream = streamSel.value;
-      streamSel.innerHTML = '<option value="">（自动归流：同犬×Goal 归活动流）</option>' +
+      streamSel.innerHTML = '<option value="">（自动归流：同犬×目标归活动流）</option>' +
         (streamsData || []).map(function (s) {
           return '<option value="' + esc(s.stream_id) + '"' + (s.stream_id === prevStream ? ' selected' : '') + '>' +
-            esc(s.title || s.stream_id) + (s.goal_id ? ' [' + esc(s.goal_id) + ']' : '') + '</option>';
+            esc(streamLabel(s)) + '</option>';
         }).join('');
     }
     if (!streamsData || streamsData.length === 0) {
-      el.innerHTML = '<div class="empty">暂无工作流（v1.6 流 API 落盘后自动出现；mock 消费中）</div>';
+      el.innerHTML = '<div class="empty">暂无工作流（派发后按犬×目标自动归流出现）</div>';
       return;
     }
     el.innerHTML = streamsData.map(function (s) {
@@ -4700,9 +4797,9 @@ ${getCollaborationStyles()}
           ? Math.min(100, Math.round(events[events.length - 1].context_estimate * 100)) : null);
       var open = openStreams[s.stream_id] === true;
       return '<div class="card stream-card" data-stream="' + esc(s.stream_id) + '">' +
-        '<h3>' + esc(s.title || s.stream_id) +
+        '<h3>' + esc(streamLabel(s)) +
         (s.goal_id ? ' <span class="badge">' + esc(s.goal_id) + '</span>' : '') +
-        ' <span class="badge ' + (s.status === 'active' ? 'RUNNING' : 'ok') + '">' + esc(s.status || 'active') + '</span></h3>' +
+        ' <span class="badge ' + (s.status === 'active' ? 'RUNNING' : 'ok') + '" title="' + esc(s.stream_id) + '">' + esc(s.status === 'active' ? '进行中' : (s.status || 'active')) + '</span></h3>' +
         '<div class="mono" style="font-size:12px;color:var(--ink-dim)">' +
         '派发 ' + dispatchCount + ' · 会话链 ' + sessionCount +
         (ctxPct !== null ? ' · 上下文估算 <span class="' + (ctxPct > 75 ? 'hash' : '') + '">' + ctxPct + '%</span>' : '') +

@@ -44,3 +44,7 @@
 ## 附：与本批已完成修复的边界
 
 本 Goal 不覆盖以下已在本批落地项：spawn 双根因修复（ENOENT/stdin 恒开）、任务池重执行与 CANCELLED 复活、直连抽屉实时终端（stdout+stderr 双通道）、聊天超时可配（300→900s）、快照防叠套。上述为本 Goal 的地基。
+
+## 附2：三段式帧持久化（2026-08-27，GOAL-076 返工批承接落地）
+
+GLM 评审指出「chat 历史只存 `{role,text}` 纯文本，thinking/tool 帧随会话结束即丢，历史回看无法呈现三段式」。已在 076 返工批修复：`ChatTurn` 增加 `thinking?/tools?/plan?` 可选帧（chat.ts 拆 `<think>`/`<tool>` 块随轮落盘 JSONL），前端 `renderChatBubbleFromTurn` 历史回看优先消费持久化帧、旧会话回退正文内嵌解析——「回看头犬推理过程」自此在历史会话亦可重建。

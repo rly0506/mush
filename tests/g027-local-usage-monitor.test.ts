@@ -149,7 +149,7 @@ describe('GOAL-027: Local Usage & Cost Monitor (ccusage-like)', () => {
 
   test('Page script includes usage monitor container and refresh handler', () => {
     const html = renderBoardPage();
-    assert.ok(html.includes('📊 本地真实会话用量与花费监控 (ccusage)'));
+    assert.ok(html.includes('📊 本地真实会话用量与花费监控'));
     assert.ok(html.includes('btn-refresh-usage'));
     assert.ok(html.includes('/api/usage'));
   });

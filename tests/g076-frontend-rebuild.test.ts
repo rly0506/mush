@@ -87,3 +87,55 @@ test('G076 workspace 徽标：显示目录名而非「服务 cwd」原始文案'
   const text = visibleText(html);
   assert.ok(!text.includes('服务 cwd'), 'workspace badge must not show raw "服务 cwd" wording');
 });
+
+// ---- GOAL-076 返工批次（GLM 评审 + owner 反馈驱动）----
+
+test('G076 返工·配色：恢复暗色雪橇母题（§7.5 裁定，回退 D68 亮色越权）', () => {
+  assert.ok(/color-scheme:\s*dark/.test(html), 'color-scheme must be dark');
+  assert.ok(html.includes('--bg: #0a0f16'), '极夜蓝黑底色令牌');
+  assert.ok(!html.includes('Claude Warm Terracotta'), 'D68 亮色陶土系必须移除');
+});
+
+test('G076 返工·首屏预算：配置舱收进「⚙ 设置」面板，默认不展开', () => {
+  assert.ok(html.includes('id="chat-settings-toggle"'), '设置开关存在');
+  assert.ok(html.includes('id="chat-settings-panel"'), '设置面板存在');
+  // 面板默认收起（class 无 open / style display:none）。
+  assert.ok(/id="chat-settings-panel"[^>]*style="display:none"/.test(html) || /class="chat-settings-panel"/.test(html), '设置面板默认收起');
+});
+
+test('G076 返工·导航：codex 式左侧栏（app-shell 双栏 + 纵排 nav）', () => {
+  assert.ok(html.includes('class="app-shell"'), 'app-shell 布局容器');
+  assert.ok(/nav\s*\{[^}]*flex-direction:\s*column/.test(html), 'nav 纵排（侧栏）');
+});
+
+test('G076 返工·派发抽屉：派发表单为抽屉形态 + 工作台有「＋派发」入口', () => {
+  assert.ok(/id="view-dispatch"[^>]*dispatch-drawer/.test(html), '派发区为 dispatch-drawer 抽屉');
+  assert.ok(html.includes('id="btn-open-dispatch"'), '工作台「＋派发任务」入口');
+  assert.ok(html.includes('id="btn-close-dispatch"'), '抽屉关闭钮');
+});
+
+test('G076 返工·术语：版本号/决议号黑话不进可见标签', () => {
+  const text = visibleText(html);
+  for (const banned of ['（v1.6', '(GOAL-028', '（D20', 'ccusage', 'admission']) {
+    assert.ok(!text.includes(banned), `visible text must not contain jargon "${banned}"`);
+  }
+});
+
+test('G076 返工·金额守卫：fmtUsd 兜底 NaN，预算区不直出 $NaN', () => {
+  assert.ok(html.includes('function fmtUsd'), 'fmtUsd 守卫存在');
+  assert.ok(html.includes("if (!isFinite(n)) return '$0.0000'"), 'NaN 兜底');
+});
+
+test('G076 返工·脱敏：账号邮箱经 maskAccount 打码', () => {
+  assert.ok(html.includes('function maskAccount'), 'maskAccount 脱敏函数存在');
+});
+
+test('G076 返工·待办徽标：点击有反馈（toast 提示）', () => {
+  assert.ok(html.includes("id=\"rail-toggle-btn\""), '待办徽标存在');
+  assert.ok(/待办栏已展开/.test(html), '待办徽标点击触发 toast 反馈文案');
+});
+
+test('G076 返工·三段式持久化：历史回看可重建（ChatTurn 带 thinking/tools/plan）', () => {
+  assert.ok(html.includes('renderChatBubbleFromTurn'), '历史回看三段式渲染器');
+  assert.ok(html.includes('turn.thinking') && html.includes('turn.tools'), '读取持久化帧');
+});

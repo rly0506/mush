@@ -63,5 +63,5 @@ test('U4: snowfield design system preserved (15px body / 600 head weight / 28px 
   assert.match(html, /font-size: 15px; line-height: 1\.7/, '对话正文 15px/1.7');
   assert.match(html, /\.chat-row\.head \.bubble \{ font-weight: 600/, '头犬气泡 600 字重');
   assert.match(html, /width: 28px; height: 28px/, '28px 签名徽章');
-  assert.match(html, /chat-row\.head\.chat-failed \.bubble \{ background: #fbeae8; border-color: var\(--danger\)/, '失败态走雪原 danger 令牌');
+  assert.match(html, /chat-row\.head\.chat-failed \.bubble \{ background: rgba\(224,96,79,0\.12\); border-color: var\(--danger\)/, '失败态走暗色 danger 令牌（G076 配色回归）');
 });

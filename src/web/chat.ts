@@ -21,6 +21,11 @@ export interface ChatTurn {
   at_utc: string;
   dispatch_id?: string;
   attachments?: StoredAttachment[];
+  /** GOAL-076 返工（承接 075 附录）：三段式帧持久化——思考/工具/计划卡随轮落盘，
+   *  使历史会话回看时仍能重建三段式气泡（此前帧随会话结束即丢）。 */
+  thinking?: string;
+  tools?: string[];
+  plan?: unknown;
 }
 
 export interface ChatAck {
@@ -291,6 +296,11 @@ export class ChatService extends EventEmitter {
       // GOAL-075 切片3：计划门拦截——头犬输出 <PLAN> 块时转为待决断计划，
       // 气泡折叠为一句等待语（原始计划进 PLAN_WAIT 帧），owner 批准后自动续跑。
       const planHit = solo ? null : extractPlanBlock(headText);
+      // GOAL-076 返工（承接 075 附录）：拆分思考/工具块随轮持久化，供历史回看重建三段式。
+      const thinkM = /<think>([\s\S]*?)<\/think>/i.exec(headText);
+      const persistedThinking = thinkM ? thinkM[1].trim() : undefined;
+      const persistedTools = (headText.match(/<tool>[\s\S]*?<\/tool>/gi) || [])
+        .map((t) => t.replace(/<\/?tool>/gi, '').trim()).filter((t) => t !== '');
       let bubbleText = headText + partialNote;
       let planIdForFrame: string | undefined;
       if (planHit !== null) {
@@ -317,6 +327,9 @@ export class ChatService extends EventEmitter {
         text: bubbleText,
         at_utc: new Date().toISOString(),
         dispatch_id: record.dispatch_id,
+        ...(persistedThinking ? { thinking: persistedThinking } : {}),
+        ...(persistedTools.length > 0 ? { tools: persistedTools } : {}),
+        ...(planHit !== null ? { plan: planHit.plan } : {}),
       });
       this.emitFrame('REPORT', sessionId, dispatchId, {
         status: record.status,

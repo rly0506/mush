@@ -49,7 +49,7 @@ test('#4 品牌色官方主色表 + 运行边缘辉光（品牌色）', () => {
 
 test('#6 预算面板：admission 计数 + cap 行内编辑 PUT', () => {
   assert.match(html, /admission_count/, 'admission 计数字段消费');
-  assert.match(html, /次 admission/, '计数徽标文案');
+  assert.match(html, /次派发记账/, '计数徽标文案（G076 人话化：admission→派发记账）');
   assert.match(html, /data-cap-actor=/, 'cap 行内输入');
   assert.match(html, /\/api\/budget\/caps\//, 'PUT caps 端点');
   assert.match(html, /method: 'PUT'/, 'cap 编辑走 PUT');

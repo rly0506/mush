@@ -4,19 +4,18 @@ import { renderBoardPage } from '../src/web/page.ts';
 
 // GOAL-020（D33/D34）雪原营地 × 任务池前端融合批 —— B1-B5 结构断言（jsdom-free）。
 // 权威：docs/gp-33-snowfield-theme-plan.md（B1-B4）+ GOAL-020 章程 B5。
+// 2026-08-27 修订：GOAL-076 §7.5 owner 裁定配色回归**极夜暗色母题**（回退 D68 亮色越权），
+// B1 色板断言随之从「雪原白昼」改写为「极夜暗色」权威；B2-B5 结构断言不变。
 
 const html = renderBoardPage();
 
-test('B1 色板：雪原白昼令牌（冷白纸面）', () => {
-  assert.match(html, /--bg: #eef1f5/, '蓝灰雪色底');
-  assert.match(html, /--panel: #ffffff/, '白卡浮起');
-  assert.match(html, /--ink: #1d2733/, '主文近黑');
-  assert.match(html, /--ink-dim: #5a6675/, '二级灰');
-  assert.match(html, /--ink-faint: #9aa5b1/, '三级灰');
-  assert.match(html, /--accent: #0e9f8f/, '极光青压暗保对比');
-  assert.match(html, /--ember: #c07a1f/, '审批琥珀');
-  assert.match(html, /--ember-tint: #fdf3e3/, '审批浅琥珀 tint');
-  assert.match(html, /color-scheme: light/, '亮色模式');
+test('B1 色板：极夜暗色令牌（GOAL-012 母题，G076 §7.5 裁定恢复）', () => {
+  assert.match(html, /--bg: #0a0f16/, '极夜蓝黑雪原底');
+  assert.match(html, /--panel: #101722/, '深雪原卡片');
+  assert.match(html, /--ink: #e6edf5/, '雪原主文');
+  assert.match(html, /--accent: #62d8c9/, '极光青');
+  assert.match(html, /--ember: #e8a94c/, '营地火琥珀');
+  assert.match(html, /color-scheme: dark/, '暗色模式');
 });
 
 test('B2 骨架：对话主区 + 右侧犬队栏 + 详情抽屉入口', () => {
