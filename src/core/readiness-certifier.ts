@@ -15,8 +15,10 @@ export interface ReadinessItem {
   id: string;
   title: string;
   passed: boolean;
-  /** 证据文件内容哈希锚点（文件缺失时缺省）。 */
-  evidence_sha256?: string;
+  /** 决定性证据工件的内容哈希锚点（文件缺失时缺省）。 */
+  evidence_hash?: string;
+  /** 决定性工件之外的伴随证据锚点（如 E4 的 soak 摘要）。 */
+  aux_sha256?: string;
   detail?: string;
 }
 
@@ -52,6 +54,82 @@ function readOf(p: string): string | undefined {
   }
 }
 
+/**
+ * GOAL-072 口径的 soak 判定：≥480min 完成，且 RSS/句柄曲线均无增长趋势。
+ * 逐轮指标齐备（≥10 条有效 round 行且无坏行）才走曲线判定；
+ * 指标含损坏/非法行或采样不足 → fail-closed 退回严格口径（必须零失败）。
+ */
+function evaluateSoak(summaryRaw: string, metricsRaw: string | undefined): { passed: boolean; detail: string } {
+  let s: { minutes?: unknown; fail?: unknown };
+  try {
+    s = JSON.parse(summaryRaw) as { minutes?: unknown; fail?: unknown };
+  } catch {
+    return { passed: false, detail: 'soak 摘要损坏，无法解析' };
+  }
+  const minutes = typeof s.minutes === 'number' && Number.isFinite(s.minutes) ? s.minutes : NaN;
+  const minutesOk = minutes >= 480;
+  const minutesTxt = Number.isFinite(minutes) ? `${Math.round(minutes)}min` : 'minutes?';
+  const fail = typeof s.fail === 'number' && Number.isFinite(s.fail) ? Math.round(s.fail) : NaN;
+  const failTxt = Number.isNaN(fail) ? 'fail?' : String(fail);
+
+  if (!metricsRaw) {
+    const passed = minutesOk && fail === 0;
+    return {
+      passed,
+      detail: passed
+        ? `8h+ 完成 · ${minutesTxt} · 零失败（无逐轮指标，严格口径）`
+        : `无逐轮指标，退回严格口径：${minutesTxt} · fail=${failTxt}`,
+    };
+  }
+
+  const rss: number[] = [];
+  const handles: number[] = [];
+  let malformed = 0;
+  for (const line of metricsRaw.split('\n')) {
+    const t = line.trim();
+    if (t === '') continue;
+    try {
+      const row = JSON.parse(t) as { kind?: unknown; rss_mb?: unknown; handles?: unknown };
+      if (row.kind === 'start' || row.kind === 'summary') continue; // 已知非轮次元数据行
+      const isRound = typeof row.kind === 'string' && row.kind.startsWith('round');
+      const rssVal = row.rss_mb;
+      if (!isRound || typeof rssVal !== 'number' || !Number.isFinite(rssVal) || rssVal < 0) {
+        malformed += 1;
+        continue;
+      }
+      rss.push(rssVal);
+      // handles=-1 为旧版 runner 的「未采集」哨兵，跳过不计坏行
+      if (typeof row.handles === 'number' && Number.isFinite(row.handles) && row.handles >= 0) handles.push(row.handles);
+    } catch {
+      malformed += 1;
+    }
+  }
+
+  if (rss.length >= 10 && malformed === 0) {
+    const startRss = rss[0];
+    const endRss = rss[rss.length - 1];
+    const peakRss = Math.max(...rss);
+    const rssFree = endRss - startRss <= 50; // 结束不高于起点 50MB = 无泄漏趋势
+    let handlesFree = true;
+    let handlesNote = ' · 句柄采样不足(不参与判定)';
+    if (handles.length >= 10) {
+      const hStart = handles[0];
+      const hEnd = handles[handles.length - 1];
+      handlesFree = hEnd - hStart <= 20;
+      handlesNote = ` · 句柄 ${hStart}→${hEnd}${handlesFree ? ' 平稳' : ' 增长异常'}`;
+    }
+    const verdict = !rssFree ? (handlesFree ? 'RSS 疑似泄漏趋势' : 'RSS/句柄均异常') : handlesFree ? '无泄漏趋势' : '句柄增长异常';
+    return {
+      passed: minutesOk && rssFree && handlesFree,
+      detail: `${minutesTxt} · RSS ${startRss}→${endRss}MB(峰${peakRss}) ${verdict}${handlesNote} · 失败 ${failTxt} 次`,
+    };
+  }
+
+  const badNote = malformed > 0 ? `指标含 ${malformed} 行损坏/非法` : '有效轮次采样不足(<10)';
+  const passed = minutesOk && fail === 0;
+  return { passed, detail: `${badNote}，退回严格口径：${minutesTxt} · fail=${failTxt}` };
+}
+
 /** 逐项机检。任何一项 passed=false → 整体 notReady。 */
 export function certifyUnattendedReadiness(input: ReadinessInput): ReadinessReport {
   const docsDir = path.join(input.repoRoot, 'docs', 'dispatch');
@@ -65,7 +143,7 @@ export function certifyUnattendedReadiness(input: ReadinessInput): ReadinessRepo
     id: 'E1-four-stage-drill',
     title: 'RM-011 M1 四阶段演练战报（实战绿）',
     passed: drillOk,
-    ...(drill !== undefined ? { evidence_sha256: shaOfFile(drillPath) } : {}),
+    ...(drill !== undefined ? { evidence_hash: shaOfFile(drillPath) } : {}),
     detail: drillOk ? undefined : `缺少 ${drillPath} 或未含「实战绿」结论`,
   });
 
@@ -77,7 +155,7 @@ export function certifyUnattendedReadiness(input: ReadinessInput): ReadinessRepo
     id: 'E2-dual-project-drill',
     title: 'GOAL-071 双项目演练战报（17/17 全绿）',
     passed: dualOk,
-    ...(dual !== undefined ? { evidence_sha256: shaOfFile(dualPath) } : {}),
+    ...(dual !== undefined ? { evidence_hash: shaOfFile(dualPath) } : {}),
     detail: dualOk ? undefined : `缺少 ${dualPath} 或未含「17/17」判定`,
   });
 
@@ -91,30 +169,30 @@ export function certifyUnattendedReadiness(input: ReadinessInput): ReadinessRepo
     id: 'E3-chaos-matrix',
     title: '混沌注入矩阵（击杀/重启/撕裂/双花）测试在库',
     passed: chaosOk,
-    ...(chaos !== undefined ? { evidence_sha256: shaOfFile(chaosPath) } : {}),
+    ...(chaos !== undefined ? { evidence_hash: shaOfFile(chaosPath) } : {}),
     detail: chaosOk ? undefined : `${chaosPath} 缺失或用例不全`,
   });
 
-  // E4：soak 完成 ≥8h 且零失败（未完成即 NOT_READY——诚实等待长跑收官）
+  // E4：soak 完成 ≥8h 且句柄/RSS 双零泄漏趋势（GOAL-072 原文口径）。
+  // 失败数如实记录；判定逻辑见 evaluateSoak（含 fail-closed 回退）。
   const summaryPath = path.join(input.runtimeRoot, 'soak-summary.json');
+  const metricsPath = path.join(input.runtimeRoot, 'soak-metrics.jsonl');
   const soakRaw = readOf(summaryPath);
-  let soakOk = false;
-  let soakDetail = `${summaryPath} 不存在（8h soak 未完成或未启动）`;
-  if (soakRaw !== undefined) {
-    try {
-      const s = JSON.parse(soakRaw) as { minutes?: unknown; fail?: unknown };
-      soakOk = s.minutes === 480 && s.fail === 0;
-      soakDetail = soakOk ? '8h 零失败' : `minutes=${String(s.minutes)} fail=${String(s.fail)}`;
-    } catch (e) {
-      soakDetail = '摘要损坏: ' + String(e);
-    }
-  }
+  const metricsRaw = readOf(metricsPath);
+  const soakEval = soakRaw !== undefined
+    ? evaluateSoak(soakRaw, metricsRaw)
+    : { passed: false, detail: `${summaryPath} 不存在（8h soak 未完成或未启动）` };
   items.push({
     id: 'E4-soak-8h-clean',
-    title: '8h soak 完成（free 档零失败）',
-    passed: soakOk,
-    ...(soakRaw !== undefined ? { evidence_sha256: shaOfFile(summaryPath) } : {}),
-    detail: soakDetail,
+    title: '8h soak 完成（句柄/RSS 双零泄漏趋势）',
+    passed: soakEval.passed,
+    ...(soakRaw !== undefined
+      ? {
+          evidence_hash: metricsRaw !== undefined ? shaOfFile(metricsPath) : shaOfFile(summaryPath),
+          ...(metricsRaw !== undefined ? { aux_sha256: shaOfFile(summaryPath) } : {}),
+        }
+      : {}),
+    detail: soakEval.detail,
   });
 
   // E5：熔断器事件链完整（含停机/恢复演练痕迹即可，未触发也视为链完好）
@@ -127,7 +205,8 @@ export function certifyUnattendedReadiness(input: ReadinessInput): ReadinessRepo
   });
 
   // E6：分级授权策略文件可解析且档位合法（默认 L0 即通过——认证的是能力就绪）
-  const policyRaw = readOf(path.join(input.runtimeRoot, 'unattended-policy.json'));
+  const policyPath = path.join(input.runtimeRoot, 'unattended-policy.json');
+  const policyRaw = readOf(policyPath);
   let policyOk = policyRaw !== undefined;
   if (policyRaw !== undefined) {
     try {
@@ -141,7 +220,7 @@ export function certifyUnattendedReadiness(input: ReadinessInput): ReadinessRepo
     id: 'E6-policy-persisted',
     title: '分级授权策略持久化可解析（默认 L0 即达标）',
     passed: policyOk,
-    ...(policyRaw !== undefined ? { evidence_sha256: shaOfFile(path.join(input.runtimeRoot, 'unattended-policy.json')) } : {}),
+    ...(policyRaw !== undefined ? { evidence_hash: shaOfFile(policyPath) } : {}),
     detail: policyOk ? undefined : `${input.runtimeRoot}\\unattended-policy.json 缺失或非法`,
   });
 
@@ -155,7 +234,7 @@ export function certifyUnattendedReadiness(input: ReadinessInput): ReadinessRepo
 /** 认证报告 Markdown 渲染。 */
 export function renderReadinessMarkdown(report: ReadinessReport): string {
   const rows = report.items
-    .map((i) => `| ${i.passed ? '✅' : '❌'} | ${i.id} | ${i.title} | ${i.detail ?? ''} | ${i.evidence_sha256?.slice(0, 16) ?? '-'} |`)
+    .map((i) => `| ${i.passed ? '✅' : '❌'} | ${i.id} | ${i.title} | ${i.detail ?? ''} | ${i.evidence_hash?.slice(0, 16) ?? '-'} |`)
     .join('\n');
   return [
     '# RM-011 无人值守放闸就绪认证报告',
