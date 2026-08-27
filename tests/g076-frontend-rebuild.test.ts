@@ -18,25 +18,27 @@ const html = renderBoardPage();
     .replace(/&quot;/g, '"').replace(/&#39;/g, "'");
 }
 
-test('G076 结构：导航收敛为 3 入口（对话/工作台/控制台）', () => {
+test('G076 结构：导航收敛为侧栏入口（对话/工作台/犬队/治理/洞察/实验室）', () => {
   const navMatch = html.match(/<nav[\s\S]*<\/nav>/);
   assert.ok(navMatch, 'must have a <nav>');
-  const navBtns = navMatch[0].match(/data-view="/g) || [];
-  assert.equal(navBtns.length, 3, `nav must converge to 3 entries, got ${navBtns.length}`);
-  for (const v of ['chat', 'workbench', 'console']) {
+  // 返工2：owner 裁定侧栏可折叠 + 拆分内容新增标签页（3→6 入口）。
+  for (const v of ['chat', 'workbench', 'team', 'governance', 'insights', 'lab']) {
     assert.ok(navMatch[0].includes(`data-view="${v}"`), `nav must include entry ${v}`);
   }
+  assert.ok(navMatch[0].includes('id="nav-collapse"'), '侧栏折叠按钮存在');
 });
 
 test('G076 结构：L2 工作台视图存在且收纳任务池+派发', () => {
   assert.ok(html.includes('id="view-workbench"'), 'must have view-workbench section');
 });
 
-test('G076 结构：L3 控制台视图存在，收纳低频治理视图', () => {
-  assert.ok(html.includes('id="view-console"'), 'must have view-console section');
-  // 低频视图收进控制台容器（不再是顶层平级 section）。
+test('G076 结构：拆分后的四个内容视图齐备（犬队/治理/洞察/实验室）', () => {
+  for (const id of ['view-team', 'view-governance', 'view-insights', 'view-lab']) {
+    assert.ok(html.includes(`id="${id}"`), `must have ${id}`);
+  }
+  // 低频视图收纳进各自分组容器。
   for (const id of ['view-dogs', 'view-epochs', 'view-budget', 'view-carveouts', 'view-approvals', 'view-streams']) {
-    assert.ok(html.includes(`id="${id}"`), `console must still host ${id}`);
+    assert.ok(html.includes(`id="${id}"`), `must still host ${id}`);
   }
 });
 
@@ -90,17 +92,22 @@ test('G076 workspace 徽标：显示目录名而非「服务 cwd」原始文案'
 
 // ---- GOAL-076 返工批次（GLM 评审 + owner 反馈驱动）----
 
-test('G076 返工·配色：恢复暗色雪橇母题（§7.5 裁定，回退 D68 亮色越权）', () => {
-  assert.ok(/color-scheme:\s*dark/.test(html), 'color-scheme must be dark');
-  assert.ok(html.includes('--bg: #0a0f16'), '极夜蓝黑底色令牌');
-  assert.ok(!html.includes('Claude Warm Terracotta'), 'D68 亮色陶土系必须移除');
+test('G076 返工·配色：双主题（亮面默认 + 暗面自调，§7.5 母题保留）', () => {
+  // owner 2026-08-27 修订：亮色柔和为默认 + 用户可切暗面（月之亮/暗面）。
+  assert.ok(html.includes('data-theme'), 'data-theme 主题挂点');
+  assert.ok(html.includes('id="theme-toggle"'), '主题切换按钮');
+  assert.ok(html.includes('--bg: #0a0f16'), '暗面极夜令牌');
+  assert.ok(html.includes('color-scheme: light') && html.includes('color-scheme: dark'), '亮暗双 color-scheme');
 });
 
-test('G076 返工·首屏预算：配置舱收进「⚙ 设置」面板，默认不展开', () => {
+test('G076 返工2·设置面板可展开 + 头犬 harness 可选（修复设置失灵/头犬不可选）', () => {
   assert.ok(html.includes('id="chat-settings-toggle"'), '设置开关存在');
   assert.ok(html.includes('id="chat-settings-panel"'), '设置面板存在');
-  // 面板默认收起（class 无 open / style display:none）。
-  assert.ok(/id="chat-settings-panel"[^>]*style="display:none"/.test(html) || /class="chat-settings-panel"/.test(html), '设置面板默认收起');
+  // .open 展开力需压过 style="display:none" 内联（!important）。
+  assert.ok(/\.chat-settings-panel\.open\s*\{\s*display:\s*flex\s*!important/.test(html), 'open 态 !important 覆盖内联 display:none');
+  // 头犬 harness 选择器挂在设置面板内且渲染函数绑定。
+  assert.ok(html.includes('id="chat-head-select"'), '头犬 harness 选择器');
+  assert.ok(html.includes('renderHeadCascade'), '头犬级联渲染函数');
 });
 
 test('G076 返工·导航：codex 式左侧栏（app-shell 双栏 + 纵排 nav）', () => {

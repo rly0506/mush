@@ -9,7 +9,7 @@ import { renderBoardPage } from '../src/web/page.ts';
 const html = renderBoardPage();
 
 test('任务1 流视图：工作流标签 + 流卡片（统计）+ 时间线', () => {
-  assert.match(html, /data-view="console"/, '工作流已收纳进控制台（L3）');
+  assert.match(html, /data-view="team"/, '工作流已收纳进犬队视图（返工2 拆分）');
   assert.match(html, /id="view-streams"/, '流视图容器');
   assert.match(html, /id="streams-list"/, '流卡片列表');
   assert.match(html, /\/api\/streams/, 'GET /api/streams 消费');

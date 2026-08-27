@@ -38,43 +38,70 @@ export function renderBoardPage(callerToken?: string): string {
 <style>
 ${getCollaborationStyles()}
   :root {
-    color-scheme: dark;
-    /* 极夜雪橇队母题（GOAL-012，owner G076 §7.5 裁定保留——暗色+ember 暖橙，不换配色。
-       D68 亮色陶土系为越权引入，本节回退恢复暗色令牌。） */
-    --bg: #0a0f16;             /* 极夜蓝黑雪原 */
-    --panel: #101722;          /* 深雪原卡片 */
-    --panel-hi: #1a2433;       /* 雪原高亮阶梯 */
-    --panel-subtle: #0d1420;   /* 次级底色 */
-    --line: #26313f;           /* 雪脊分隔线 */
-    --line-subtle: #1c2634;
-    --ink: #e6edf5;            /* 雪原主文字 */
-    --ink-dim: #93a1b3;        /* 副文本 */
-    --ink-faint: #5d6b7d;      /* 辅助浅灰 */
-    --accent: #62d8c9;         /* 极光青：雪原夜空中的极光辉 */
-    --accent-deep: #3aa89b;
-    --accent-light: rgba(98, 216, 201, 0.12);
-    --ember: #e8a94c;          /* 营地火琥珀：营地灯与篝火 */
-    --ember-tint: rgba(232, 169, 76, 0.12);
-    --danger: #e0604f;         /* 警示朱红 */
-    --ok: #4cc38a;             /* 极光绿 */
-    --ok-tint: rgba(76, 195, 138, 0.12);
-    --info: #5ea3e8;           /* 晴空蓝 */
-    --whale: #4d9fe8;          /* DeepSeek 鲸蓝 */
-    --sun: #e8975a;            /* Claude 日冕橙 */
-    --knot: #6fd3a5;           /* OpenAI 花结绿 */
-    /* GOAL-017B #4：各家族官方品牌主色（owner 2026-08-17 指定） */
+    /* 雪橇队母题·双主题（owner 2026-08-27 裁定：柔和亮色为默认 + 极夜暗面，
+       用户可自调「月之亮/暗面」，选择经 localStorage 持久化）。默认 = 亮面。 */
     --brand-deepseek: #4D6BFE;
     --brand-claude: #D97757;
     --brand-kimi: #7C5CFF;
     --brand-glm: #4E7AC7;
     --brand-opencode: #F6BF67;
-    --brand-codex: #8a9cb0;   /* codex 手绘灰兜底 */
-    --brand-agy: #1A73E8;     /* Antigravity / Gemini 蓝 */
-    --star: #a98ae8;          /* GLM 星紫 */
-    --moon: #8fb7d8;          /* Kimi 新月银蓝 */
-    --spark: #1A73E8;         /* AGY / Gemini 星火蓝 */
+    --brand-codex: #8a9cb0;
+    --brand-agy: #1A73E8;
+    --star: #a98ae8;
+    --moon: #8fb7d8;
+    --spark: #1A73E8;
     --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
     --font-mono: Consolas, "Courier New", monospace;
+  }
+  /* 亮面（默认，柔和雪原白昼） */
+  :root, :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f4f2ec;
+    --panel: #ffffff;
+    --panel-hi: #eceadf;
+    --panel-subtle: #faf9f4;
+    --line: #e0dacd;
+    --line-subtle: #eae6da;
+    --ink: #33302a;
+    --ink-dim: #6f6a5f;
+    --ink-faint: #9d968a;
+    --accent: #3aa89b;
+    --accent-deep: #2b8579;
+    --accent-light: rgba(58, 168, 155, 0.12);
+    --ember: #c07a1f;
+    --ember-tint: rgba(192, 122, 31, 0.12);
+    --danger: #c94a38;
+    --ok: #2e8555;
+    --ok-tint: rgba(46, 133, 85, 0.12);
+    --info: #3b82f6;
+    --whale: #4d9fe8;
+    --sun: #e8975a;
+    --knot: #6fd3a5;
+  }
+  /* 暗面（极夜雪橇） */
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0a0f16;
+    --panel: #101722;
+    --panel-hi: #1a2433;
+    --panel-subtle: #0d1420;
+    --line: #26313f;
+    --line-subtle: #1c2634;
+    --ink: #e6edf5;
+    --ink-dim: #93a1b3;
+    --ink-faint: #5d6b7d;
+    --accent: #62d8c9;
+    --accent-deep: #3aa89b;
+    --accent-light: rgba(98, 216, 201, 0.12);
+    --ember: #e8a94c;
+    --ember-tint: rgba(232, 169, 76, 0.12);
+    --danger: #e0604f;
+    --ok: #4cc38a;
+    --ok-tint: rgba(76, 195, 138, 0.12);
+    --info: #5ea3e8;
+    --whale: #4d9fe8;
+    --sun: #e8975a;
+    --knot: #6fd3a5;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: var(--font-body); background: var(--bg); color: var(--ink); }
@@ -207,16 +234,21 @@ ${getCollaborationStyles()}
   /* GOAL-017B #6：预算 cap 行内编辑 */
   .cap-input { width: 72px; padding: 2px 6px; font-size: 12px; display: inline-block; }
   .cap-edit-msg { font-size: 11px; margin-left: 6px; }
-  /* GOAL-076 返工：codex 式左侧栏导航（替代顶部横排 tab）。 */
-  .app-shell { display: grid; grid-template-columns: 200px minmax(0, 1fr); align-items: start; }
+  /* GOAL-076 返工2：codex 式左侧栏导航（可折叠）。 */
+  .app-shell { display: grid; grid-template-columns: 208px minmax(0, 1fr); align-items: start; transition: grid-template-columns 0.2s ease; }
+  body.nav-collapsed .app-shell { grid-template-columns: 58px minmax(0, 1fr); }
   nav { display: flex; flex-direction: column; gap: 2px; padding: 12px 10px; border-right: 1px solid var(--line); position: sticky; top: 0; height: calc(100vh - 60px); }
-  nav button {
+  nav button[data-view] {
     background: transparent; color: var(--ink-dim); border: 1px solid transparent;
     text-align: left; padding: 9px 12px; cursor: pointer; font-size: 13px;
-    border-radius: 6px; font-family: inherit; white-space: nowrap;
+    border-radius: 6px; font-family: inherit; white-space: nowrap; overflow: hidden;
   }
-  nav button:hover { background: var(--panel-hi); color: var(--ink); }
-  nav button.active { background: var(--panel); color: var(--ink); border-color: var(--line); box-shadow: inset 2px 0 0 var(--accent); }
+  nav button[data-view]:hover { background: var(--panel-hi); color: var(--ink); }
+  nav button[data-view].active { background: var(--panel); color: var(--ink); border-color: var(--line); box-shadow: inset 2px 0 0 var(--accent); }
+  .nav-collapse-btn { background: transparent; border: 1px solid var(--line); color: var(--ink-dim); border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 11px; margin-bottom: 8px; font-family: inherit; }
+  .nav-collapse-btn:hover { background: var(--panel-hi); color: var(--ink); }
+  body.nav-collapsed nav button[data-view] { font-size: 0; padding: 9px 0; text-align: center; }
+  body.nav-collapsed nav button[data-view]::first-letter { font-size: 15px; }
   /* GOAL-076：控制台分组（L3 按组归类，非页签平铺） */
   .console-group { margin-bottom: 22px; }
   .console-group-title { font-size: 13px; color: var(--ink-dim); font-weight: 600; letter-spacing: 1px; margin: 0 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
@@ -228,7 +260,7 @@ ${getCollaborationStyles()}
   }
   .dispatch-drawer.open { display: block !important; }
   .dispatch-drawer-card { background: var(--panel); }
-  #view-console section.view, #view-workbench section.view { display: block !important; }
+  #view-team section.view, #view-governance section.view, #view-insights section.view, #view-lab section.view, #view-workbench section.view { display: block !important; }
   #view-workbench section.view.dispatch-drawer { display: none !important; }
   #view-workbench section.view.dispatch-drawer.open { display: block !important; }
   main { padding: 18px 22px; max-width: 1280px; min-width: 0; }
@@ -366,7 +398,7 @@ ${getCollaborationStyles()}
   .chat-stage { color: var(--ink-dim); }
   /* GOAL-076 返工：对话设置面板——配置舱默认收起，点「⚙ 设置」展开（首屏预算）。 */
   .chat-settings-panel { display: none; flex-wrap: wrap; gap: 10px 14px; align-items: center; padding: 10px 12px; margin-bottom: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; font-size: 12px; color: var(--ink-dim); }
-  .chat-settings-panel.open { display: flex; }
+  .chat-settings-panel.open { display: flex !important; }
   .chat-settings-panel label { display: inline-flex; align-items: center; gap: 4px; margin: 0; }
   .chat-row.head.chat-streaming .chat-stage { color: var(--accent); }
   .chat-row.head.chat-failed .chat-stage { color: var(--danger); }
@@ -531,15 +563,20 @@ ${getCollaborationStyles()}
   </span>
   <span id="head-dog-badge" title="当前头犬（role: head）"><span class="logo-slot" id="head-dog-logo"></span><span id="head-dog-name">当前头犬：…</span></span>
   <span id="workspace-current" title="当前 workspace（视角切换：点右侧下拉换工作区）">…</span>
+  <button class="act" id="theme-toggle" type="button" title="切换月之亮面/暗面（主题偏好本地记忆）" style="padding:3px 10px;font-size:13px;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)">🌓</button>
   <button class="act" id="rail-toggle-btn" type="button" title="展开/收起右侧待办栏（审批·活动·犬队·预算）" style="padding:3px 10px;font-size:12px;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)">🛡️ <span id="waiting-count-rail"></span> 待办</button>
   <span class="meta" id="generated"></span>
   <span class="meta" id="sse-status">SSE 连接中…</span>
 </header>
 <div class="app-shell">
 <nav>
+  <button id="nav-collapse" class="nav-collapse-btn" type="button" title="收起/展开侧栏">⟨⟨</button>
   <button data-view="chat" class="active">💬 对话</button>
   <button data-view="workbench">🛠️ 工作台</button>
-  <button data-view="console">🎛️ 控制台 <span id="waiting-count"></span></button>
+  <button data-view="team">🐕 犬队</button>
+  <button data-view="governance">🛡️ 治理</button>
+  <button data-view="insights">📊 洞察</button>
+  <button data-view="lab">🧪 实验室</button>
 </nav>
 <main>
   <section id="view-chat" class="view active deck">
@@ -750,14 +787,16 @@ ${getCollaborationStyles()}
   </section>
     </div>
   </section>
-  <section id="view-console" class="view">
+  <section id="view-team" class="view">
     <div class="console-group">
       <h2 class="console-group-title">🐕 犬队与工作流</h2>
   <section id="view-dogs" class="view"><div class="roster-manage" id="roster-manage"></div><div id="dogs-table"></div></section>
   <section id="view-streams" class="view"><div class="hint" style="margin-bottom:8px">工作流只读视图。窗口键 = 犬×目标；交接块随流记录归档。</div><div id="streams-list"><div class="empty">暂无工作流</div></div></section>
     </div>
+  </section>
+  <section id="view-governance" class="view">
     <div class="console-group">
-      <h2 class="console-group-title">🛡️ 治理与资金</h2>
+      <h2 class="console-group-title">🛡️ 治理与资金 <span id="waiting-count" class="badge WAITING"></span></h2>
   <section id="view-approvals" class="view"></section>
   <section id="view-budget" class="view"></section>
   <section id="view-carveouts" class="view">
@@ -781,8 +820,18 @@ ${getCollaborationStyles()}
       <h2 class="console-group-title">📜 审计与事件</h2>
   <section id="view-epochs" class="view"></section>
     </div>
+  </section>
+  <section id="view-insights" class="view">
     <div class="console-group">
-      <h2 class="console-group-title">🧪 实验室（社交化拓扑与能效）</h2>
+      <h2 class="console-group-title">📊 洞察与能效</h2>
+  ${renderEloRankingsHtml()}
+  ${renderSelfEvolvingRoutingHtml()}
+  ${renderVelocityMatrixHtml()}
+    </div>
+  </section>
+  <section id="view-lab" class="view">
+    <div class="console-group">
+      <h2 class="console-group-title">🧪 实验室（社交化拓扑）</h2>
   ${renderDebateArenaHtml()}
   ${renderPipelineStudioHtml()}
   ${renderRedBlueStudioHtml()}
@@ -791,8 +840,6 @@ ${getCollaborationStyles()}
   ${renderTimeTravelHtml()}
   ${renderBlackboardHtml()}
   ${renderLiquidSquadsHtml()}
-  ${renderEloRankingsHtml()}
-  ${renderSelfEvolvingRoutingHtml()}
     </div>
   </section>
 </main>
@@ -2011,7 +2058,7 @@ ${getCollaborationStyles()}
     el.querySelectorAll('button[data-goto-approvals]').forEach(function (btn) {
       btn.addEventListener('click', function (event) {
         event.stopPropagation();
-        var nav = document.querySelector('button[data-view="console"]');
+        var nav = document.querySelector('button[data-view="governance"]');
         if (nav) nav.click();
       });
     });
@@ -4063,7 +4110,7 @@ ${getCollaborationStyles()}
     if (btnBudget) {
       btnBudget.onclick = function () {
         closeTaskDrawer();
-        var budgetBtn = document.querySelector('button[data-view="console"]');
+        var budgetBtn = document.querySelector('button[data-view="governance"]');
         if (budgetBtn) budgetBtn.click();
       };
     }
@@ -4145,7 +4192,7 @@ ${getCollaborationStyles()}
           item.addEventListener('click', function () {
             var tid = item.getAttribute('data-task-id');
             if (tid) {
-              var taskTab = document.querySelector('button[data-view="tasks"]');
+              var taskTab = document.querySelector('button[data-view="workbench"]');
               if (taskTab) taskTab.click();
               openTaskDrawer(tid);
             }
@@ -4352,6 +4399,30 @@ ${getCollaborationStyles()}
   }
 
   /* ---------- 事件绑定 ---------- */
+  /* GOAL-076 返工2：主题自调（月之亮/暗面），localStorage 持久化 + 初始化。 */
+  (function initTheme() {
+    var saved = null;
+    try { saved = window.localStorage.getItem('mush-theme'); } catch (e) {}
+    applyTheme(saved === 'dark' ? 'dark' : 'light');
+  })();
+  function applyTheme(mode) {
+    document.documentElement.setAttribute('data-theme', mode);
+    var btn = document.getElementById('theme-toggle');
+    if (btn) btn.textContent = mode === 'dark' ? '🌙' : '☀️';
+    try { window.localStorage.setItem('mush-theme', mode); } catch (e) {}
+  }
+  var themeToggle = document.getElementById('theme-toggle');
+  if (themeToggle) themeToggle.addEventListener('click', function () {
+    var cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
+  });
+  /* GOAL-076 返工2：侧栏折叠/展开。 */
+  var navCollapse = document.getElementById('nav-collapse');
+  if (navCollapse) navCollapse.addEventListener('click', function () {
+    var collapsed = document.body.classList.toggle('nav-collapsed');
+    navCollapse.textContent = collapsed ? '⟩⟩' : '⟨⟨';
+    navCollapse.title = collapsed ? '展开侧栏' : '收起侧栏';
+  });
   var chatSettingsToggle = document.getElementById('chat-settings-toggle');
   if (chatSettingsToggle) chatSettingsToggle.addEventListener('click', function () {
     document.getElementById('chat-settings-panel').classList.toggle('open');

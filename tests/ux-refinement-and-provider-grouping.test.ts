@@ -65,13 +65,13 @@ llm-pi-ai:
     assert.strictEqual(tier3, 'T2_CONFIGURED');
   });
 
-  test('3. renderBoardPage renders streamlined 3-entry navbar and task refresh button', () => {
+  test('3. renderBoardPage renders streamlined collapsible sidebar navbar and task refresh button', () => {
     const html = renderBoardPage('test-caller-token-123');
 
-    // 1. Navbar converges to 3 entries (GOAL-076: 对话/工作台/控制台)
+    // 1. Sidebar navbar (G076 rework2: collapsible, 6 entries after content split)
     assert.ok(html.includes('data-view="chat"'));
     assert.ok(html.includes('data-view="workbench"'));
-    assert.ok(html.includes('data-view="console"'));
+    assert.ok(html.includes('id="nav-collapse"'));
 
     // 2. Task pool has manual refresh button and status
     assert.ok(html.includes('id="btn-tasks-refresh"'));
