@@ -214,6 +214,10 @@ ${getCollaborationStyles()}
     border-radius: 6px 6px 0 0; font-family: inherit;
   }
   nav button.active { background: var(--panel); color: var(--ink); border-color: var(--accent-deep); box-shadow: inset 0 2px 0 var(--accent); }
+  /* GOAL-076：控制台分组（L3 按组归类，非页签平铺） */
+  .console-group { margin-bottom: 22px; }
+  .console-group-title { font-size: 13px; color: var(--ink-dim); font-weight: 600; letter-spacing: 1px; margin: 0 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  #view-console section.view, #view-workbench section.view { display: block !important; }
   main { padding: 18px 22px; border-top: 1px solid var(--line); max-width: 1280px; }
   section.view { display: none; }
   section.view.active { display: block; }
@@ -290,11 +294,14 @@ ${getCollaborationStyles()}
   .bar.hot > div { background: var(--danger); }
   /* ---------- GOAL-012：聊天面板（对话视图 = 北极星界面） ---------- */
   #view-chat { display: none; }
-  /* GOAL-020 B2：单屏指挥台 —— 对话主区 + 右侧犬队栏（星型结构视觉化） */
-  #view-chat.active.deck { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; height: calc(100vh - 130px); min-height: 420px; }
+  /* GOAL-020 B2：单屏指挥台 —— 对话主区 + 右侧犬队栏（星型结构视觉化）。
+     GOAL-076（§7-7）：右栏默认收起，经顶栏待办徽标唤出（deck-rail-open 态展开）。 */
+  #view-chat.active.deck { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; height: calc(100vh - 130px); min-height: 420px; }
+  #view-chat.active.deck.deck-rail-open { grid-template-columns: minmax(0, 1fr) 300px; }
   #view-chat .deck-main { display: flex; flex-direction: column; min-width: 0; }
   #view-chat .deck-main #chat-stream { flex: 1; }
-  .deck-rail { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+  .deck-rail { display: none; flex-direction: column; gap: 12px; overflow-y: auto; }
+  #view-chat.deck-rail-open .deck-rail { display: flex; }
   .rail-block { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
   .rail-title { margin: 0 0 8px; font-size: 12px; color: var(--ink-dim); font-weight: 600; letter-spacing: 1px; }
   .rail-dog-card { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--line); font-size: 12px; }
@@ -365,6 +372,24 @@ ${getCollaborationStyles()}
     line-height: 1.6; color: var(--ink-dim); max-height: 240px; overflow-y: auto;
     white-space: pre-wrap; font-family: Consolas, monospace;
   }
+  /* GOAL-076 P2（承接 075）：三段式气泡 = 思考折叠区 + 工具活动区 + 正文 */
+  .tool-activity {
+    margin-bottom: 8px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--panel-subtle); font-size: 12px; color: var(--ink-dim);
+  }
+  .tool-activity .thinking-summary { color: var(--ink-dim); }
+  .tool-activity .thinking-content { border-top: 1px solid var(--line); font-family: inherit; }
+  /* 计划卡（GOAL-075 切片3 精修：去内联样式，纳入设计令牌） */
+  .plan-card {
+    border: 1px solid var(--accent-deep); border-radius: 8px; padding: 12px 14px; margin: 4px 0;
+    background: var(--panel); box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .plan-card .plan-goal { font-weight: 600; color: var(--ink); margin-bottom: 8px; font-size: 14px; }
+  .plan-card table { font-size: 12px; }
+  .plan-card th { color: var(--ink-faint); padding: 4px 8px 4px 0; }
+  .plan-card td { padding: 4px 8px 4px 0; }
+  .plan-card .plan-cost { color: var(--ember); font-size: 12px; margin-top: 8px; }
+  .plan-card .plan-actions { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
   /* ---------- GOAL-012 + GOAL-013L：犬只标识（官方品牌 img 优先，手绘 SVG 兜底）与三态动效 ---------- */
   .dog-logo { display: inline-flex; vertical-align: middle; }
   .dog-logo svg, .dog-logo img { width: 22px; height: 22px; display: block; }
@@ -488,21 +513,15 @@ ${getCollaborationStyles()}
     <h1>mush · 雪橇队指挥台</h1>
   </span>
   <span id="head-dog-badge" title="当前头犬（role: head）"><span class="logo-slot" id="head-dog-logo"></span><span id="head-dog-name">当前头犬：…</span></span>
-  <span id="workspace-current" title="当前 workspace">…</span>
+  <span id="workspace-current" title="当前 workspace（视角切换：点右侧下拉换工作区）">…</span>
+  <button class="act" id="rail-toggle-btn" type="button" title="展开/收起右侧待办栏（审批·活动·犬队·预算）" style="padding:3px 10px;font-size:12px;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)">🛡️ <span id="waiting-count-rail"></span> 待办</button>
   <span class="meta" id="generated"></span>
   <span class="meta" id="sse-status">SSE 连接中…</span>
 </header>
 <nav>
-  <button data-view="chat" class="active">💬 对话工坊</button>
-  <button data-view="tasks">📋 任务池</button>
-  <button data-view="dispatch" class="drawer-tab">🚀 调度</button>
-  <button data-view="streams" class="drawer-tab">🌊 工作流</button>
-  <button data-view="dogs" class="drawer-tab">🐕 犬队与天梯</button>
-  <button data-view="velocity" class="drawer-tab">📈 效能大屏</button>
-  <button data-view="epochs" class="drawer-tab">📜 事件链</button>
-  <button data-view="budget" class="drawer-tab">💰 预算消耗</button>
-  <button data-view="carveouts" class="drawer-tab" style="display:none">写面白名单</button>
-  <button data-view="approvals" class="drawer-tab">🛡️ 审批 <span id="waiting-count"></span></button>
+  <button data-view="chat" class="active">💬 对话</button>
+  <button data-view="workbench">🛠️ 工作台</button>
+  <button data-view="console">🎛️ 控制台 <span id="waiting-count"></span></button>
 </nav>
 <main>
   <section id="view-chat" class="view active deck">
@@ -518,7 +537,7 @@ ${getCollaborationStyles()}
       <label>思维 <select id="chat-effort" style="width:auto;padding:3px 8px;font-size:12px">
         <option>LOW</option>
         <option selected>HIGH</option>
-        <option>XHIGH</option>
+        <option>MAX</option>
       </select></label>
 
 
@@ -567,6 +586,9 @@ ${getCollaborationStyles()}
       </div>
     </aside>
   </section>
+  <section id="view-workbench" class="view">
+    <div class="console-group">
+      <h2 class="console-group-title">📋 任务池</h2>
   <section id="view-tasks" class="view">
     <div class="recent-activity-panel" id="task-recent-activity">
       <div class="recent-activity-header">
@@ -658,19 +680,19 @@ ${getCollaborationStyles()}
           <span id="dispatch-head-hint" class="meta" style="display:none;margin-left:6px"></span>
         </div>
         <div>
-          <label for="dispatch-effort">effort 档位（D20）</label>
+          <label for="dispatch-effort">思维档位（D20）</label>
           <select id="dispatch-effort">
             <option>LOW</option>
             <option>HIGH</option>
-            <option>XHIGH</option>
+            <option>MAX</option>
           </select>
         </div>
         <div>
-          <label for="dispatch-cap">cap_usd（per-actor 上限）</label>
+          <label for="dispatch-cap">预算上限（美元 / 单只犬）</label>
           <input type="number" id="dispatch-cap" min="0.01" step="0.01" value="5">
         </div>
         <div>
-          <label for="dispatch-timeout">timeout_s（秒）</label>
+          <label for="dispatch-timeout">超时（秒）</label>
           <input type="number" id="dispatch-timeout" min="5" max="3600" step="1" placeholder="缺省：干跑 120 / 真实 900">
           <div class="hint" style="margin-top:2px">带工具调用的任务（列目录/读文件）建议 ≥180s。</div>
         </div>
@@ -700,13 +722,21 @@ ${getCollaborationStyles()}
     <h3 style="font-size:13px;color:var(--ink-dim)">派发跟踪</h3>
     <div id="dispatch-list"><div class="empty">暂无派发记录</div></div>
   </section>
+    </div>
+  </section>
+  <section id="view-console" class="view">
+    <div class="console-group">
+      <h2 class="console-group-title">🐕 犬队与工作流</h2>
   <section id="view-dogs" class="view"><div class="roster-manage" id="roster-manage"></div><div id="dogs-table"></div></section>
   <section id="view-streams" class="view"><div class="hint" style="margin-bottom:8px">工作流只读视图（流管理面板属 GP-31）。窗口键 = 犬×Goal；交接块随流记录归档。</div><div id="streams-list"><div class="empty">暂无工作流（v1.6 流 API 落盘后自动出现）</div></div></section>
-  <section id="view-epochs" class="view"></section>
+    </div>
+    <div class="console-group">
+      <h2 class="console-group-title">🛡️ 治理与资金</h2>
+  <section id="view-approvals" class="view"></section>
   <section id="view-budget" class="view"></section>
   <section id="view-carveouts" class="view">
     <div class="card">
-      <h3>Carve-out 声明式写面白名单工作台</h3>
+      <h3>写面授权（声明式写面白名单）</h3>
       <p class="hint">限定犬只写操作仅在已声明的相对路径切片内执行（RM-004 M0 / D31 防御）。</p>
       <div id="carveout-active-wrap" style="margin: 12px 0;"></div>
       <form id="form-grant-carveout" style="display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin-top:12px;">
@@ -714,13 +744,32 @@ ${getCollaborationStyles()}
         <div><label>时效时长<select id="co-select-duration"><option value="15">15 分钟</option><option value="60" selected>1 小时</option><option value="1440">24 小时</option></select></label></div>
         <div><label>关联任务 (Task Ref)<input type="text" id="co-input-task" placeholder="GOAL-034" required></label></div>
         <div class="full"><label>授权原因 (Reason)<input type="text" id="co-input-reason" placeholder="Implementing UI components" required></label></div>
-        <div class="full" style="display:flex;justify-content:flex-end;"><button type="submit" class="primary" id="btn-submit-carveout">签发 Carve-out 白名单</button></div>
+        <div class="full" style="display:flex;justify-content:flex-end;"><button type="submit" class="primary" id="btn-submit-carveout">签发写面授权</button></div>
       </form>
     </div>
-    <h3 style="font-size:13px;color:var(--ink-dim)">切片历史与留痕</h3>
-    <div id="carveouts-history-list"><div class="empty">暂无切片记录</div></div>
+    <h3 style="font-size:13px;color:var(--ink-dim)">授权历史与留痕</h3>
+    <div id="carveouts-history-list"><div class="empty">暂无授权记录</div></div>
   </section>
-  <section id="view-approvals" class="view"></section>
+    </div>
+    <div class="console-group">
+      <h2 class="console-group-title">📜 审计与事件</h2>
+  <section id="view-epochs" class="view"></section>
+    </div>
+    <div class="console-group">
+      <h2 class="console-group-title">🧪 实验室（社交化拓扑与能效）</h2>
+  ${renderDebateArenaHtml()}
+  ${renderPipelineStudioHtml()}
+  ${renderRedBlueStudioHtml()}
+  ${renderBountyMarketHtml()}
+  ${renderSkillsFederationHtml()}
+  ${renderTimeTravelHtml()}
+  ${renderBlackboardHtml()}
+  ${renderLiquidSquadsHtml()}
+  ${renderEloRankingsHtml()}
+  ${renderSelfEvolvingRoutingHtml()}
+    </div>
+  </section>
+</main>
   <div id="task-drawer-overlay" class="task-drawer-overlay" style="display:none">
     <div class="task-drawer" id="task-drawer">
       <div class="task-drawer-header">
@@ -748,18 +797,6 @@ ${getCollaborationStyles()}
       </div>
     </div>
   </div>
-  ${renderDebateArenaHtml()}
-  ${renderPipelineStudioHtml()}
-  ${renderRedBlueStudioHtml()}
-  ${renderBountyMarketHtml()}
-  ${renderSkillsFederationHtml()}
-  ${renderTimeTravelHtml()}
-  ${renderBlackboardHtml()}
-  ${renderLiquidSquadsHtml()}
-  ${renderEloRankingsHtml()}
-  ${renderSelfEvolvingRoutingHtml()}
-  ${renderVelocityMatrixHtml()}
-</main>
 <div id="approval-dialog" style="display:none">
   <dl id="approval-detail"></dl>
   <button class="act cancel" id="btn-cancel" type="button">取消</button>
@@ -1331,9 +1368,10 @@ ${getCollaborationStyles()}
       select.insertAdjacentHTML('afterbegin', '<option value="" selected>（未选择，默认服务目录）</option>');
     }
     var current = workspaces.filter(function (w) { return w.selected; })[0];
+    // GOAL-076 瑕疵清零：未选工作区时显示「默认目录」人话文案，不再直出「服务 cwd」。
     document.getElementById('workspace-current').textContent = current
       ? normalizeDisplayPath(current.path)
-      : 'workspace: 服务 cwd（未选择，派发默认落此处）';
+      : '默认目录（未选择工作区）';
     if (typeof refreshObservationBadge === 'function') refreshObservationBadge(); // GOAL-071：观察态徽标随快照联动
     renderChatWorkspaceOptions();
   }
@@ -1422,9 +1460,9 @@ ${getCollaborationStyles()}
       ];
     } else {
       options = [
-        { label: 'LOW', value: 'LOW' },
-        { label: 'HIGH', value: 'HIGH', selected: true },
-        { label: 'XHIGH', value: 'XHIGH' },
+        { label: 'low', value: 'LOW' },
+        { label: 'high', value: 'HIGH', selected: true },
+        { label: 'max', value: 'MAX' },
       ];
     }
 
@@ -1776,6 +1814,19 @@ ${getCollaborationStyles()}
   }
 
   /* ---------- 派发跟踪卡片（G7B-D2：upsert 更新 + 已耗时计时 + 完成 toast） ---------- */
+  /* GOAL-076 术语表：内部状态码 → 人话标签（§4.3）。class 仍用原始码挂样式，文案译出。 */
+  var STATUS_LABELS = {
+    DRY_RUN: '干跑演练', PASS: '通过', FAIL: '失败', RUNNING: '进行中',
+    BLOCKED_WAITING_OWNER: '等待你批准', BLOCKED_ENV: '环境受阻',
+    TIMEOUT: '超时', INTERRUPTED: '已中断', REJECTED: '已否决',
+    SUPERSEDED: '已被新单替代', ADMITTED: '已受理', WAITING: '待批准',
+    APPROVED: '已批准', PENDING: '排队中',
+  };
+  function statusLabel(code) {
+    var c = String(code || '');
+    return STATUS_LABELS[c] || c;
+  }
+
   var TERMINAL_STATUSES = { DRY_RUN: 1, PASS: 1, FAIL: 1, BLOCKED_WAITING_OWNER: 1, BLOCKED_ENV: 1, TIMEOUT: 1, INTERRUPTED: 1, REJECTED: 1, SUPERSEDED: 1 };
   // GOAL-013L：终态落定闪登记 —— adapter_id → 最近一次新到终态 status
   // （渲染消费一次后清除，下一次同犬新终态再闪）。
@@ -1849,12 +1900,12 @@ ${getCollaborationStyles()}
       '🐕 执行犬 <strong>' + esc(d.adapter_id || '') + '</strong>（当前干活者）' +
       ' · 领队 ' + (req.head_id ? '<span class="mono">' + esc(req.head_id) + '</span>' : '工坊默认') +
       (req.model_id ? ' · 模型 <span class="mono">' + esc(req.model_id) + '</span>' : '') +
-      (req.effort ? ' · effort=' + esc(req.effort) : '') +
-      ' · ' + (req.real === true ? '真实执行' : 'DRY_RUN') +
+      (req.effort ? ' · 思维=' + esc(req.effort) : '') +
+      ' · ' + (req.real === true ? '真实执行' : '干跑演练') +
       (req.timeout_s ? ' · 超时 ' + esc(String(req.timeout_s)) + 's' : '') +
       '</dd>';
     return '<dl style="margin:0">' +
-      '<dt style="color:var(--ink-dim)">状态</dt><dd><span class="badge ' + esc(d.status) + '">' + esc(d.status) + '</span></dd>' +
+      '<dt style="color:var(--ink-dim)">状态</dt><dd><span class="badge ' + esc(d.status) + '">' + esc(statusLabel(d.status)) + '</span></dd>' +
       chainBlock +
       '<dt style="color:var(--ink-dim)">回执锚点</dt><dd class="mono hash">' + esc(d.receipt_path || '（未落盘）') + '</dd>' + stdoutBlock + '</dl>' +
       (events ? '<table><tbody>' + events + '</tbody></table>' : '');
@@ -1897,7 +1948,7 @@ ${getCollaborationStyles()}
       return '<div class="dispatch-card' + (openDetails[d.dispatch_id] ? ' open' : '') + '" data-dispatch="' + esc(d.dispatch_id) + '">' +
         '<div class="head-row">' +
         dogLogo(d.adapter_id || '', cardRunning ? 'working' : cardFlash) + ' ' +
-        '<span class="badge ' + esc(d.status) + '">' + esc(d.status) + '</span> ' +
+        '<span class="badge ' + esc(d.status) + '" title="' + esc(d.status) + '">' + esc(statusLabel(d.status)) + '</span> ' +
         '<span class="mono">' + esc(String(d.dispatch_id).slice(0, 12)) + '…</span> ' +
         esc(d.adapter_id || '') + ' <span class="meta">' + escTime(d.at_utc || '') + '</span>' +
         (elapsed ? '<span class="elapsed">' + elapsed + '</span>' : '') +
@@ -1916,7 +1967,7 @@ ${getCollaborationStyles()}
     el.querySelectorAll('button[data-goto-approvals]').forEach(function (btn) {
       btn.addEventListener('click', function (event) {
         event.stopPropagation();
-        var nav = document.querySelector('button[data-view="approvals"]');
+        var nav = document.querySelector('button[data-view="console"]');
         if (nav) nav.click();
       });
     });
@@ -2117,7 +2168,7 @@ ${getCollaborationStyles()}
 
         var activity = stats.count === 0
           ? '（未活动，注册在册）'
-          : '最近派发：' + stats.count + ' 次 · <span class="badge ' + esc(stats.latest.status) + '">' + esc(stats.latest.status) + '</span> <span class="mono">' + escTime(stats.latest.at_utc || '') + '</span>';
+          : '最近派发：' + stats.count + ' 次 · <span class="badge ' + esc(stats.latest.status) + '" title="' + esc(stats.latest.status) + '">' + esc(statusLabel(stats.latest.status)) + '</span> <span class="mono">' + escTime(stats.latest.at_utc || '') + '</span>';
 
 
         // Providers rendering (Tier 2 & 3)
@@ -2250,7 +2301,7 @@ ${getCollaborationStyles()}
       var dr = dispatches.map(function (d) {
         return '<tr><td class="mono">' + esc(String(d.dispatch_id || '').slice(0, 12)) + '</td>' +
           '<td>' + esc(d.adapter_id) + '</td>' +
-          '<td><span class="badge ' + esc(d.status) + '">' + esc(d.status) + '</span></td>' +
+          '<td><span class="badge ' + esc(d.status) + '" title="' + esc(d.status) + '">' + esc(statusLabel(d.status)) + '</span></td>' +
           '<td class="mono">' + escTime(d.at_utc || '') + '</td></tr>';
       }).join('');
       el.innerHTML = '<div class="hint">（无 epoch 链时显示派发生命周期记录）</div>' +
@@ -2453,7 +2504,10 @@ ${getCollaborationStyles()}
   function renderApprovals() {
     var el = document.getElementById('view-approvals');
     var waiting = snapshot.approvals.filter(function (a) { return a.status === 'WAITING'; });
-    document.getElementById('waiting-count').textContent = waiting.length > 0 ? '(' + waiting.length + ')' : '';
+    var wc = waiting.length > 0 ? '(' + waiting.length + ')' : '';
+    document.getElementById('waiting-count').textContent = wc;
+    var railCount = document.getElementById('waiting-count-rail');
+    if (railCount) railCount.textContent = waiting.length > 0 ? String(waiting.length) : '';
     if (snapshot.approvals.length === 0) { el.innerHTML = '<div class="empty">暂无审批请求</div>'; return; }
     var rows = snapshot.approvals.map(function (a, index) {
       var action = a.status === 'WAITING'
@@ -2461,7 +2515,7 @@ ${getCollaborationStyles()}
         : escTime(a.response ? a.response.responded_at_utc : '');
       return '<tr><td class="mono">' + esc(a.request_file) + '</td><td>' + esc(a.gate) + '</td>' +
         '<td class="mono">' + esc(a.actor_id) + '</td><td>' + esc(a.reason || '') + '</td>' +
-        '<td><span class="badge ' + a.status + '">' + a.status + '</span></td><td>' + action + '</td></tr>';
+        '<td><span class="badge ' + a.status + '" title="' + a.status + '">' + esc(statusLabel(a.status)) + '</span></td><td>' + action + '</td></tr>';
     }).join('');
     el.innerHTML = '<table><thead><tr><th>请求文件</th><th>门</th><th>actor</th><th>事由</th><th>状态</th><th>动作/应答时间</th></tr></thead><tbody>' +
       rows + '</tbody></table>';
@@ -2551,8 +2605,21 @@ ${getCollaborationStyles()}
     return { thinking: '', answer: rawText, isStreamingThink: false };
   }
 
+  /* GOAL-076 P2（承接 075）：三段式气泡 = 思考折叠区 / 工具活动区 / 正文。
+     工具活动以头犬输出的 <tool>…</tool> 块呈现（通道不产出时静默缺省，不造假）。 */
+  function parseToolBlocks(rawText) {
+    var tools = [];
+    var rest = String(rawText || '');
+    var re = new RegExp('<tool>([\\\\s\\\\S]*?)<\\\\/tool>', 'gi');
+    var m;
+    while ((m = re.exec(rest)) !== null) { tools.push(m[1].trim()); }
+    rest = rest.replace(re, '').trim();
+    return { tools: tools, rest: rest };
+  }
+
   function renderChatBubbleContent(text) {
     var p = parseThinkingBlock(text);
+    var t = parseToolBlocks(p.answer);
     var html = '';
     if (p.thinking) {
       html += '<details class="thinking-collapsible"' + (p.isStreamingThink ? ' open' : '') + '>' +
@@ -2560,8 +2627,14 @@ ${getCollaborationStyles()}
         '<div class="thinking-content">' + esc(p.thinking) + '</div>' +
         '</details>';
     }
-    if (p.answer || !p.thinking) {
-      html += '<div class="chat-text-body">' + esc(p.answer) + '</div>';
+    if (t.tools.length > 0) {
+      html += '<details class="tool-activity">' +
+        '<summary class="thinking-summary">🔧 工具活动（' + t.tools.length + ' 项，已折叠）</summary>' +
+        '<div class="thinking-content">' + t.tools.map(function (x) { return esc(x); }).join('\\n\\n') + '</div>' +
+        '</details>';
+    }
+    if (t.rest || (!p.thinking && t.tools.length === 0)) {
+      html += '<div class="chat-text-body">' + esc(t.rest) + '</div>';
     }
     return html;
   }
@@ -2603,7 +2676,7 @@ ${getCollaborationStyles()}
     card.className = 'chat-action-card';
     card.innerHTML = dogLogo(adapterId || '', false) + ' 头犬动作 · 派发 <span class="mono">' +
       esc(String(dispatchId).slice(0, 12)) + '…</span> → ' + esc(adapterId || '') +
-      ' · <span class="badge ' + esc(status) + '">' + esc(status) + '</span>' +
+      ' · <span class="badge ' + esc(status) + '" title="' + esc(status) + '">' + esc(statusLabel(status)) + '</span>' +
       ' <span class="mono">' + escTime(new Date().toISOString()) + '</span>';
     chatStreamEl().appendChild(card);
     chatScrollBottom();
@@ -2922,19 +2995,19 @@ ${getCollaborationStyles()}
         '</td><td>' + esc(s.task || '') + '</td></tr>';
     }).join('');
     card.innerHTML =
-      '<div class="who">📋 派发计划 · 等待 owner 决断</div>' +
-      '<div class="plan-card" style="border:1px solid var(--line);border-radius:6px;padding:8px;margin:4px 0">' +
-      (plan && plan.goal_summary ? '<div style="margin-bottom:4px"><strong>' + esc(plan.goal_summary) + '</strong></div>' : '') +
+      '<div class="who">📋 派发计划 · 等待你决断</div>' +
+      '<div class="plan-card">' +
+      (plan && plan.goal_summary ? '<div class="plan-goal">' + esc(plan.goal_summary) + '</div>' : '') +
       (steps.length
-        ? '<table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr>' +
-          '<th style="text-align:left">#</th><th style="text-align:left">执行犬</th><th style="text-align:left">任务</th></tr></thead><tbody>' +
+        ? '<table><thead><tr>' +
+          '<th>#</th><th>执行犬</th><th>任务</th></tr></thead><tbody>' +
           rows + '</tbody></table>'
         : '<div class="empty">（计划内容为空）</div>') +
-      (plan && plan.est_cost_usd !== undefined ? '<div class="meta" style="margin-top:4px">预估成本 $' + esc(String(plan.est_cost_usd)) + '</div>' : '') +
-      '<div style="display:flex;gap:6px;margin-top:8px" data-plan-actions="' + esc(planId) + '">' +
+      (plan && plan.est_cost_usd !== undefined ? '<div class="plan-cost">预估成本 $' + esc(String(plan.est_cost_usd)) + '</div>' : '') +
+      '<div class="plan-actions" data-plan-actions="' + esc(planId) + '">' +
       '<button class="act approve" data-plan-decide="approve" type="button">✓ 批准执行</button>' +
       '<button class="act cancel" data-plan-decide="reject" type="button">✗ 否决</button>' +
-      '<span class="hint" style="align-self:center">修订：直接回复新计划要点后让头犬重出计划</span>' +
+      '<span class="hint">修订：直接回复新计划要点，让头犬重出计划</span>' +
       '</div></div>';
     stream.appendChild(card);
     card.querySelectorAll('button[data-plan-decide]').forEach(function (btn) {
@@ -3669,7 +3742,7 @@ ${getCollaborationStyles()}
   function prefillDispatchFromTask(taskId) {
     var task = (tasksData || []).filter(function (t) { return t.task_id === taskId; })[0];
     // 「派发」预填派发表单携带 task_id（v1.7 字段随提交；v1.7 落盘前为前端提案）。
-    var dispatchBtn = document.querySelector('button[data-view="dispatch"]');
+    var dispatchBtn = document.querySelector('button[data-view="workbench"]');
     if (dispatchBtn) dispatchBtn.click();
     document.getElementById('dispatch-prompt').value = task ? (task.title + (task.detail ? '\\n\\n' + task.detail : '')) : '';
     document.getElementById('dispatch-form').setAttribute('data-task-id', taskId);
@@ -3710,7 +3783,7 @@ ${getCollaborationStyles()}
         prefillDispatchFromTask(taskId);
         return;
       }
-      var navBtn = document.querySelector('button[data-view="dispatch"]');
+      var navBtn = document.querySelector('button[data-view="workbench"]');
       if (navBtn) navBtn.click();
       var adapterSel = document.getElementById('dispatch-adapter');
       if (!selectOptionByValue(adapterSel, req.adapter_id)) {
@@ -3883,7 +3956,7 @@ ${getCollaborationStyles()}
         linksHtml += relatedDispatches.map(function (d) {
           return '<div class="context-link-item">' +
             '<span>派发 <strong class="mono">' + esc(String(d.dispatch_id).slice(0, 10)) + '…</strong> (' + esc(d.adapter_id) + ')</span>' +
-            '<span class="badge ' + esc(d.status) + '">' + esc(d.status) + '</span>' +
+            '<span class="badge ' + esc(d.status) + '" title="' + esc(d.status) + '">' + esc(statusLabel(d.status)) + '</span>' +
           '</div>';
         }).join('');
       } else {
@@ -3898,7 +3971,7 @@ ${getCollaborationStyles()}
       btnTrace.onclick = function () {
         var last = relatedDispatches[relatedDispatches.length - 1];
         closeTaskDrawer();
-        var dispBtn = document.querySelector('button[data-view="dispatch"]');
+        var dispBtn = document.querySelector('button[data-view="workbench"]');
         if (dispBtn) dispBtn.click();
         if (last) {
           toast('正在查看派发 #' + String(last.dispatch_id).slice(0, 8) + ' 的执行步骤 (Trace)', true);
@@ -3922,7 +3995,7 @@ ${getCollaborationStyles()}
     if (btnBudget) {
       btnBudget.onclick = function () {
         closeTaskDrawer();
-        var budgetBtn = document.querySelector('button[data-view="budget"]');
+        var budgetBtn = document.querySelector('button[data-view="console"]');
         if (budgetBtn) budgetBtn.click();
       };
     }
@@ -4211,6 +4284,10 @@ ${getCollaborationStyles()}
   }
 
   /* ---------- 事件绑定 ---------- */
+  var railToggle = document.getElementById('rail-toggle-btn');
+  if (railToggle) railToggle.addEventListener('click', function () {
+    document.getElementById('view-chat').classList.toggle('deck-rail-open');
+  });
   document.querySelectorAll('nav button').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var viewName = btn.getAttribute('data-view');
@@ -4225,7 +4302,7 @@ ${getCollaborationStyles()}
         target.classList.add('active');
         target.style.display = '';
       }
-      if (viewName === 'tasks') {
+      if (viewName === 'workbench') {
         loadTasks(false);
       }
     });
@@ -4837,7 +4914,7 @@ ${getCollaborationStyles()}
         var badgeClass = c.status === 'ACTIVE' ? 'ok' : (c.status === 'REVOKED' ? 'broken' : 'SUPERSEDED');
         return '<div class="card" style="margin-bottom:8px;padding:8px 12px;">' +
           '<div style="display:flex;justify-content:space-between;font-size:12px;">' +
-          '<span><code>' + esc(c.carveout_id) + '</code> <strong>' + esc(c.task_ref) + '</strong> <span class="badge ' + badgeClass + '">' + esc(c.status) + '</span></span>' +
+          '<span><code>' + esc(c.carveout_id) + '</code> <strong>' + esc(c.task_ref) + '</strong> <span class="badge ' + badgeClass + '" title="' + esc(c.status) + '">' + esc(statusLabel(c.status)) + '</span></span>' +
           '<span class="mono">' + escTime(c.granted_at_utc) + '</span>' +
           '</div>' +
           '<div style="font-size:12px;color:var(--ink-dim);margin-top:4px;">路径: <code>' + esc(c.path_roots.join(', ')) + '</code> · 原因: ' + esc(c.reason) + '</div>' +

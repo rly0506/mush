@@ -65,19 +65,13 @@ llm-pi-ai:
     assert.strictEqual(tier3, 'T2_CONFIGURED');
   });
 
-  test('3. renderBoardPage renders streamlined 9-tab navbar and task refresh button', () => {
+  test('3. renderBoardPage renders streamlined 3-entry navbar and task refresh button', () => {
     const html = renderBoardPage('test-caller-token-123');
 
-    // 1. Navbar contains concise 9 main views
+    // 1. Navbar converges to 3 entries (GOAL-076: 对话/工作台/控制台)
     assert.ok(html.includes('data-view="chat"'));
-    assert.ok(html.includes('data-view="tasks"'));
-    assert.ok(html.includes('data-view="dispatch"'));
-    assert.ok(html.includes('data-view="streams"'));
-    assert.ok(html.includes('data-view="dogs"'));
-    assert.ok(html.includes('data-view="velocity"'));
-    assert.ok(html.includes('data-view="epochs"'));
-    assert.ok(html.includes('data-view="budget"'));
-    assert.ok(html.includes('data-view="approvals"'));
+    assert.ok(html.includes('data-view="workbench"'));
+    assert.ok(html.includes('data-view="console"'));
 
     // 2. Task pool has manual refresh button and status
     assert.ok(html.includes('id="btn-tasks-refresh"'));
