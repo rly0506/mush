@@ -37,3 +37,5 @@ Thumbs.db
 # mush runtime worktrees (F-45 per-dog isolation)
 runtime/worktrees/
 .playwright-mcp/
+.venv-pw/
+.zcode/
