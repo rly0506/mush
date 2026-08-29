@@ -198,12 +198,26 @@ export async function runClaudeStreamRun(options: ClaudeStreamRunOptions): Promi
   let exitCode = 124;
   const child = spawn(options.contract.executable, args, {
     cwd: options.cwd ?? options.workspaceRoot,
-    ...(options.extraEnv !== undefined || process.env.MUSH_CLAUDE_MAX_OUTPUT_TOKENS !== undefined
+    ...(options.extraEnv !== undefined ||
+    process.env.MUSH_CLAUDE_MAX_OUTPUT_TOKENS !== undefined ||
+    options.contract.provider_base_url !== undefined
       ? {
           env: {
             ...(process.env as Record<string, string>),
             ...(process.env.MUSH_CLAUDE_MAX_OUTPUT_TOKENS !== undefined
               ? { CLAUDE_CODE_MAX_OUTPUT_TOKENS: process.env.MUSH_CLAUDE_MAX_OUTPUT_TOKENS }
+              : {}),
+            // provider 网关：合同声明 Anthropic 兼容端点 + 宿主环境密钥（不入库）。
+            ...(options.contract.provider_base_url !== undefined
+              ? {
+                  ANTHROPIC_BASE_URL: options.contract.provider_base_url,
+                  ...(() => {
+                    const keyEnv =
+                      'MUSH_' + options.contract.adapter_id.toUpperCase().replace(/[^A-Z0-9]/g, '_') + '_API_KEY';
+                    const key = process.env[keyEnv];
+                    return key !== undefined && key !== '' ? { ANTHROPIC_AUTH_TOKEN: key, ANTHROPIC_API_KEY: key } : {};
+                  })(),
+                }
               : {}),
             ...options.extraEnv,
           },

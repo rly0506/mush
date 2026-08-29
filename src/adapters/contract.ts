@@ -26,6 +26,10 @@ export interface AdapterContract {
   readonly prompt_transport: PromptTransport;
   readonly expected_provider: string;
   readonly expected_model_id: string;
+  /** GOAL-076+：provider 网关接入——自定义 Anthropic 兼容端点（如 TBTK/New API 中转）。
+   *  运行时经 extraEnv 注入 ANTHROPIC_BASE_URL；密钥不入库，由 runner 从宿主环境读
+   *  （env 名 = `MUSH_{ADAPTER_ID}_API_KEY`，adapter_id 大写、连字符转下划线）。 */
+  readonly provider_base_url?: string;
   /** G009：可切换的模型变体（UI 下拉数据源）；缺省 = 仅合同默认模型。 */
   readonly variants?: readonly string[];
   /** G009：变体切换的 CLI 注入旗标（如 claude 的 '--model'）；缺省 = 该通道
@@ -139,6 +143,14 @@ export function validateAdapterContract(input: unknown): AdapterContract {
     prompt_transport: record.prompt_transport as PromptTransport,
     expected_provider: (record.expected_provider as string).trim(),
     expected_model_id: (record.expected_model_id as string).trim(),
+    ...(record.provider_base_url !== undefined
+      ? (() => {
+          if (typeof record.provider_base_url !== 'string' || !/^https:\/\//.test(record.provider_base_url)) {
+            throw new Error("adapter contract 'provider_base_url' must be an https URL when present");
+          }
+          return { provider_base_url: record.provider_base_url.trim().replace(/\/+$/, '') };
+        })()
+      : {}),
     ...(record.variants !== undefined ? { variants: [...(record.variants as string[])] } : {}),
     ...(record.model_flag !== undefined ? { model_flag: (record.model_flag as string).trim() } : {}),
     ...(record.role !== undefined ? { role: record.role } : {}),
