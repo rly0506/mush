@@ -38,7 +38,8 @@ test('head-dog action cards: structured dispatch/review records inside message f
 
 test('approval gate直通: pending gates auto-popup inside chat flow (触发门)', () => {
   assert.match(html, /chatPromptedApprovals/, '已弹审批的去重记录');
-  assert.match(html, /chat pending approval/, '聊天流内嵌审批提示');
+  // GOAL-081：提示升级为内联可批审批卡（批准/否决/改后批准），旧「chat pending approval」文案退役。
+  assert.match(html, /chat-approval-card/, '聊天流内嵌审批卡（GOAL-081 三键）');
   assert.match(html, /openDialog\(/, '复用审批弹窗应答（append-only 语义不变）');
 });
 

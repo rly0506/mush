@@ -25,6 +25,7 @@ import { renderEloRankingsHtml } from './ui/views/elo-view.ts';
 import { renderSelfEvolvingRoutingHtml } from './ui/views/routing-view.ts';
 import { renderVelocityMatrixHtml } from './ui/views/velocity-view.ts';
 import { getCollaborationClientScript } from './ui/client-scripts.ts';
+import { keyedListHtml } from './ui/keyed-patch.ts';
 
 export function renderBoardPage(callerToken?: string): string {
   return `<!doctype html>
@@ -52,6 +53,17 @@ ${getCollaborationStyles()}
     --spark: #1A73E8;
     --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
     --font-mono: Consolas, "Courier New", monospace;
+    /* GOAL-079：动效令牌（一次定义，全站引用）。配色值不在本 Goal 改动。 */
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+    --dur-press: 160ms; --dur-pop: 180ms; --dur-drawer: 400ms;
+    --shadow-pop: 0 10px 32px rgba(0,0,0,0.35);
+    --shadow-drawer: -8px 0 28px rgba(0,0,0,0.4);
+    --shadow-card: 0 2px 6px rgba(0,0,0,0.02);
+  }
+  /* GOAL-079：a11y 底线——用户系统级减动效时全站过渡降为 1ms。 */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; }
   }
   /* 亮面（默认，柔和雪原白昼） */
   :root, :root[data-theme="light"] {
@@ -128,11 +140,20 @@ ${getCollaborationStyles()}
     position: absolute; top: calc(100% + 8px); z-index: 60;
     min-width: 300px; max-width: 420px;
     background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-    padding: 12px 14px; box-shadow: 0 10px 32px rgba(0,0,0,0.35);
-    display: none; flex-direction: column; gap: 10px;
+    padding: 12px 14px; box-shadow: var(--shadow-pop);
+    display: flex; flex-direction: column; gap: 10px;
     font-size: 12px; color: var(--ink); text-align: left;
+    /* GOAL-079：display 硬切改 opacity+scale 过渡；visibility 延迟隐藏保离场动画。 */
+    opacity: 0; transform: scale(0.97); pointer-events: none; visibility: hidden;
+    transition: opacity var(--dur-pop) var(--ease-out), transform var(--dur-pop) var(--ease-out), visibility 0s linear var(--dur-pop);
   }
-  .capsule-pop.open { display: flex; }
+  /* 两个触发点各钉固定 transform-origin（头犬胶囊居左/工作区胶囊居右），不写动态计算。 */
+  #head-dog-pop { transform-origin: top left; }
+  #workspace-pop { transform-origin: top right; }
+  .capsule-pop.open {
+    opacity: 1; transform: none; pointer-events: auto; visibility: visible;
+    transition-delay: 0s, 0s, 0s;
+  }
   .capsule-pop .pop-title { font-size: 11px; color: var(--ink-faint); letter-spacing: 1px; margin-bottom: 2px; }
   .capsule-pop label { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
   .capsule-pop select { flex: 1; max-width: 260px; padding: 4px 8px; font-size: 12px; }
@@ -192,20 +213,20 @@ ${getCollaborationStyles()}
   .task-batch-bar .hint { color: var(--ink-dim); }
   /* GOAL-024：任务视图切换与思维导图 / DAG 路径图 */
   .tasks-view-switch { display: inline-flex; gap: 4px; background: var(--panel-hi); padding: 3px; border-radius: 6px; border: 1px solid var(--line); }
-  .view-switch-btn { background: transparent; border: none; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 500; color: var(--ink-dim); cursor: pointer; transition: all 0.15s ease; }
+  .view-switch-btn { background: transparent; border: none; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 500; color: var(--ink-dim); cursor: pointer; transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
   .view-switch-btn:hover { color: var(--ink); }
   .view-switch-btn.active { background: var(--panel); color: var(--ink); border: 1px solid var(--line); font-weight: 600; }
   /* GOAL-024 & D68: 全景路线图与思维导图拓扑系统 (Column-Tree DAG Mindmap) */
   .dag-viewport { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 14px; overflow-x: auto; min-height: 480px; position: relative; }
   .dag-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; padding: 8px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; flex-wrap: wrap; }
   .dag-zoom-controls { display: inline-flex; align-items: center; gap: 6px; }
-  .dag-zoom-btn { padding: 3px 9px; font-size: 11px; background: var(--panel-hi); border: 1px solid var(--line); border-radius: 5px; color: var(--ink); cursor: pointer; transition: all 0.15s ease; }
+  .dag-zoom-btn { padding: 3px 9px; font-size: 11px; background: var(--panel-hi); border: 1px solid var(--line); border-radius: 5px; color: var(--ink); cursor: pointer; transition: border-color 0.15s ease, color 0.15s ease; }
   .dag-zoom-btn:hover { border-color: var(--accent); color: var(--accent); }
   .dag-legend { display: inline-flex; align-items: center; gap: 12px; font-size: 11px; color: var(--ink-dim); flex-wrap: wrap; }
   .dag-legend-item { display: inline-flex; align-items: center; gap: 4px; }
   .dag-tree-canvas { display: flex; gap: 18px; min-width: max-content; padding-bottom: 24px; transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1); transform-origin: top left; }
   .dag-column-group { display: flex; flex-direction: column; align-items: center; width: 230px; flex-shrink: 0; position: relative; }
-  .dag-milestone-header { width: 100%; background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--accent); border-radius: 8px; padding: 10px 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.02); position: relative; transition: all 0.15s ease; box-sizing: border-box; }
+  .dag-milestone-header { width: 100%; background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--accent); border-radius: 8px; padding: 10px 12px; box-shadow: var(--shadow-card); position: relative; transition: border-color 0.15s ease, box-shadow 0.15s ease; box-sizing: border-box; }
   .dag-milestone-header:hover { border-color: var(--accent); box-shadow: 0 4px 12px rgba(204,107,73,0.12); }
   .dag-milestone-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 4px; }
   .dag-milestone-title { font-size: 12px; font-weight: 700; color: var(--ink); display: flex; align-items: center; gap: 6px; }
@@ -214,7 +235,7 @@ ${getCollaborationStyles()}
   .dag-column-spine { display: flex; flex-direction: column; align-items: center; width: 100%; margin-top: 8px; position: relative; box-sizing: border-box; }
   .dag-spine-connector { width: 2px; height: 12px; background: var(--line); position: relative; margin: 1px 0; }
   .dag-spine-connector::after { content: ''; position: absolute; bottom: 0; left: -3px; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid var(--line); }
-  .dag-card-node { width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 1px 3px rgba(0,0,0,0.02); position: relative; user-select: none; box-sizing: border-box; }
+  .dag-card-node { width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; transition: border-color 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 1px 3px rgba(0,0,0,0.02); position: relative; user-select: none; box-sizing: border-box; }
   .dag-card-node:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 14px rgba(204,107,73,0.18); }
   .dag-card-node:active { transform: translateY(0); }
   .dag-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; gap: 4px; }
@@ -279,17 +300,23 @@ ${getCollaborationStyles()}
   /* GOAL-076 返工：派发抽屉（右滑出，遮罩可关）。 */
   .dispatch-drawer {
     position: fixed; top: 0; right: 0; width: 520px; max-width: 92vw; height: 100vh; z-index: 60;
-    background: var(--bg); border-left: 1px solid var(--line); box-shadow: -8px 0 28px rgba(0,0,0,0.4);
-    overflow-y: auto; padding: 16px 18px; display: none;
+    background: var(--bg); border-left: 1px solid var(--line); box-shadow: var(--shadow-drawer);
+    overflow-y: auto; padding: 16px 18px;
+    /* GOAL-079：display 硬切改 translateX 过渡（百分比写法），visibility 延迟隐藏否则 transition 失效。 */
+    transform: translateX(100%); visibility: hidden;
+    transition: transform var(--dur-drawer) var(--ease-drawer), visibility 0s linear var(--dur-drawer);
   }
-  .dispatch-drawer.open { display: block !important; }
+  .dispatch-drawer.open {
+    transform: none; visibility: visible;
+    transition-delay: 0s, 0s;
+  }
   .dispatch-drawer-card { background: var(--panel); }
   #view-team section.view, #view-governance section.view, #view-insights section.view, #view-lab section.view, #view-workbench section.view { display: block !important; }
-  #view-workbench section.view.dispatch-drawer { display: none !important; }
-  #view-workbench section.view.dispatch-drawer.open { display: block !important; }
   main { padding: 18px 22px; max-width: 1280px; min-width: 0; }
   section.view { display: none; }
-  section.view.active { display: block; }
+  /* GOAL-079：视图切换降档为 opacity 淡入（120ms，不做位移）。 */
+  section.view.active { display: block; animation: view-fade-in 120ms ease-out; }
+  @keyframes view-fade-in { from { opacity: 0; } to { opacity: 1; } }
   table { border-collapse: collapse; width: 100%; font-size: 13px; }
   th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--ink-dim); font-weight: 600; }
@@ -320,6 +347,9 @@ ${getCollaborationStyles()}
   .empty { color: var(--ink-faint); font-size: 13px; padding: 24px 0; text-align: center; }
   /* GOAL-078：SSE 状态默认隐藏，仅断线时显示红条（JS 控制 display）。 */
   #sse-status { font-size: 11px; color: var(--danger); border: 1px solid var(--danger); border-radius: 6px; padding: 2px 8px; }
+  /* GOAL-081：第一单零配置引导横幅 */
+  .first-task-banner { margin: 0 18px 10px; padding: 10px 14px; background: var(--panel-hi); border: 1px solid var(--accent-deep); border-radius: 10px; font-size: 13px; color: var(--ink); display: flex; gap: 10px; align-items: center; }
+  .first-task-banner button { flex: none; }
   form#dispatch-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
   form#dispatch-form label { font-size: 12px; color: var(--ink-dim); display: block; margin-bottom: 4px; }
   form#dispatch-form .full { grid-column: 1 / -1; }
@@ -348,15 +378,22 @@ ${getCollaborationStyles()}
   dialog dd { margin: 2px 0 0; word-break: break-all; }
   dialog .actions { margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end; }
   button.act { padding: 8px 18px; border-radius: 6px; border: 1px solid; cursor: pointer; font-size: 13px; background: transparent; font-family: inherit; }
+  /* GOAL-079：全站按压反馈——只动 transform，配合上方过渡清算避免布局抖动。 */
+  button { transition: transform var(--dur-press) var(--ease-out); }
+  button:active { transform: scale(0.97); }
   button.act.approve { color: var(--ok); border-color: var(--ok); }
   button.act.reject { color: var(--danger); border-color: var(--danger); }
   button.act.cancel { color: var(--ink-dim); border-color: var(--line); }
   /* 通知栈（GP-18）：多条 toast 叠放，终态成功/失败分色 */
   #toast-stack { position: fixed; bottom: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 99; }
-  .toast { padding: 10px 16px; border-radius: 6px; font-size: 13px; max-width: 420px; animation: toast-in .18s ease-out; }
+  /* GOAL-079：toast 删 keyframes 改 transition（可中断重定向）；@starting-style 入场，离场走同一边（向上淡出）。 */
+  .toast { padding: 10px 16px; border-radius: 6px; font-size: 13px; max-width: 420px;
+    transition: opacity var(--dur-pop) var(--ease-out), transform var(--dur-pop) var(--ease-out);
+  }
+  @starting-style { .toast { opacity: 0; transform: translateY(8px); } }
+  .toast.leaving { opacity: 0; transform: translateY(8px); }
   .toast.ok { background: var(--ok-tint); color: var(--ok); border: 1px solid var(--ok); }
   .toast.err { background: rgba(224,96,79,0.12); color: var(--danger); border: 1px solid var(--danger); }
-  @keyframes toast-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
   .bar { height: 8px; background: var(--panel-hi); border-radius: 4px; overflow: hidden; min-width: 120px; }
   .bar > div { height: 100%; background: var(--ok); }
   .bar.hot > div { background: var(--danger); }
@@ -406,6 +443,14 @@ ${getCollaborationStyles()}
     border-radius: 8px; padding: 8px 12px; font-size: 12px; color: var(--ink-dim);
   }
   .chat-action-card .mono { color: var(--info); }
+  /* GOAL-081：审批内联卡——批准/否决/改后批准三键 + 回执徽标 */
+  .chat-approval-card { border-style: solid; border-color: var(--ember); color: var(--ink); }
+  .chat-approval-card.chat-appr-done { border-color: var(--ok); }
+  .chat-approval-card.chat-appr-rejected { border-color: var(--danger); }
+  .chat-appr-meta { margin: 4px 0; font-size: 12px; color: var(--ink-dim); }
+  .chat-appr-actions { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+  .chat-appr-detail { margin-top: 6px; }
+  .chat-appr-detail pre { max-height: 140px; overflow: auto; white-space: pre-wrap; word-break: break-all; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
   #chat-composer { display: flex; gap: 10px; padding-top: 12px; }
   #chat-input { flex: 1; min-height: 44px; max-height: 160px; }
   #chat-send { flex: none; align-self: flex-end; }
@@ -620,6 +665,12 @@ ${getCollaborationStyles()}
   <button data-view="lab">🧪 实验室</button>
 </nav>
 <main>
+  <!-- GOAL-081：第一单零配置引导横幅（默认隐藏；无任何 verified 犬时由 JS 升起） -->
+  <div id="first-task-banner" style="display:none" class="first-task-banner">
+    🐶 还没配置任何犬只——可以先走 <b>opencode 免费通道</b>直接发第一单，稍后再配其它犬。
+    <button class="act approve" id="btn-first-task" type="button">发第一单</button>
+    <button class="act cancel" id="btn-first-task-dismiss" type="button" title="关闭引导（不再提示）">知道了</button>
+  </div>
   <section id="view-chat" class="view active deck">
     <div class="deck-main">
     <div class="chat-toolbar">
@@ -727,7 +778,7 @@ ${getCollaborationStyles()}
         <textarea id="task-detail" maxlength="8000" placeholder="任务详情…" style="min-height:56px"></textarea></div>
     </div>
   </section>
-  <section id="view-dispatch" class="view dispatch-drawer" style="display:none">
+  <section id="view-dispatch" class="view dispatch-drawer">
     <div class="card dispatch-drawer-card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <h3 style="margin:0">派发任务</h3>
@@ -1017,7 +1068,11 @@ ${getCollaborationStyles()}
     el.textContent = message;
     stack.appendChild(el);
     while (stack.children.length > 4) stack.removeChild(stack.firstChild);
-    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 4500);
+    // GOAL-079：离场走同一边——先加 leaving class 播完过渡再移除节点（定时器兜底）。
+    setTimeout(function () {
+      el.classList.add('leaving');
+      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 220);
+    }, 4500);
   }
 
   // 派发终态浏览器通知：仅在用户显式开启且授权后触发；页面可见时不打扰。
@@ -1037,6 +1092,99 @@ ${getCollaborationStyles()}
   function getCallerAuth() {
     var meta = document.querySelector('meta[name="mush-caller-auth"]');
     return meta ? (meta.getAttribute('content') || '') : '';
+  }
+
+  /* ---------- GOAL-081：键控增量补丁（渲染竞态根治，与 src/web/ui/keyed-patch.ts 同构副本） ----------
+     SSE 快照高频区（派发/泳道卡/审批/活动流）不再整段 innerHTML 重建：
+     包裹段逐项带 data-key，按 key diff——HTML 未变节点引用不动（点击不被吞、
+     滚动不跳），变化节点就地换 innerHTML（其上监听有意作废待重绑），
+     新增/消失节点插入/移除。 */
+  function patchList(root, items) {
+    var stats = { added: 0, updated: 0, removed: 0, kept: 0 };
+    var remaining = {};
+    var order = [];
+    Array.prototype.forEach.call(root.children, function (child) {
+      var key = child.getAttribute('data-key');
+      if (key !== null && !(key in remaining)) { remaining[key] = child; order.push(key); }
+    });
+    var cursor = root.firstChild;
+    items.forEach(function (item) {
+      var existing = remaining[item.key];
+      if (existing !== undefined) {
+        if (existing.innerHTML !== item.html) { existing.innerHTML = item.html; stats.updated += 1; }
+        else stats.kept += 1;
+        if (cursor !== existing) root.insertBefore(existing, cursor);
+        else cursor = existing.nextSibling;
+        delete remaining[item.key];
+        return;
+      }
+      var wrapper = document.createElement('div');
+      wrapper.setAttribute('data-key', item.key);
+      wrapper.innerHTML = item.html;
+      root.insertBefore(wrapper, cursor);
+      stats.added += 1;
+    });
+    order.forEach(function (key) {
+      if (key in remaining) { remaining[key].remove(); stats.removed += 1; }
+    });
+    return stats;
+  }
+  function clearKeyed(root, html) {
+    root.innerHTML = html || '';
+  }
+
+  /* GOAL-081：任务卡动作全站委托（document 级）——卡片节点重建后无需重绑，
+     委托永久生效；与卡片上的既有绑定共存（委托只兜底 button，卡片体点击
+     仍走节点监听，二者并存不双击）。 */
+  function g081DelegateClicks() {
+    document.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('button') : null;
+      if (!btn) return;
+      var id;
+      if (btn.hasAttribute('data-task-dispatch')) {
+        e.stopPropagation();
+        id = btn.getAttribute('data-task-dispatch');
+        if (id) prefillDispatchFromTask(id);
+      } else if (btn.hasAttribute('data-task-rerun')) {
+        e.stopPropagation();
+        var dispatchId = btn.getAttribute('data-rerun-dispatch');
+        id = btn.getAttribute('data-task-rerun');
+        if (dispatchId && id) prefillDispatchFromSnapshot(dispatchId, id);
+      } else if (btn.hasAttribute('data-task-move')) {
+        e.stopPropagation();
+        postJson('/api/tasks/' + encodeURIComponent(btn.getAttribute('data-task-move')) + '/transition',
+          { status: btn.getAttribute('data-to') }).then(function (result) {
+          if (result.body && result.body.ok) { loadTasks(); }
+          else { toast('迁移失败：' + ((result.body && result.body.error) || result.status), false); }
+        }).catch(function (error) { toast('迁移失败：' + error, false); });
+      } else if (btn.hasAttribute('data-task-mark-done')) {
+        e.stopPropagation();
+        id = btn.getAttribute('data-task-mark-done');
+        if (!id) return;
+        if (!window.confirm('确认该目标已完成（含在 mush 之外完成的情形）？将直接归档进完成池并留痕。')) return;
+        postJson('/api/tasks/' + encodeURIComponent(id) + '/mark-done', {}).then(function (result) {
+          if (result.body && result.body.ok) { toast('已标记完成并归档', true); loadTasks(); }
+          else { toast('标记完成失败：' + ((result.body && result.body.error) || result.status), false); }
+        }).catch(function (error) { toast('标记完成失败：' + error, false); });
+      } else if (btn.hasAttribute('data-goto-approvals')) {
+        e.stopPropagation();
+        var nav = document.querySelector('button[data-view="governance"]');
+        if (nav) nav.click();
+      } else if (btn.hasAttribute('data-respond') && btn.hasAttribute('data-file')) {
+        respondTo(btn.getAttribute('data-file'), btn.getAttribute('data-respond'));
+      } else if (btn.hasAttribute('data-toggle-appr')) {
+        var key = btn.getAttribute('data-toggle-appr');
+        if (openRailApprovals[key]) delete openRailApprovals[key]; else openRailApprovals[key] = true;
+        renderRailApprovals();
+      } else if (btn.hasAttribute('data-task-menu')) {
+        e.stopPropagation();
+        var menu = btn.parentElement ? btn.parentElement.querySelector('.task-menu') : null;
+        if (!menu) return;
+        var opening = menu.style.display === 'none';
+        document.querySelectorAll('.task-menu').forEach(function (m) { m.style.display = 'none'; });
+        if (opening) menu.style.display = 'flex';
+      }
+    }, true); // capture：先于卡片节点监听执行，stopPropagation 防双触发
   }
 
   function fetchJson(url, opts) {
@@ -2067,14 +2215,15 @@ ${getCollaborationStyles()}
     fromSnapshot.forEach(function (d) { known[d.dispatch_id] = d; });
     trackedDispatches.forEach(function (d) { if (!known[d.dispatch_id]) known[d.dispatch_id] = d; });
     var list = Object.keys(known).map(function (id) { return known[id]; });
-    if (list.length === 0) { el.innerHTML = '<div class="empty">暂无派发记录</div>'; return; }
-    el.innerHTML = list.map(function (d) {
+    // GOAL-081：键控增量——改一张卡只动一个节点，其余卡片 DOM 引用不变（点击不吞）。
+    if (list.length === 0) { clearKeyed(el, '<div class="empty">暂无派发记录</div>'); return; }
+    var dispatchItems = list.map(function (d) {
       var elapsed = elapsedText(d);
       var cardRunning = isRunningStatus(d.status);
       // GOAL-013L：派发卡头行嵌入犬只图标——RUNNING 时 working 跳动，新到终态落定闪一次。
       var cardFlash = !cardRunning && flashRegistry[d.dispatch_id] === d.status
         ? 'flash-' + (d.status === 'PASS' || d.status === 'DRY_RUN' ? 'pass' : 'fail') : 'idle';
-      return '<div class="dispatch-card' + (openDetails[d.dispatch_id] ? ' open' : '') + '" data-dispatch="' + esc(d.dispatch_id) + '">' +
+      var inner = '<div class="dispatch-card' + (openDetails[d.dispatch_id] ? ' open' : '') + '" data-dispatch="' + esc(d.dispatch_id) + '">' +
         '<div class="head-row">' +
         dogLogo(d.adapter_id || '', cardRunning ? 'working' : cardFlash) + ' ' +
         '<span class="badge ' + esc(d.status) + '" title="' + esc(d.status) + '">' + esc(statusLabel(d.status)) + '</span> ' +
@@ -2087,19 +2236,14 @@ ${getCollaborationStyles()}
           : '') +
         '</div>' +
         '<div class="detail">' + (detailCache[d.dispatch_id] || '加载中…') + '</div></div>';
-    }).join('');
+      return { key: String(d.dispatch_id), html: inner };
+    });
+    patchList(el, dispatchItems);
     // D4（GOAL-012B）：折叠热区收缩到头部行；detail 内点击不冒泡、文字可选中。
     el.querySelectorAll('.dispatch-card .head-row').forEach(function (headRow) {
       headRow.addEventListener('click', function () { toggleDispatchDetail(headRow.parentNode); });
     });
-    // GP-32：去审批按钮切到审批视图（不冒泡，避免触发卡片折叠）。
-    el.querySelectorAll('button[data-goto-approvals]').forEach(function (btn) {
-      btn.addEventListener('click', function (event) {
-        event.stopPropagation();
-        var nav = document.querySelector('button[data-view="governance"]');
-        if (nav) nav.click();
-      });
-    });
+    // GP-32/GOAL-081：去审批按钮走 document 委托（g081DelegateClicks），不再 per-render 绑定。
     el.querySelectorAll('.dispatch-card .detail').forEach(function (detail) {
       detail.addEventListener('click', function (event) { event.stopPropagation(); });
     });
@@ -2437,7 +2581,8 @@ ${getCollaborationStyles()}
         '<table><thead><tr><th>dispatch</th><th>犬</th><th>状态</th><th>最近时间</th></tr></thead><tbody>' + dr + '</tbody></table>';
       return;
     }
-    el.innerHTML = snapshot.epochs.map(function (epoch) {
+    // GOAL-081：epoch 卡键控增量（key=run_id#epoch）——事件链表只重画变化卡。
+    patchList(el, snapshot.epochs.map(function (epoch) {
       var chainBadge = epoch.chain_verified
         ? '<span class="badge ok">链校验通过</span>'
         : '<span class="badge broken">链断裂</span>';
@@ -2449,12 +2594,13 @@ ${getCollaborationStyles()}
           '<td class="hash">' + (ev.previous_sha256 ? shortHash(ev.previous_sha256) : 'genesis') + '</td>' +
           '<td class="mono">' + escTime(ev.created_at_utc) + '</td></tr>';
       }).join('');
-      return '<div class="card"><h3>run ' + esc(epoch.run_id) + ' · epoch ' + epoch.assignment_epoch +
+      var cardHtml = '<div class="card"><h3>run ' + esc(epoch.run_id) + ' · epoch ' + epoch.assignment_epoch +
         ' · ' + epoch.event_count + ' 事件 ' + chainBadge +
         ' <span class="hash">head ' + shortHash(epoch.chain_head) + '</span></h3>' +
         '<table><thead><tr><th>#</th><th>类型</th><th>actor</th><th>phase</th><th>摘要</th><th>sha256</th><th>前锚</th><th>时间</th></tr></thead><tbody>' +
         rows + '</tbody></table></div>';
-    }).join('');
+      return { key: String(epoch.run_id) + '#' + String(epoch.assignment_epoch), html: cardHtml };
+    }));
   }
 
   /* ---------- 预算与真实会话用量视图（GET /api/budget + GET /api/usage；GOAL-027） ---------- */
@@ -2591,11 +2737,12 @@ ${getCollaborationStyles()}
     var el = document.getElementById('rail-approvals');
     if (!el || !snapshot) return;
     var waiting = snapshot.approvals.filter(function (a) { return a.status === 'WAITING'; });
-    if (waiting.length === 0) { el.innerHTML = ''; return; }
-    el.innerHTML = waiting.map(function (a, i) {
+    // GOAL-081：键控增量——批准点击瞬间若恰逢快照刷新，卡片节点不被销毁。
+    if (waiting.length === 0) { clearKeyed(el, ''); return; }
+    var railItems = waiting.map(function (a, i) {
       var key = a.request_file;
       var open = openRailApprovals[key] === true;
-      return '<div class="rail-appr-card" data-appr="' + esc(key) + '">' +
+      var cardHtml = '<div class="rail-appr-card" data-appr="' + esc(key) + '">' +
         '<div class="rail-appr-head">' +
         '<span class="badge ember-badge">⛔ 审批 ' + (i + 1) + '/' + waiting.length + '</span>' +
         '<span class="rail-appr-goal-inline">' + esc((a.dispatch && a.dispatch.goal_id) || a.goal_id || a.gate) + '</span></div>' +
@@ -2605,17 +2752,10 @@ ${getCollaborationStyles()}
         '<button class="act reject" data-respond="REJECTED" data-file="' + esc(key) + '" type="button">否决</button>' +
         '<button class="act cancel" data-toggle-appr="' + esc(key) + '" type="button">' + (open ? '收起' : '详情') + '</button>' +
         '</div></div>';
-    }).join('');
-    el.querySelectorAll('button[data-respond]').forEach(function (btn) {
-      btn.addEventListener('click', function () { respondTo(btn.getAttribute('data-file'), btn.getAttribute('data-respond')); });
+      return { key: String(key), html: cardHtml };
     });
-    el.querySelectorAll('button[data-toggle-appr]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var key = btn.getAttribute('data-toggle-appr');
-        if (openRailApprovals[key]) delete openRailApprovals[key]; else openRailApprovals[key] = true;
-        renderRailApprovals();
-      });
-    });
+    patchList(el, railItems);
+    // GOAL-081：批准/否决/详情全部由 g081DelegateClicks 文档级委托承接。
   }
 
   function respondTo(requestFile, decision) {
@@ -2836,21 +2976,73 @@ ${getCollaborationStyles()}
     chatScrollBottom();
   }
 
-  // 触发门审批直通：WAITING 审批出现时，聊天流嵌入提示并自动弹一次审批窗（幂等）。
+  // GOAL-081：D30 派发审批卡内联聊天流——WAITING 审批以可批卡片直接嵌入对话主轴
+  //（批准/否决/改后批准三键 + 详情折叠），批准即原卡回填回执徽标；批准不打断对话。
+  // 看板审批栏顶卡保留为聚合视图（renderRailApprovals 照旧）。
   function chatPromptApprovals() {
     if (!snapshot || !snapshot.approvals) return;
     snapshot.approvals.forEach(function (a) {
       if (a.status !== 'WAITING' || chatPromptedApprovals[a.request_file]) return;
       chatPromptedApprovals[a.request_file] = true;
       chatClearEmpty();
-      var note = document.createElement('div');
-      note.className = 'chat-action-card';
-      note.innerHTML = '⛔ chat pending approval：触发门 <b>' + esc(a.gate) + '</b> 等待应答（' +
-        esc(a.actor_id || '') + '）——已弹出审批窗，也可在「审批」页处理。';
-      chatStreamEl().appendChild(note);
+      var card = document.createElement('div');
+      card.className = 'chat-action-card chat-approval-card';
+      card.setAttribute('data-appr-file', a.request_file);
+      var d = a.dispatch || null;
+      var metaRows =
+        '<div class="chat-appr-meta"><span class="badge ember-badge">⛔ 待审批</span> 触发门 <b>' + esc(a.gate) + '</b>' +
+        ' · ' + esc(a.actor_id || '') + (a.reason ? ' · ' + esc(a.reason) : '') + '</div>';
+      var dispatchRows = d
+        ? '<div class="chat-appr-meta mono">派发 ' + esc(String(d.dispatch_id || '').slice(0, 12)) + '… → ' +
+          esc(d.adapter_id || '') + ' × ' + esc(d.effort || '') + ' · 预算上限 ' +
+          (d.cap_usd == null ? '?' : fmtUsd(d.cap_usd, 2)) + '</div>' +
+          (d.prompt_preview !== undefined
+            ? '<details class="chat-appr-detail"><summary>Prompt 预览</summary><pre class="mono">' + esc(d.prompt_preview || '(空)') + '</pre></details>'
+            : '')
+        : '';
+      card.innerHTML = '⛔ <b>头犬请求派发审批</b>' + metaRows + dispatchRows +
+        '<div class="chat-appr-actions">' +
+        '<button class="act approve" data-chat-respond="APPROVED" type="button">批准</button>' +
+        '<button class="act reject" data-chat-respond="REJECTED" type="button">否决</button>' +
+        '<button class="act cancel" data-chat-amend type="button">改后批准</button>' +
+        '</div>';
+      card.querySelectorAll('button[data-chat-respond]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          chatApprovalRespond(card, a.request_file, btn.getAttribute('data-chat-respond'));
+        });
+      });
+      var amendBtn = card.querySelector('button[data-chat-amend]');
+      if (amendBtn) amendBtn.addEventListener('click', function () {
+        if (d) prefillDispatchFromSnapshot(String(d.dispatch_id || ''), d.goal_id || '');
+        openDispatchDrawer();
+        toast('已在派发抽屉预填本单——修改参数后重新提交即视为改后批准', true);
+      });
+      chatStreamEl().appendChild(card);
       chatScrollBottom();
-      renderRailApprovals(); // GOAL-020 B3：栏顶常驻卡即第一现场，不再弹模态
+      renderRailApprovals(); // GOAL-020 B3：栏顶常驻卡保留为聚合视图
     });
+  }
+
+  // 内联审批应答：成功后原卡回填回执徽标（批准/否决留痕在对话流内闭环）。
+  function chatApprovalRespond(card, requestFile, decision) {
+    var actions = card.querySelector('.chat-appr-actions');
+    if (actions) actions.innerHTML = '<span class="hint">处理中…</span>';
+    postJson('/api/approvals/respond', { request_file: requestFile, decision: decision })
+      .then(function (result) {
+        if (result.status === 201) {
+          var verdict = decision === 'APPROVED' ? '✅ 已批准' : '⛔ 已否决';
+          if (actions) actions.innerHTML = '<span class="badge ' + (decision === 'APPROVED' ? 'PASS' : 'FAIL') + '">' + verdict + '</span>' +
+            ' <span class="mono">' + escTime(new Date().toISOString()) + '</span>';
+          card.classList.add(decision === 'APPROVED' ? 'chat-appr-done' : 'chat-appr-rejected');
+          toast('已' + (decision === 'APPROVED' ? '批准' : '否决') + '：' + requestFile, true);
+          refresh();
+        } else if (actions) {
+          actions.innerHTML = '<span class="hint">决断失败：' + esc((result.body && result.body.error) || result.status) + '</span>';
+        }
+      })
+      .catch(function (error) {
+        if (actions) actions.innerHTML = '<span class="hint">请求失败：' + esc(String(error)) + '</span>';
+      });
   }
 
   function setChatPending(pending) {
@@ -3494,11 +3686,14 @@ ${getCollaborationStyles()}
           '<span class="hint" style="display:inline">每单仍各停审批卡（D30）</span></div>';
       }
       if (list.length === 0) {
-        el.innerHTML = blockedBadge + batchBar + '<div class="empty" style="padding:12px 0;font-size:12px">（空）</div>';
+        clearKeyed(el, blockedBadge + batchBar + '<div class="empty" style="padding:12px 0;font-size:12px">（空）</div>');
         bindBatchBar(el);
         return;
       }
-      el.innerHTML = blockedBadge + batchBar + list.map(function (t) {
+      // GOAL-081：泳道卡键控增量——static 前缀（blockedBadge+batchBar）带 data-key
+      // 保留位，卡片按 task_id diff；未变卡片节点引用不动。
+      var laneItems = [{ key: '__static', html: blockedBadge + batchBar }];
+      list.forEach(function (t) {
         var transitions = (TASK_TRANSITIONS[t.status] || []);
         var dispatchBtn = t.status === 'READY' || t.status === 'QUEUED'
           ? '<button class="act approve" data-task-dispatch="' + esc(t.task_id) + '" type="button">派发</button>' : '';
@@ -3528,7 +3723,7 @@ ${getCollaborationStyles()}
         var overflowMenu = menuBtns !== ''
           ? '<button class="act" data-task-menu type="button" title="更多操作" style="padding:3px 8px;font-size:12px;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)">⋯</button>' +
             '<div class="task-menu" style="display:none">' + menuBtns + '</div>' : '';
-        return '<div class="task-card" data-task-id="' + esc(t.task_id) + '" title="' + esc(t.task_id) + '">' +
+        var cardHtml = '<div class="task-card" data-task-id="' + esc(t.task_id) + '" title="' + esc(t.task_id) + '">' +
           '<div class="task-title">' + checkbox + '<span class="task-seq">#' + seq + '</span> ' + esc(t.title) + '</div>' +
           '<div class="task-meta"><span class="badge prio-' + esc(t.priority || '中') + '">' + esc(t.priority || '中') + '</span>' +
           '<span class="badge">' + esc(TASK_STATUS_CN[t.status] || t.status) + '</span>' +
@@ -3536,7 +3731,9 @@ ${getCollaborationStyles()}
           '<span>' + esc(t.source || 'manual') + '</span>' +
           '<span>派发链 ' + ((t.dispatch_ids || []).length) + '</span></div>' +
           '<div class="task-actions">' + primaryBtns + overflowMenu + '</div></div>';
-      }).join('');
+        laneItems.push({ key: String(t.task_id), html: cardHtml });
+      });
+      patchList(el, laneItems);
       bindBatchBar(el);
       el.querySelectorAll('.task-card').forEach(function (card) {
         card.addEventListener('click', function (e) {
@@ -3552,53 +3749,8 @@ ${getCollaborationStyles()}
           renderTasks();
         });
       });
-      el.querySelectorAll('button[data-task-menu]').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          var menu = btn.parentElement.querySelector('.task-menu');
-          if (!menu) return;
-          var opening = menu.style.display === 'none';
-          el.querySelectorAll('.task-menu').forEach(function (m) { m.style.display = 'none'; });
-          if (opening) menu.style.display = 'flex';
-        });
-      });
-      el.querySelectorAll('button[data-task-move]').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          postJson('/api/tasks/' + encodeURIComponent(btn.getAttribute('data-task-move')) + '/transition',
-            { status: btn.getAttribute('data-to') }).then(function (result) {
-            if (result.body && result.body.ok) { loadTasks(); }
-            else { toast('迁移失败：' + ((result.body && result.body.error) || result.status), false); }
-          }).catch(function (error) { toast('迁移失败：' + error, false); });
-        });
-      });
-      el.querySelectorAll('button[data-task-dispatch]').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          prefillDispatchFromTask(btn.getAttribute('data-task-dispatch'));
-        });
-      });
-      el.querySelectorAll('button[data-task-rerun]').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          var dispatchId = btn.getAttribute('data-rerun-dispatch');
-          var taskId = btn.getAttribute('data-task-rerun');
-          if (!dispatchId || !taskId) return;
-          prefillDispatchFromSnapshot(dispatchId, taskId);
-        });
-      });
-      el.querySelectorAll('button[data-task-mark-done]').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          var taskId = btn.getAttribute('data-task-mark-done');
-          if (!taskId) return;
-          if (!window.confirm('确认该目标已完成（含在 mush 之外完成的情形）？将直接归档进完成池并留痕。')) return;
-          postJson('/api/tasks/' + encodeURIComponent(taskId) + '/mark-done', {}).then(function (result) {
-            if (result.body && result.body.ok) { toast('已标记完成并归档', true); loadTasks(); }
-            else { toast('标记完成失败：' + ((result.body && result.body.error) || result.status), false); }
-          }).catch(function (error) { toast('标记完成失败：' + error, false); });
-        });
-      });
+      // GOAL-081：卡片按钮动作（menu/move/dispatch/rerun/mark-done）全部由
+      // g081DelegateClicks 文档级委托兜底，节点重建不再丢监听。
     });
     renderTasksDag();
   }
@@ -4246,17 +4398,20 @@ ${getCollaborationStyles()}
         if (railEl) railEl.innerHTML = emptyHtml;
         return;
       }
-      var html = list.map(function (act) {
+      // GOAL-081：活动流键控增量（key=task_id+时间戳+文本指纹），未变条目引用不动。
+      var actItems = list.map(function (act) {
         var isOwner = act.actor === 'owner' || !act.actor;
         var logoHtml = isOwner ? '<span style="font-size:11px">👤</span>' : dogLogo(act.actor, 'idle');
-        return '<div class="activity-item" data-task-id="' + esc(act.task_id || '') + '">' +
+        var itemHtml = '<div class="activity-item" data-task-id="' + esc(act.task_id || '') + '">' +
           logoHtml +
           '<span style="font-weight:500">' + esc(act.text_zh || act.text || '') + '</span>' +
           '<span class="activity-time">' + escTime(act.at_utc) + '</span>' +
         '</div>';
-      }).join('');
+        var key = String(act.task_id || '') + '|' + String(act.at_utc || '') + '|' + String(act.text_zh || act.text || '').length;
+        return { key: key, html: itemHtml };
+      });
       if (streamEl) {
-        streamEl.innerHTML = html;
+        patchList(streamEl, actItems);
         streamEl.querySelectorAll('.activity-item').forEach(function (item) {
           item.addEventListener('click', function () {
             var tid = item.getAttribute('data-task-id');
@@ -4265,7 +4420,7 @@ ${getCollaborationStyles()}
         });
       }
       if (railEl) {
-        railEl.innerHTML = html;
+        patchList(railEl, actItems);
         railEl.querySelectorAll('.activity-item').forEach(function (item) {
           item.addEventListener('click', function () {
             var tid = item.getAttribute('data-task-id');
@@ -4322,8 +4477,9 @@ ${getCollaborationStyles()}
     });
     var latest = latestDispatchPerAdapter();
 
-    if (roster.length === 0) { el.innerHTML = '<div class="empty" style="padding:8px 0">暂无在册犬只</div>'; return; }
-    el.innerHTML = roster.map(function (r) {
+    if (roster.length === 0) { clearKeyed(el, '<div class="empty" style="padding:8px 0">暂无在册犬只</div>'); return; }
+    // GOAL-081：犬卡键控增量（key=adapter_id）——探测徽标/跑动态更新只动该犬节点。
+    patchList(el, roster.map(function (r) {
       var last = latest[r.adapter_id] || null;
       var running = last ? isRunningStatus(last.status) : false;
       var logoState = running ? 'working' : 'idle';
@@ -4332,12 +4488,13 @@ ${getCollaborationStyles()}
       var probeBadge = r.probe_status === 'ONLINE'
         ? '<span class="badge" style="font-size:9px;padding:1px 4px;background:rgba(16,185,129,0.15);color:#047857" title="实测在线">🟢' + (r.live_models ? r.live_models.length : 1) + '</span>'
         : (r.probe_status === 'QUOTA_EXHAUSTED' ? '<span class="badge" style="font-size:9px;padding:1px 4px;background:rgba(239,68,68,0.15);color:#b91c1c" title="额度耗尽">🔴</span>' : '');
-      return '<div class="rail-dog-card dog-avatar" data-dog="' + esc(r.adapter_id) + '" title="点击直连【' + esc(r.adapter_id) + '】专属终端">' + dogLogo(r.adapter_id + ' ' + (r.expected_model_id || ''), logoState) +
+      var cardHtml = '<div class="rail-dog-card dog-avatar" data-dog="' + esc(r.adapter_id) + '" title="点击直连【' + esc(r.adapter_id) + '】专属终端">' + dogLogo(r.adapter_id + ' ' + (r.expected_model_id || ''), logoState) +
         '<span class="rail-dog-name">' + esc(r.adapter_id) + '</span>' +
         probeBadge +
         '<button class="act" data-rail-probe="' + esc(r.adapter_id) + '" type="button" style="padding:1px 5px;font-size:10px;margin-left:auto;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)" title="单独探测 ' + esc(r.adapter_id) + '">⚡</button>' +
         '<span class="rail-dog-note"' + noteStyle + '>' + note + '</span></div>';
-    }).join('');
+      return { key: String(r.adapter_id), html: cardHtml };
+    }));
     el.querySelectorAll('button[data-rail-probe]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var id = btn.getAttribute('data-rail-probe');
@@ -4467,6 +4624,7 @@ ${getCollaborationStyles()}
     renderRailBudget();
     renderRecentActivity();
     chatPromptApprovals();
+    if (typeof g081FirstTaskBanner === 'function') g081FirstTaskBanner(); // GOAL-081：零配置引导横幅
   }
 
   function refresh() {
@@ -4492,7 +4650,13 @@ ${getCollaborationStyles()}
   var themeToggle = document.getElementById('theme-toggle');
   if (themeToggle) themeToggle.addEventListener('click', function () {
     var cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-    applyTheme(cur === 'dark' ? 'light' : 'dark');
+    var next = cur === 'dark' ? 'light' : 'dark';
+    /* GOAL-079：主题切换经 View Transitions 交叉淡化（渐进增强，不支持的原样瞬时）。 */
+    if (document.startViewTransition) {
+      document.startViewTransition(function () { applyTheme(next); });
+    } else {
+      applyTheme(next);
+    }
   });
   /* GOAL-076 返工2：侧栏折叠/展开。 */
   var navCollapse = document.getElementById('nav-collapse');
@@ -4504,6 +4668,37 @@ ${getCollaborationStyles()}
   var chatSettingsToggle = document.getElementById('chat-settings-toggle');
   if (chatSettingsToggle) chatSettingsToggle.addEventListener('click', function () {
     document.getElementById('chat-settings-panel').classList.toggle('open');
+  });
+  /* GOAL-081：渲染竞态根治——任务卡/审批/派发按钮文档级委托（捕获相，先于人卡监听）。 */
+  g081DelegateClicks();
+  /* GOAL-081：第一单零配置——无 verified 犬时升起引导横幅，一键预填免费通道首单。 */
+  function g081FirstTaskBanner() {
+    var banner = document.getElementById('first-task-banner');
+    if (!banner || !snapshot || !snapshot.first_task) return;
+    var dismissed = false;
+    try { dismissed = window.localStorage.getItem('mush.first-task.dismissed') === '1'; } catch (e) {}
+    var show = snapshot.first_task.zero_config === true && !dismissed;
+    banner.style.display = show ? 'flex' : 'none';
+  }
+  var btnFirstTask = document.getElementById('btn-first-task');
+  if (btnFirstTask) btnFirstTask.addEventListener('click', function () {
+    var freeId = (snapshot && snapshot.first_task && snapshot.first_task.free_adapter_id) || 'opencode';
+    var navBtn = document.querySelector('button[data-view="workbench"]');
+    if (navBtn) navBtn.click();
+    openDispatchDrawer();
+    selectOptionByValue(document.getElementById('dispatch-adapter'), freeId);
+    renderDispatchProviderOptions();
+    var promptEl = document.getElementById('dispatch-prompt');
+    if (promptEl && promptEl.value.trim() === '') {
+      promptEl.value = '自我介绍：用三句话说明你能为这个工作区做什么。';
+    }
+    toast('已预填免费通道首单——确认参数后提交（仍过 D30 审批卡）', true);
+  });
+  var btnFirstTaskDismiss = document.getElementById('btn-first-task-dismiss');
+  if (btnFirstTaskDismiss) btnFirstTaskDismiss.addEventListener('click', function () {
+    try { window.localStorage.setItem('mush.first-task.dismissed', '1'); } catch (e) {}
+    var banner = document.getElementById('first-task-banner');
+    if (banner) banner.style.display = 'none';
   });
   /* GOAL-078：顶栏胶囊即入口——popover 开合（点外/Esc 关闭，互斥单开）。 */
   function closeCapsulePops() {

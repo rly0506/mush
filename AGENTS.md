@@ -76,8 +76,9 @@ mush 是个人跨 harness 多 agent 编排工具（雪橇队）。你在本仓�
 - **RM-008：效能经济学与上下文生命周期工程** ✅（GOAL-056 ~ GOAL-057，用量后验对账/Prompt Cache 细分/300行安全门禁/结构化不变式压缩）；
 - **RM-009：通用挂载、动态思维链、工犬直连与智能 Resume** ✅（GOAL-058 ~ GOAL-062，自由工作区挂载/多厂商思维链动态Spec/头像直连抽屉/Child Auto-Resume/DoD收官工具/多Provider动态发现与犬队医生 D76~D77）；
 - **RM-010：商业化就绪、零信任安全加固与 MVP 发版** ✅（GOAL-063 ~ GOAL-066，Caller-Token 零信任鉴权闭环/CSRF与沙箱白名单/服务端权威预算与台账持久化/EPIPE与进程树杀/Fail-Closed纠偏/Apache-2.0与EULA/桌面便携打包 D79）。
+- **GOAL-081 丝滑工程** ✅（AUTO_ACCEPTED 2026-08-29）：SSE 快照六处高频列表键控增量补丁（patchList 同构副本，未变卡 DOM 引用不动——点击不吞）+ 任务卡/审批/派发动作文档级捕获相委托（重建不丢监听）；D30 审批卡内联聊天流（批准/否决/改后批准三键 + 回执徽标）；第一单零配置（snapshot.first_task 派生信号 + 引导横幅一键预填 opencode 免费通道）；`mush chat` 终端 REPL（/api/chat 202 + SSE kind=chat 帧，零新端点；Ctrl+T 思维链/Ctrl+C 中断当前回合//resume 续接）。契约 v1.45。g081 10/10 + 基线 7/7 + 全量 693 全绿。
 
-**基线 661 tests 100% 全绿（26 suites, 0 fail）+ typecheck 零错误门禁**；版本 `v0.1.1-pilot`；奠基决议落地至 `D81`；RM-011 实战淬火路线图全线收官（M0~M4 GOAL-070~074 全 DONE）。
+**基线 693 tests 100% 全绿（GOAL-081 落库后：076 收官 652 + 078 新增 6 + 079 新增 9 + 080 新增 7 + 082 新增 6 + 081 新增 10 + 其余在途修订）+ typecheck 零错误门禁**（2026-08-29 更正：原记 661 系 078 落库时错账）；版本 `v0.1.1-pilot`；奠基决议落地至 `D81`；RM-011 实战淬火路线图全线收官（M0~M4 GOAL-070~074 全 DONE）。
 **GOAL-075 + GOAL-076 + GOAL-078 已收官（88b6435 / 164a82f / 3a948bb + 078 落库）**：导航 10 tab 收敛为 codex 式左侧栏 6 入口（对话/工作台/犬队/治理/洞察/实验室，可折叠）；配色为**双主题「月之亮/暗面」**（亮面默认 + 🌓 切换 + localStorage 持久化；§7.5 极夜暗色母题保留为暗面档——owner 2026-08-28 反馈定调，覆盖原「仅暗色」裁定）；L1 配置舱收进「⚙ 设置」面板守首屏预算；**头犬/工作区胶囊即入口**（顶栏点击弹级联 popover，GOAL-078）；派发表单为右滑抽屉（工作台「＋派发任务」唤起）；泳道卡片动作分层（主行动作常驻 + 「⋯」溢出菜单 + 手动标记完成 `POST /api/tasks/:id/mark-done`）；顶栏收敛 5 件（快照/SSE 按需显示、遥测短码化）；术语全站人话化（状态码统一译出/stream-\* 折叠短码/版本号黑话剥离/effort 梯度留原文）；`fmtUsd` 兜底消灭 \$NaN、账号邮箱 `maskAccount` 脱敏、待办徽标点击有反馈；对话流三段式气泡（思考/工具/正文）且**帧持久化**（ChatTurn 带 thinking/tools/plan，历史回看可重建——075 附录）；076 回归基线 `scripts/g076-board-regression-baseline.cjs`（7/7）。
 犬队在册（deepseek/claude/kimi/zcode/codex/opencode/pi/agy；codex 因 F-50 故障禁任头犬；pi-rpc 通道实测贯通以绕开 DEF-13 上游挂起）。
 findings 默认裁决：docs/auto-decisions-log.md（D16）。

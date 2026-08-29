@@ -674,11 +674,15 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       // GOAL-071：观察模式状态（UI 徽标数据源）。
       if (dispatch.observingWorkspace !== null) snapshot.observing_path = dispatch.observingWorkspace;
       // GOAL-081：第一单零配置引导信号（只读派生，不改任何状态）——
-      // roster 无任何 verified 犬时，前端升起引导横幅直通免费通道首单。
+      // roster 无任何实测在线犬时，前端升起引导横幅直通免费通道首单。
+      // 头犬终审修正（P1）：原用 verified（合同白名单信任维度）——静态白名单
+      // 使 6 犬在任何默认部署下恒 verified，横幅永不触发成死功能；改用
+      // probe_status==='ONLINE'（实测在线 =「用户已配置」的诚实代理，新装全
+      // UNKNOWN → 横幅升起，配好任意一犬后自动收起）。
       {
-        const rosterList = snapshot.roster as Array<{ adapter_id?: string; verified?: boolean }>;
+        const rosterList = snapshot.roster as Array<{ adapter_id?: string; probe_status?: string }>;
         snapshot.first_task = {
-          zero_config: !rosterList.some((r) => r.verified === true),
+          zero_config: !rosterList.some((r) => r.probe_status === 'ONLINE'),
           free_adapter_id: 'opencode',
         };
       }

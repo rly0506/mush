@@ -1,6 +1,6 @@
 # GOAL-079: 前端精修——设计令牌与动效礼节 (UI Polish: Design Tokens & Motion Manners)
 
-- 状态：`PROPOSED`（owner 2026-08-29 授权立卡；方案出自头犬视觉审核 + emil-design-eng / find-animation-opportunities / apple-design 技能方法论，六机会全部过四问门禁；待派发）
+- 状态：`AUTO_ACCEPTED`（owner 2026-08-29 授权立卡；方案出自头犬视觉审核 + emil-design-eng / find-animation-opportunities / apple-design 技能方法论，六机会全部过四问门禁；Kimi 施工完毕，机检规格全绿按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 - 来源：GOAL-078 收官审核中发现的动效断层（popover/抽屉/toast 全部 display 硬切瞬移）+ owner 授权的前端美化方案落地
 - 优先级：中（商业化门面的最后一层「手感」；纯表现层，不动任何契约）
 - 依赖：GOAL-076 / GOAL-078（信息架构与胶囊体系已定型，本 Goal 只做精修不重排）
@@ -56,12 +56,34 @@ GOAL-076/078 解决了「乱」，本 Goal 解决「糙」：当前看板所有�
 
 ## 6. 验收规格
 
-- [ ] 新建自动化测试 `tests/g079-ui-polish.test.ts` 全绿（断言清单见 §4）
-- [ ] 六机会全部落地且各带 `prefers-reduced-motion` 降级
-- [ ] 全站无 `transition: all` 残留、无 `@keyframes` 驱动的 toast、`:active` 按压态覆盖主按钮族
-- [ ] 主题切换经 View Transitions API（不支持的原样瞬时，渐进增强）
-- [ ] g076 回归基线 7/7 不破；全量测试 + typecheck 全绿；DEF-07 解析守卫通过
-- [ ] 严格遵守宪法红线：零框架/零 CDN/零凭据、不动 API 契约、Windows 转义铁律（DEF-07 教训：模板内 `\n` 双写）
+- [x] 新建自动化测试 `tests/g079-ui-polish.test.ts` 全绿（9/9；负向断言扫全样式块，076 教训）
+- [x] 六机会全部落地且各带 `prefers-reduced-motion` 降级（:root 后全局 media 块，transition/animation 双降 1ms）
+- [x] 全站无 `transition: all` 残留（page.ts ×4 + styles.ts ×3 收敛为指名属性，机检钉死）、无 `@keyframes` 驱动的 toast（改 `@starting-style` 入场 + `.leaving` 同边离场）、`:active` 按压态覆盖主按钮族（全局 `button:active { transform: scale(0.97) }`，160ms）
+- [x] 主题切换经 View Transitions API（不支持的原样瞬时，渐进增强）
+- [x] g076 回归基线 7/7 不破；全量测试 + typecheck 全绿（670 tests / 27 suites / 0 fail）；DEF-07 解析守卫通过
+- [x] 严格遵守宪法红线：零框架/零 CDN/零凭据、不动 API 契约、Windows 转义铁律（DEF-07 教训：模板内 `\n` 双写）
+- [x] owner 补充（2026-08-29）：配色维持「月之亮/暗面」现有色值不变——仅令牌化收纳阴影/时长/曲线，无新颜色令牌、无第三主题（g079 测试 §9 钉死）
+
+## 6.1 实机验证证据（真实 Chromium，Playwright）
+
+`node scripts/g079-verify-runner.cjs`（fixture 隔离起板 + 真浏览器断言，`scripts/verify-g079.py`）输出要点：
+
+- POP_BASE `display:flex opacity:0 visibility:hidden`；POP_MID opacity=0.997（过渡中）；CLOSING 时 visibility 延迟仍 visible、opacity 淡出中 ✓
+- DRAWER_BASE `visibility:hidden`；MID transform=matrix(...,38.4,0)（滑入中）；OPEN transform=none ✓
+- TOAST `animation:none transition:opacity,transform`，离场走 leaving 同边 ✓
+- PRESS_RULES 含 `button:active { transform: scale(0.97) }` ✓
+- VT hasVT=true（Chromium 走包裹）；reduced-motion 块存在 ✓；主题切换后 data-theme=dark ✓
+- 视图切换 MID opacity=0.74 → FINAL 1（120ms 淡入，无位移）✓
+- JS_ERRORS=[]（真实浏览器无渲染断链）✓；截图归档 `.playwright-mcp/g079-*.png`
+
+## 6.2 验收裁定偏差补账（头犬 zcode 裁定 2026-08-29，append-only，不改写 §3/§4 原文）
+
+- **P2-1 空证据已修**：`verify-g079.py` 原读 `window.__errs`（无写入方，永空断言），已改 `page.on("pageerror")` 真监听且遇错退出码 1，重跑确认真实无错。
+- **P2-2 遮罩维持不做**：§3 机会 2 写了「遮罩 opacity 200ms」，但抽屉实际没有遮罩元素（076 遗留行为：× 按钮 + Esc 关闭）。经 owner 对账维持现状，规格该项以本条记录替代。
+- **P2-3 字号收敛维持不做**：§4 写了「字号三档（12/13/15）收敛」，实际页面存 9/10/11/12/13/14/15/16/18px 九档。收敛涉及全站字号排权重排，超出「动效精修」范围且风险高于收益，维持现状，规格该项以本条记录替代。
+- **P3-1 已修**：`src/companion/floating-page.ts:90` 残留 `transition: all` 已收敛为指名属性；g079 测试负向断言口径扩至 companion 浮窗样式。
+- **P3-2 已披露**：origin 静态钉角（top left / top right）替代规格的「动态指向触发胶囊」——效果等价、少写 JS，裁定认可为正确 YAGNI。
+- **AGENTS.md 基线更正**：全量基线 661 系 078 落库时记错的账，真实基线为 658（076 收官 652 + 078 新增 6）；本次工作树 670 = 658 + 9（g079）+ 3（TBTK 在途，另一犬的活）。
 
 ## 7. 施工分期
 

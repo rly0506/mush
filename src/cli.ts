@@ -13,6 +13,7 @@ import { validateAdapterContract, type AdapterContract } from './adapters/contra
 import { buildDeepSeekContract } from './adapters/deepseek.ts';
 import { buildClaudeContract } from './adapters/claude.ts';
 import { startBoardServer } from './web/server.ts';
+import { runChatRepl } from './web/repl.ts';
 import { LockError } from './web/persistence.ts';
 
 export interface CliResult {
@@ -41,6 +42,8 @@ const KNOWN_FLAGS = new Set([
   'real',
   'receipt',
   'dry-run',
+  'board-url',
+  'session',
 ]);
 
 function parseArgs(argv: string[]): { positionals: string[]; flags: Record<string, string | boolean>; unknownFlags: string[] } {
@@ -104,10 +107,19 @@ export async function runCli(argv: string[]): Promise<CliResult> {
   const { positionals, flags, unknownFlags } = parseArgs(argv);
   const command = positionals[0];
   if (command === undefined) {
-    return { exitCode: 64, stdout: jsonLine({ ok: false, usage: 'mush <status|dispatch|review|board> [--workspace <dir>] [options]' }) };
+    return { exitCode: 64, stdout: jsonLine({ ok: false, usage: 'mush <status|dispatch|review|board|chat> [--workspace <dir>] [options]' }) };
   }
   if (unknownFlags.length > 0) {
     return fail(`unknown flag(s): ${unknownFlags.join(', ')}`, 64);
+  }
+
+  if (command === 'chat') {
+    // GOAL-081：终端 REPL——复用 /api/chat + SSE（零新端点，契约 v1.9/v1.13）。
+    // 默认连本机看板；--board-url 覆盖；--session 续接既有会话（与看板共用持久化）。
+    const baseUrl = typeof flags['board-url'] === 'string' ? flags['board-url'] : 'http://127.0.0.1:4173';
+    const sessionId = typeof flags.session === 'string' ? flags.session : undefined;
+    const code = await runChatRepl({ baseUrl, sessionId });
+    return { exitCode: code, stdout: '' };
   }
 
   if (command === 'board') {

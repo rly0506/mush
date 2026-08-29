@@ -33,7 +33,7 @@ export function getCollaborationStyles(): string {
     cursor: pointer;
     font-size: 12px;
     font-weight: 500;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
   }
   .mode-capsule:hover {
     border-color: var(--accent, #0e9f8f);
@@ -687,7 +687,7 @@ export function getCollaborationStyles(): string {
     padding: 12px;
     margin-bottom: 10px;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
   }
   .bounty-card:hover {
     border-color: var(--accent, #0e9f8f);
@@ -1227,7 +1227,7 @@ export function getCollaborationStyles(): string {
     font-size: 11px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
   }
   .elo-filter-pill:hover {
     color: var(--ink, #0f172a);

@@ -87,7 +87,7 @@ export function renderFloatingSledHtml(callerToken = ''): string {
       display: flex;
       align-items: center;
       gap: 4px;
-      transition: all 0.15s ease;
+      transition: background-color 0.15s ease, color 0.15s ease;
     }
     .pill-btn.active, .pill-btn:hover {
       background: var(--primary);
