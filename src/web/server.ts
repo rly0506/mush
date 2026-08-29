@@ -61,6 +61,8 @@ import { MasterBudgetGate, loadMasterCap } from '../core/budget-master.ts';
 import { loadUnattendedPolicy, saveUnattendedPolicy, clampPolicyToMasterCap, type UnattendedPolicy } from '../core/unattended-policy.ts';
 import { CircuitBreaker } from '../core/circuit-breaker.ts';
 import { certifyUnattendedReadiness, renderReadinessMarkdown } from '../core/readiness-certifier.ts';
+import { createLivenessGate } from '../core/liveness-ladder.ts';
+import { MissionSupervisor } from '../core/mission-supervisor.ts';
 import { getHarnessDoctorReport } from '../adapters/live-probe.ts';
 
 export interface BoardServerOptions {
@@ -237,6 +239,40 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       streamLiveOutput: true,
       onEvent: (event) => broadcast(event),
     });
+  // GOAL-080：探针阶梯门——L0/L1 零成本预检 + 故障转移排序；合同表惰性取当前管线值
+  // （热切换重建管线后 thunk 自动跟随），live-probes 台账锚定当前 runtime。
+  const livenessGate = createLivenessGate({
+    contracts: () => dispatch.getContractMap(),
+    liveProbesPath: path.join(runtimeRoot, 'live-probes.json'),
+  });
+  // GOAL-080：探针阶梯门只接默认装配的管线——注入式管线（测试自管配置）不启用，
+  // fake 适配器不被预检误伤。
+  if (options.dispatch === undefined) dispatch.setLivenessGate(livenessGate);
+  // GOAL-082：任务监理——跨工作区单例；一级干预=按最近失败单重跑（走同一 admission，
+  // L1 自动批/L0 弹卡语义不变），三级=看板广播升级提问；完成核验钩子缺省=诚实 unverified。
+  const missionSupervisor = new MissionSupervisor({
+    hooks: {
+      retryDispatch: async (_taskId, report) => {
+        if (report.last_dispatch_id === undefined) return false;
+        try {
+          await dispatch.rerun(report.last_dispatch_id, { real: true });
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      replanRequest: async (taskId, report) => {
+        broadcast({
+          type: 'supervisor_replan',
+          task_id: taskId,
+          detail: `${report.summary}——失败现场已转交头犬重排`,
+        });
+      },
+      escalate: (taskId, question) => {
+        broadcast({ type: 'supervisor_escalate', task_id: taskId, question });
+      },
+    },
+  });
   // GOAL-033（GP-31）：会话工作流管理器
   let workstreams = options.workstreams ?? new WorkstreamStore(path.join(runtimeRoot, 'workstreams.jsonl'));
   const sseClients = new Set<ServerResponse>();
@@ -258,6 +294,19 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       broadcast(event);
       try {
         const record = pipeline.get(event.dispatch_id);
+        // GOAL-082：监理观察点——任务回链的派发事件作心跳；失败/超时受阻归因留档
+        if (record?.task_id !== undefined && record.task_id !== '') {
+          missionSupervisor.observeDispatch({
+            dispatch_id: record.dispatch_id,
+            task_id: record.task_id,
+            adapter_id: record.adapter_id,
+            status: record.status,
+            error: record.error,
+          });
+          if (event.phase === 'REPORT' && (record.status === 'FAIL' || record.status === 'TIMEOUT')) {
+            missionSupervisor.noteBlocked(record.task_id, record.adapter_id);
+          }
+        }
         const act = translateDispatchEvent(event, {
           task_id: record?.task_id,
           goal_id: record?.request?.goal_id,
@@ -341,6 +390,8 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       onEvent: (event) => broadcast(event),
     });
     wirePipelineEvents(nextDispatch, nextRuntime);
+    // GOAL-080：热切换后的新管线同样接探针门（门本身单例，合同表 thunk 已惰性跟随）
+    nextDispatch.setLivenessGate(livenessGate);
 
     workspaceRoot = resolved;
     approvalRoot = nextApproval;
@@ -1108,6 +1159,42 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       });
       return;
     }
+    // GOAL-080：犬链探针阶梯——默认返回缓存快照（零成本）；?refresh=1 逐犬零成本复检
+    // （L0 --version / L1 合同声明探针，不发任何 LLM 请求）。
+    if (route === 'GET /api/dogs/liveness') {
+      guarded(response, async () => {
+        if (url.searchParams.get('refresh') === '1') {
+          for (const id of Object.keys(dispatch.getContractMap())) {
+            if (id === 'fake-t1') continue;
+            await livenessGate.refresh(id);
+          }
+        }
+        sendJson(response, 200, { ok: true, dogs: livenessGate.snapshot() });
+      });
+      return;
+    }
+    // GOAL-082：任务监理总览——读时扫描（滞判/干预阶梯一步）+ 通道恢复自解冻。
+    if (route === 'GET /api/missions/overview') {
+      guarded(response, async () => {
+        const sweep = await missionSupervisor.sweep();
+        const alive = new Set(livenessGate.snapshot().filter((s) => s.ok).map((s) => s.adapter_id));
+        const unfrozen = missionSupervisor.unfreezeRecovered(alive, (taskId, by) => {
+          try {
+            dispatch.unblockTask(taskId, by);
+          } catch {
+            /* 跨工作区陈旧任务 id：忽略（监理留痕已有记录） */
+          }
+        });
+        sendJson(response, 200, {
+          ok: true,
+          missions: missionSupervisor.overview(),
+          events: missionSupervisor.eventLog().slice(-100),
+          sweep,
+          unfrozen,
+        });
+      });
+      return;
+    }
     if (route === 'POST /api/workspaces/create') {
       // GP-02（契约 v1.2）：自主登记新建目录——mkdir recursive + 记入 known-workspaces。
       guarded(response, async () => {
@@ -1344,6 +1431,12 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     if (request.method === 'POST' && taskMarkDone !== null) {
       guarded(response, async () => {
         try {
+          // GOAL-082：完成核验门——配置了验证钩子时强制核验（未配置=诚实 unverified 放行）
+          const verdict = await missionSupervisor.approveCompletion(taskMarkDone[1], '手动标记完成（owner/头犬确认）');
+          if (!verdict.done) {
+            sendJson(response, 409, { ok: false, error: 'completion rejected by verifier', reason: verdict.reason });
+            return;
+          }
           const task = dispatch.markTaskDone(taskMarkDone[1]);
           try {
             recordActivity(runtimeRoot, translateTaskTransition(task, '', 'DONE'));

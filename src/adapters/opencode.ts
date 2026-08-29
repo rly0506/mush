@@ -52,6 +52,8 @@ export function buildOpencodeContract(): AdapterContract {
     effort_injection: { kind: 'flag', name: '--variant' },
     // GOAL-018 U3：未列入本批自动压缩/续跑主路径，暂按 none。
     context_management: 'none',
+    // GOAL-080：L1 鉴权探针——`opencode models` 零成本枚举（G070 实证路径）
+    liveness: { l1_args: ['models'], l1_expect_stdout: 'opencode/' },
   });
 }
 

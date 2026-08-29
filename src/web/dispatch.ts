@@ -30,6 +30,7 @@ import { normalizeOpencodeEvents } from '../adapters/opencode.ts';
 import { runClaudeStreamRun } from '../adapters/claude.ts';
 import { arbitrateUnattended, type UnattendedPolicy } from '../core/unattended-policy.ts';
 import type { CircuitBreaker } from '../core/circuit-breaker.ts';
+import type { LivenessGate } from '../core/liveness-ladder.ts';
 import { runPiRpc } from '../adapters/pi-rpc-runner.ts';
 import {
   loadLiveProbeCache,
@@ -175,6 +176,8 @@ export interface DispatchRecord {
   verifier_report?: VerifierReport;
   /** GOAL-014（M0）：关联的 ACTIVE carve-out 切片（写面声明式留痕）。 */
   carveout_id?: string;
+  /** GOAL-080：故障转移来源犬（首犬失败换道重试时留痕）。 */
+  failover_from?: string;
   /** GP-10（契约 v1.4）：rerun 用的历史请求快照；旧记录缺省无此字段。 */
   request?: DispatchRequestSnapshot;
 }
@@ -351,6 +354,9 @@ export interface DispatchPipelineOptions {
   /** GOAL-073：无人值守分级授权（档位策略对象 + 熔断器实例；server 层共享注入）。
    *  缺省不启用 = 恒 L0 全弹卡行为。 */
   unattended?: { policy: UnattendedPolicy; breaker: CircuitBreaker };
+  /** GOAL-080：探针阶梯门（预检 + 故障转移排序）。缺省不启用 = 无预检无换道
+   *  （测试与旧场景零行为变化；server 层以 createLivenessGate 注入）。 */
+  liveness?: LivenessGate;
   /** D82 批次：看板实时输出——开启后 stdout/stderr 增量以 EXECUTE 事件广播
    *  （SSE 直达浏览器，直连抽屉/派发卡可滚动观看干活过程）。默认关闭：
    *  测试与无宿主场景维持既有单帧语义。 */
@@ -532,6 +538,18 @@ export class DispatchPipeline {
   private readonly observationState: { path: string | null };
   /** GOAL-073：无人值守分级授权（档位策略 + 失控熔断器）；缺省未启用=恒 L0 行为。 */
   private readonly unattended?: { policy: UnattendedPolicy; breaker: CircuitBreaker };
+  /** GOAL-080：探针阶梯门（预检 + 故障转移）；缺省未启用=无预检无换道。 */
+  private livenessGate?: LivenessGate;
+
+  /** GOAL-080：server 装配时注入探针门（合同表随热切换变化，门持惰性 thunk）。 */
+  setLivenessGate(gate: LivenessGate): void {
+    this.livenessGate = gate;
+  }
+
+  /** GOAL-080：当前生效合同表只读视图（探针门/监理装配用）。 */
+  getContractMap(): Record<string, AdapterContract> {
+    return this.contracts;
+  }
   /** GOAL-073：当日自动批累计与自增。 */
   private autoSpentToday(): number {
     const key = new Date().toISOString().slice(0, 10);
@@ -604,6 +622,7 @@ export class DispatchPipeline {
     this.onEvent = options.onEvent ?? (() => {});
     this.observationState = options.observationState ?? { path: null };
     this.unattended = options.unattended;
+    this.livenessGate = options.liveness;
     this.streamLiveOutput = options.streamLiveOutput === true;
     this.now = options.now ?? (() => new Date());
     this.persistence = options.persistence ?? null;
@@ -1142,6 +1161,21 @@ export class DispatchPipeline {
       request,
     };
 
+    // GOAL-080：派发预检门——L0/L1 零成本探针（缓存 TTL 内不重复探），不过即拒。
+    // 零台账副作用：不进 admission、不写 ledger；错误带修复指引（人话）。
+    if (this.livenessGate !== undefined) {
+      const lv = await this.livenessGate.check(adapterId);
+      if (!lv.ok) {
+        record.status = 'REJECTED';
+        record.error = `preflight gate：${lv.detail}`;
+        this.emit(record, 'ADMISSION', 'FAIL', { preflight: true, liveness_label: lv.label });
+        this.emit(record, 'REVIEW', 'REJECTED', { reason: record.error });
+        this.records.set(dispatchId, record);
+        this.persistence?.saveDispatchHeader(record);
+        return record;
+      }
+    }
+
     // GOAL-068（D2）：全局资金总控门先于项目 admission——跨项目切换下防资金
     // 逃逸；DENIED 同样在项目台账留证（kind=MASTER_CAP_EXCEEDED）。
     const masterCheck = this.masterGate?.admit(adapterId, workspace, amountUsd);
@@ -1347,14 +1381,65 @@ export class DispatchPipeline {
           ? (chunk: string) => liveStdoutThrottle.push(chunk)
           : undefined;
     const execStartedAt = Date.now(); // GOAL-073：熔断器单任务超时计量起点
-    const run = await this.runAdapter(effectiveContract, prompt, {
-      workspaceRoot: workspace,
-      receiptPath,
-      timeoutMs: timeoutSec * 1000,
-      ...(cwd !== undefined ? { cwd } : {}),
-      ...(stdoutSink !== undefined ? { onStdout: stdoutSink } : {}),
-      ...(stderrThrottle !== null ? { onStderr: (chunk: string) => stderrThrottle.push(chunk) } : {}),
-    });
+    // GOAL-080：故障转移尝试链——real 且接入探针门才启用；同一已批单的预算包络内
+    // 换道（不另过 D30：一次审批 = 一个派发记录，允许有界重试），上限 2 次尝试。
+    // resume 会话锚点不跨犬移植（会话 id 通道私有），换道犬从基线合同+同 effort 起跑。
+    const attemptChain = this.buildAttemptChain(adapterId, real, verifierDog === undefined);
+    let run: Awaited<ReturnType<RunAdapterFn>> | undefined;
+    let attemptAdapterId = adapterId;
+    let attemptContract = effectiveContract;
+    let failoverFrom: string | undefined;
+    let breakerFeedbackForFinal = false; // 循环内已为"最终尝试"记过熔断反馈的标记（防双计）
+    for (let attempt = 0; attempt < attemptChain.length; attempt++) {
+      attemptAdapterId = attemptChain[attempt];
+      attemptContract = attempt === 0 ? effectiveContract : this.contractForFailover(attemptAdapterId, effort);
+      if (attempt > 0) {
+        failoverFrom = failoverFrom ?? adapterId;
+        this.emit(record, 'EXECUTE', real ? 'ADMITTED' : 'DRY_RUN', {
+          progress: 'failover_retry',
+          failover_to: attemptAdapterId,
+          failover_from: adapterId,
+        });
+      }
+      run = await this.runAdapter(attemptContract, prompt, {
+        workspaceRoot: workspace,
+        receiptPath,
+        timeoutMs: timeoutSec * 1000,
+        ...(cwd !== undefined ? { cwd } : {}),
+        ...(stdoutSink !== undefined ? { onStdout: stdoutSink } : {}),
+        ...(stderrThrottle !== null ? { onStderr: (chunk: string) => stderrThrottle.push(chunk) } : {}),
+      });
+      const attemptPass = run.exitCode === 0 && !run.timedOut;
+      const isLastAttempt = attempt + 1 >= attemptChain.length;
+      if (attemptPass || isLastAttempt || !real) break;
+      // 失败尝试即时反馈熔断器（真实单才计）；保险丝优先——停机即停链，不许换道。
+      if (this.unattended !== undefined) {
+        const durationMs = Date.now() - execStartedAt;
+        if (run.timedOut) this.unattended.breaker.recordTimeout(durationMs, dispatchId);
+        else this.unattended.breaker.recordFailure({ dispatch_id: dispatchId });
+        if (this.unattended.breaker.halted) {
+          breakerFeedbackForFinal = true;
+          break;
+        }
+      }
+      // 失败尝试旁路回执（不复写正式回执路径，审计链留全程）
+      const attemptReceipt = {
+        schema_version: 1,
+        dispatch_id: dispatchId,
+        adapter_id: attemptAdapterId,
+        attempt: attempt + 1,
+        exit_code: run.exitCode,
+        timed_out: run.timedOut,
+        stdout_sha256: sha256Hex(run.stdout),
+        stderr_sha256: sha256Hex(run.stderr),
+        finished_at_utc: this.now().toISOString(),
+      };
+      try {
+        writeFileSync(receiptPath.replace(/\.json$/, `.attempt${attempt + 1}.json`), JSON.stringify(attemptReceipt) + '\n', 'utf8');
+      } catch {}
+    }
+    if (run === undefined) throw new Error('unreachable: attempt chain is never empty');
+    if (failoverFrom !== undefined) record.failover_from = failoverFrom;
     streamThrottle?.flush();
     liveStdoutThrottle?.flush();
     stderrThrottle?.flush();
@@ -1366,7 +1451,7 @@ export class DispatchPipeline {
     const receipt = {
       schema_version: 1,
       dispatch_id: dispatchId,
-      adapter_id: adapterId,
+      adapter_id: attemptAdapterId,
       prompt_sha256: sha256Hex(prompt),
       effort,
       real,
@@ -1433,26 +1518,28 @@ export class DispatchPipeline {
     if (effectiveModel && effectiveModel !== 'UNKNOWN') {
       recordModelReceipt(
         this.liveProbesPath,
-        adapterId,
+        attemptAdapterId,
         effectiveModel,
         pass,
         pass ? undefined : record.error || undefined,
         this.now,
       );
       if (pass) {
-        this.authoritativeModels.set(adapterId, effectiveModel);
-        if (this.liveProbes[adapterId]) {
-          this.liveProbes[adapterId].actual_model_id = effectiveModel;
-          this.liveProbes[adapterId].model_tiers = this.liveProbes[adapterId].model_tiers || {};
-          this.liveProbes[adapterId].model_tiers[effectiveModel] = 'T1_VERIFIED';
+        this.authoritativeModels.set(attemptAdapterId, effectiveModel);
+        const probeEntry = this.liveProbes[attemptAdapterId];
+        if (probeEntry !== undefined) {
+          probeEntry.actual_model_id = effectiveModel;
+          probeEntry.model_tiers = probeEntry.model_tiers || {};
+          probeEntry.model_tiers[effectiveModel] = 'T1_VERIFIED';
         }
       }
     }
 
     this.emit(record, 'REPORT', record.status, { receipt_path: receiptPath, exit_code: run.exitCode });
     this.emit(record, 'REVIEW', record.status, { verdict: pass ? 'PASS' : 'FAIL' });
-    // GOAL-073：熔断器反馈回路——真实单才计入（干跑/诊断噪声不触发熔断）。
-    if (this.unattended !== undefined && real === true) {
+    // GOAL-073：熔断器反馈回路——真实单才计入（干跑/诊断噪声不触发熔断）；
+    // GOAL-080：换道循环内已记过最终尝试的反馈时不再双计。
+    if (this.unattended !== undefined && real === true && !breakerFeedbackForFinal) {
       const durationMs = Date.now() - execStartedAt;
       if (pass) this.unattended.breaker.recordSuccess();
       else if (run.timedOut) this.unattended.breaker.recordTimeout(durationMs, dispatchId);
@@ -2211,6 +2298,45 @@ export class DispatchPipeline {
     const next = advanceTaskToStatus(task, 'DONE', this.now);
     if (next !== task) appendTask(this.tasksPath, next);
     return next;
+  }
+
+  /** GOAL-082：列出全部受阻任务（监理自解冻的数据源）。 */
+  listBlockedTasks(): Task[] {
+    return loadTasks(this.tasksPath).filter((entry) => entry.status === 'BLOCKED');
+  }
+
+  /** GOAL-082：监理自解冻——受阻任务转就绪（BLOCKED→READY 合法跃迁），append-only 留痕。 */
+  unblockTask(taskId: string, by: string): Task {
+    const tasks = loadTasks(this.tasksPath);
+    const task = tasks.find((entry) => entry.task_id === taskId);
+    if (task === undefined) throw new InputError(`task not found: ${taskId}`);
+    if (task.status !== 'BLOCKED') return task; // 幂等：非受阻态原样返回
+    const next = advanceTaskToStatus(task, 'READY', this.now);
+    if (next !== task) appendTask(this.tasksPath, next);
+    void by;
+    return next;
+  }
+
+  /** GOAL-080：故障转移尝试链——real 且接入探针门且无验证犬绑定才换道；
+   *  候选=verified 异构犬，按探针置信降序，上限 2 次尝试（换道一跳，成本有界）。 */
+  private buildAttemptChain(adapterId: string, real: boolean, failoverAllowed: boolean): string[] {
+    const chain = [adapterId];
+    if (!real || !failoverAllowed || this.livenessGate === undefined) return chain;
+    const snapshot = this.livenessGate.snapshot();
+    const candidates = Object.keys(this.contracts)
+      .filter((id) => id !== adapterId && this.isAdapterVerified(id))
+      .sort((a, b) => {
+        const la = snapshot.find((s) => s.adapter_id === a)?.level_reached ?? 0;
+        const lb = snapshot.find((s) => s.adapter_id === b)?.level_reached ?? 0;
+        return lb - la || a.localeCompare(b);
+      });
+    if (candidates.length > 0) chain.push(candidates[0]);
+    return chain;
+  }
+
+  /** GOAL-080：换道犬的执行合同——基线合同 + 同 effort 注入；resume 会话锚点不跨犬移植。 */
+  private contractForFailover(failoverId: string, effort: string): AdapterContract {
+    return applyEffortInjection(this.contracts[failoverId], effort);
   }
   /** GOAL-019 U3 & GOAL-024：派发回链——ADMITTED 后把 dispatch_id 追加进任务记录并跃迁至 IN_FLIGHT。 */
   private linkTaskDispatch(taskId: string, dispatchId: string): void {

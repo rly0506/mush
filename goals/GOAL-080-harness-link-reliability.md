@@ -1,6 +1,6 @@
 # GOAL-080: 犬链可靠性——探针阶梯、派发预检与故障转移 (Harness Link Reliability: Liveness Ladder, Pre-flight Gate & Failover)
 
-- 状态：`READY`（owner 2026-08-29 规划批准三卡立项；无人值守前置工程，序 1/3）
+- 状态：`IN_PROGRESS`（2026-08-29 头犬施工：**核心机制全绿**——探针阶梯 L0-L3（L2/L3 由 live-probes 台账权威回填，恒零成本）/派发预检门（10min TTL 缓存、REJECTED 零台账副作用、人话修复指引）/故障转移（同审批预算包络内换道一跳、failover_from+旁路回执留痕、熔断停机即停链）/诚实标签（PROCESS_ONLY=可调度·未实弹）；g080 测试 7/7 + typecheck 0。**UI 级位徽标并入 GOAL-081 施工**（page.ts 战场让位于 079 在途）；dsh/opencode L1 声明已按实证路径（--dump-config / models）入合同）
 - 来源：owner 三关切（体验/链接/完成率）之二 + 头犬能力雷达评审（无人值守自主性 6.5 的欠账在「建成未证明」）
 - 优先级：高
 - 依赖：无硬依赖——零件已在库：G025 实测探测、G026 零 Token 信度梯队、D13 nonce 身份探测、G070 opencode 免费通道、G053 路由自进化、能力注册表

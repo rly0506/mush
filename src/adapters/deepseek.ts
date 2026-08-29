@@ -35,6 +35,8 @@ export function buildDeepSeekContract(channel: DeepSeekChannel): AdapterContract
       effort_injection: { kind: 'none' },
       // GOAL-018 U3：dsh 0.1.0 headless 无自动压缩，mush 侧估算换窗。
       context_management: 'none',
+      // GOAL-080：L1 鉴权探针——`dsh --dump-config` 零成本（2026-08-17 实证路径）。
+      liveness: { l1_args: ['--dump-config'] },
     });
   }
   return validateAdapterContract({

@@ -748,6 +748,31 @@ status ∈ `DRY_RUN | ADMITTED | BLOCKED_WAITING_OWNER | BLOCKED_ENV | FAIL | PA
   指标损坏或采样不足时退回严格口径（须零失败）——全程 fail-closed；
 - 只读端点，不改任何状态；刷新归档报告：`node scripts/readiness-certify.mjs`。
 
+### GET /api/dogs/liveness（v1.14，GOAL-080）
+
+犬链探针阶梯——恒零成本检测（L0 `--version` / L1 合同声明探针如 `--dump-config`、`opencode models`，不发任何 LLM 请求）。
+
+- 响应 `{ ok, dogs: [{ adapter_id, level_reached(0-3), ok, label, detail, checked_at_utc }] }`；
+  label ∈ DEAD / PROCESS_ONLY / AUTH_VERIFIED / FREE_ROUND_VERIFIED / PAID_ROUND_VERIFIED；
+- L2/L3 不主动发起——由 live-probes 台账权威实测（T1_VERIFIED，24h 时效）回填；
+- `?refresh=1` 逐犬零成本复检（忽略 TTL 缓存）；缺省返回缓存快照；
+- 派发预检：接入探针门的管线在 admission 前自动 `check`，缓存过期（10min）自动复检；
+  `ok=false` → 派发 REJECTED（`preflight gate：…` 修复指引），零台账副作用。
+
+### GET /api/missions/overview（v1.14，GOAL-082）
+
+任务监理总览——读时扫描（无定时器）：滞判（默认 8 分钟无实质进展）→ 干预阶梯
+（一级换道重试=按最近失败单 rerun，走同一 admission，L1 自动批/L0 弹卡语义不变；
+二级失败现场转交头犬重排；三级升级提问广播）→ ESCALATED 后监理停手移交 owner。
+
+- 响应 `{ ok, missions: [{task_id, phase, last_progress_at_utc, failure_count, interventions[…], last_dispatch_id?}], events[-100], sweep, unfrozen }`；
+- 受阻自解冻：受阻任务归因犬恢复在线（探针 ok）→ 自动 BLOCKED→READY（append-only 留痕）；
+- SSE 新增广播：`supervisor_replan {task_id, detail}`、`supervisor_escalate {task_id, question}`；
+- 派发台账/记录新增：`failover_from`（换道来源犬）；失败尝试旁路回执
+  `dispatch-<id>.attempt<n>.json`；换道在同一次审批的预算包络内（不另过 D30），
+  熔断停机即停链（保险丝优先）。手动标记完成端点接入完成核验门：配置验证钩子时
+  虚假完工声明返回 `409 {ok:false, reason}`；未配置=诚实 `unverified-done` 放行。
+
 ### POST /api/workspaces/observe（v1.13，GOAL-071）
 
 冻结区观察模式——意向项目/.agent-bridge 只读参演：

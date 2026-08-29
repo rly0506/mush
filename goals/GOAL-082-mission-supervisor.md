@@ -1,6 +1,6 @@
 # GOAL-082: 任务监理——滞判、干预阶梯与完成核验 (Mission Supervisor: Stall Detection, Intervention Ladder & Completion Verification)
 
-- 状态：`READY`（owner 2026-08-29 规划批准三卡立项；无人值守前置工程，序 2/3）
+- 状态：`IN_PROGRESS`（2026-08-29 头犬施工：**核心机制全绿**——滞判（默认 8 分钟无实质进展）+ 干预阶梯（一级换道重试=按最近失败单 rerun 走同一 admission/二级失败现场转交头犬/三级升级提问广播）/受阻自解冻（归因犬探针恢复→自动 BLOCKED→READY）/完成核验门（虚假完工声明 409 拦截，未配置钩子=诚实 unverified 放行）/熔断协同（停机期一级干预被拒直接升级，保险丝优先）；g082 测试 6/6 + typecheck 0；契约 v1.14 两端点+监理 SSE 广播落档。**完成率/归因分布上屏并入 GOAL-081**（page.ts 战场让位于 079 在途）；真实验证犬接线待通道实测后配钩子）
 - 来源：owner 完成率关切 + 仓库活证据——#73 演练任务受阻自 8-24 卡死至今（派发链 6，需手动转就绪）、头犬聊天记录自诊「历史派发全部 TIMEOUT」、soak 4 次上游抖动；零件在库：G024 DAG 自动完成、G033 工作流交接、G061 Child Auto-Resume、G028 LLM Verifier
 - 优先级：高
 - 依赖：GOAL-080（一级干预「换道重试」踩其故障转移地基）

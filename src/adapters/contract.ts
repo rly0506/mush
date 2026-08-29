@@ -32,6 +32,8 @@ export interface AdapterContract {
   readonly provider_base_url?: string;
   /** G009：可切换的模型变体（UI 下拉数据源）；缺省 = 仅合同默认模型。 */
   readonly variants?: readonly string[];
+  /** GOAL-080：无副作用鉴权探针声明（L1）；缺省 = 该通道只认 L0 进程探针（诚实降档）。 */
+  readonly liveness?: { l1_args?: readonly string[]; l1_expect_stdout?: string };
   /** G009：变体切换的 CLI 注入旗标（如 claude 的 '--model'）；缺省 = 该通道
    * 不支持命令行变体切换（变体仅作为身份期望记录）。 */
   readonly model_flag?: string;
@@ -135,6 +137,23 @@ export function validateAdapterContract(input: unknown): AdapterContract {
       throw new Error(`adapter contract 'context_management' must be one of ${CONTEXT_MANAGEMENTS.join('|')}`);
     }
   }
+  if (record.liveness !== undefined) {
+    const lv = record.liveness as Record<string, unknown>;
+    if (lv === null || typeof lv !== 'object' || Array.isArray(lv)) {
+      throw new Error("adapter contract 'liveness' must be an object when present");
+    }
+    if (lv.l1_args !== undefined) {
+      if (!Array.isArray(lv.l1_args) || lv.l1_args.some((a) => typeof a !== 'string' || (a as string).trim() === '')) {
+        throw new Error("adapter contract 'liveness.l1_args' must be an array of non-blank strings when present");
+      }
+      if ((lv.l1_args as string[]).length === 0) {
+        throw new Error("adapter contract 'liveness.l1_args' must be non-empty when present");
+      }
+    }
+    if (lv.l1_expect_stdout !== undefined && (typeof lv.l1_expect_stdout !== 'string' || lv.l1_expect_stdout === '')) {
+      throw new Error("adapter contract 'liveness.l1_expect_stdout' must be a non-blank string when present");
+    }
+  }
   return {
     adapter_id: record.adapter_id as string,
     executable: record.executable as string,
@@ -170,6 +189,18 @@ export function validateAdapterContract(input: unknown): AdapterContract {
       : {}),
     ...(record.context_management !== undefined
       ? { context_management: record.context_management as ContextManagement }
+      : {}),
+    ...(record.liveness !== undefined
+      ? {
+          liveness: {
+            ...((record.liveness as { l1_args?: string[] }).l1_args !== undefined
+              ? { l1_args: [...(record.liveness as { l1_args: string[] }).l1_args] }
+              : {}),
+            ...((record.liveness as { l1_expect_stdout?: string }).l1_expect_stdout !== undefined
+              ? { l1_expect_stdout: (record.liveness as { l1_expect_stdout: string }).l1_expect_stdout }
+              : {}),
+          },
+        }
       : {}),
   };
 }
