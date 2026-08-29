@@ -1,6 +1,6 @@
 # mush Board API 契约 v1
 
-- 状态：`v1.44`（2026-08-22 GOAL-068 多项目完全数据隔离与热切换 + GOAL-069 typecheck 门禁；v1.43 GOAL-067 全栈审计修复；v1.42 本机工作区系统原生与目录树双模选择器、多模态附件读取、工犬直连终端；v1.41 跨 Harness 多第三方 Provider 动态探测与生态医生诊断；v1.40 RM-009 M5 代码库模块化解耦与 DoD 一键收官工具；v1.39 RM-009 M1~M4 通用工作区自由挂载、动态思维链规格、头像直连交互与子级 Auto-Resume；本文件为权威源）
+- 状态：`v1.45`（2026-08-29 GOAL-081 丝滑工程：`GET /api/snapshot` 向后兼容新增 `first_task` 只读派生信号；前端渲染竞态根治不改任何端点；`mush chat` REPL 仅消费既有 /api/chat + /api/stream；v1.44 GOAL-068 多项目完全数据隔离与热切换 + GOAL-069 typecheck 门禁；v1.43 GOAL-067 全栈审计修复；v1.42 本机工作区系统原生与目录树双模选择器、多模态附件读取、工犬直连终端；v1.41 跨 Harness 多第三方 Provider 动态探测与生态医生诊断；v1.40 RM-009 M5 代码库模块化解耦与 DoD 一键收官工具；v1.39 RM-009 M1~M4 通用工作区自由挂载、动态思维链规格、头像直连交互与子级 Auto-Resume；本文件为权威源）
 - 宿主：`src/web/`（node:http，零依赖）；默认只绑 `127.0.0.1`（对外暴露 = 触发门 4，不实现）
 - 序列化：JSON（UTF-8，LF 结尾）；SSE 用 `text/event-stream`，帧格式 `data: <json>\n\n`
 - 错误约定：失败响应一律 `{ "ok": false, "error": "<human-readable>" }`
@@ -16,6 +16,15 @@ mush 是**单机 loopback 个人工具**，「本机即信任边界」，此为 
 - **GET 只读端点免 token**：本机其他进程/用户本可读取同机文件，只读端点不构成额外暴露；含 `prompt_preview` 截断投影属已知可接受面；
 - **UNC 路径一律拒绝**（fs-tree 等）：防止跨站请求诱导本机进程发起 SMB 认证（NTLM 凭据泄漏原语）；
 - 对外网暴露不在威胁模型内（触发门 4，永不实现）。
+
+### v1.45 向后兼容扩展（2026-08-29；GOAL-081 丝滑工程）
+
+- **`GET /api/snapshot` 新增只读字段** `first_task: { zero_config: boolean, free_adapter_id: string }`：
+  roster 无任何 `verified:true` 犬时 `zero_config=true`，前端据此升起第一单零配置引导横幅；
+  纯派生信号，不改任何状态，无该字段的旧前端行为不变。
+- **GOAL-081 其余变更不触契约**：前端渲染竞态根治（键控增量 + 文档级事件委托）与审批
+  内联卡均为渲染层改造；`mush chat` REPL 仅消费既有 `POST /api/chat`（202 异步受理）与
+  `GET /api/stream`（kind=chat 帧），零新端点。
 
 ### 多项目数据隔离模型（GOAL-068 / v1.44）
 
@@ -762,10 +771,12 @@ status ∈ `DRY_RUN | ADMITTED | BLOCKED_WAITING_OWNER | BLOCKED_ENV | FAIL | PA
 ### GET /api/missions/overview（v1.14，GOAL-082）
 
 任务监理总览——读时扫描（无定时器）：滞判（默认 8 分钟无实质进展）→ 干预阶梯
-（一级换道重试=按最近失败单 rerun，走同一 admission，L1 自动批/L0 弹卡语义不变；
-二级失败现场转交头犬重排；三级升级提问广播）→ ESCALATED 后监理停手移交 owner。
+（一级换道重试=按最近失败单 rerun，走同一 admission，real 语义继承原单，L1 自动批/L0 弹卡
+语义不变；被熔断/预检拒绝→直接跳三级；其它入队失败→升二级；二级失败现场转交头犬重排；
+三级升级提问广播）→ ESCALATED 后监理停手移交 owner。心跳语义：仅 ADMITTED/PASS/DRY_RUN
+复位进展（FAIL/TIMEOUT/REJECTED 只计数不复位——死通道反复重试也会滞判升级）。
 
-- 响应 `{ ok, missions: [{task_id, phase, last_progress_at_utc, failure_count, interventions[…], last_dispatch_id?}], events[-100], sweep, unfrozen }`；
+- 响应 `{ ok, missions: [{task_id, phase, last_progress_at_utc, failure_count, last_dispatch_id?, last_real?}], events[-100], sweep, unfrozen }`；
 - 受阻自解冻：受阻任务归因犬恢复在线（探针 ok）→ 自动 BLOCKED→READY（append-only 留痕）；
 - SSE 新增广播：`supervisor_replan {task_id, detail}`、`supervisor_escalate {task_id, question}`；
 - 派发台账/记录新增：`failover_from`（换道来源犬）；失败尝试旁路回执

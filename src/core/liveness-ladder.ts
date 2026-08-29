@@ -7,7 +7,8 @@
  *   模型名以 -free 结尾计 L2（免费实弹），否则 L3（付费实弹）。诚实原则：没跑过就说没跑过。
  */
 
-import { spawn } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import type { AdapterContract } from '../adapters/contract.ts';
 import { loadLiveProbeCache, type LiveProbeRecord } from '../adapters/live-probe.ts';
 
@@ -41,51 +42,25 @@ export type SpawnLivenessFn = (
 ) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
 
 const L0_TIMEOUT_MS = 10_000;
+const execFileP = promisify(execFile);
 
-function defaultSpawn(
+/** stdlib 探针：execFile 自带 timeout 杀进程；错误对象携带部分 stdout/stderr。 */
+async function defaultSpawn(
   executable: string,
   args: readonly string[],
   timeoutMs: number,
 ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
-  return new Promise((resolve) => {
-    let stdout = '';
-    let stderr = '';
-    let settled = false;
-    let child;
-    try {
-      child = spawn(executable, args, { windowsHide: true });
-    } catch (e) {
-      resolve({ exitCode: -1, stdout: '', stderr: String(e) });
-      return;
-    }
-    const timer = setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        child.kill();
-        resolve({ exitCode: -1, stdout, stderr: stderr + '\n[liveness] probe timeout' });
-      }
-    }, timeoutMs);
-    child.stdout?.on('data', (d: Buffer) => {
-      stdout += d.toString();
-    });
-    child.stderr?.on('data', (d: Buffer) => {
-      stderr += d.toString();
-    });
-    child.on('error', (e) => {
-      if (!settled) {
-        settled = true;
-        clearTimeout(timer);
-        resolve({ exitCode: -1, stdout: '', stderr: String(e) });
-      }
-    });
-    child.on('close', (code) => {
-      if (!settled) {
-        settled = true;
-        clearTimeout(timer);
-        resolve({ exitCode: code ?? -1, stdout, stderr });
-      }
-    });
-  });
+  try {
+    const { stdout, stderr } = await execFileP(executable, [...args], { windowsHide: true, timeout: timeoutMs });
+    return { exitCode: 0, stdout, stderr };
+  } catch (e) {
+    const err = e as NodeJS.ErrnoException & { stdout?: string; stderr?: string };
+    return {
+      exitCode: typeof err.code === 'number' ? err.code : -1,
+      stdout: err.stdout ?? '',
+      stderr: err.stderr ?? String(err.message ?? err),
+    };
+  }
 }
 
 /** 评估单犬阶梯（不缓存）。spawnFn 可注入（测试零副作用）。 */
@@ -109,7 +84,7 @@ export async function evaluateLiveness(
       level_reached: 0,
       ok: false,
       label: 'DEAD',
-      detail: `L0 进程探针失败（${contract.executable} --version exit ${l0.exitCode}）：${(l0.stderr || l0.stdout || 'no output').slice(0, 160)}`,
+      detail: `L0 进程探针失败（${contract.executable} --version exit ${l0.exitCode}）：${(l0.stderr || l0.stdout || 'no output').slice(0, 160)}（修复指引：确认 ${contract.executable} 已安装并在 PATH，或运行 scripts/setup-harnesses.cmd）`,
       checked_at_utc: at,
     };
   }
@@ -168,12 +143,8 @@ function bestVerifiedTier(
   if (record?.model_tiers === undefined || record.checked_at_utc === undefined) return undefined;
   const ageHours = (Date.now() - new Date(record.checked_at_utc).getTime()) / 3_600_000;
   if (ageHours > 24) return undefined; // 台账时效：>24h 的实测不再充当实弹凭证
-  let best: { model: string; ageHours: number } | undefined;
-  for (const [model, tier] of Object.entries(record.model_tiers)) {
-    if (tier !== 'T1_VERIFIED') continue;
-    if (best === undefined) best = { model, ageHours };
-  }
-  return best;
+  const entry = Object.entries(record.model_tiers).find(([, tier]) => tier === 'T1_VERIFIED');
+  return entry !== undefined ? { model: entry[0], ageHours } : undefined;
 }
 
 export interface LivenessGate {

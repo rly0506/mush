@@ -246,19 +246,28 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     liveProbesPath: path.join(runtimeRoot, 'live-probes.json'),
   });
   // GOAL-080：探针阶梯门只接默认装配的管线——注入式管线（测试自管配置）不启用，
-  // fake 适配器不被预检误伤。
-  if (options.dispatch === undefined) dispatch.setLivenessGate(livenessGate);
+  // fake 适配器不被预检误伤。完成核验门同批接线（G024 自动推进前询问监理）。
+  if (options.dispatch === undefined) {
+    dispatch.setLivenessGate(livenessGate);
+    dispatch.completionGate = (taskId, claim) => missionSupervisor.approveCompletion(taskId, claim);
+  }
   // GOAL-082：任务监理——跨工作区单例；一级干预=按最近失败单重跑（走同一 admission，
-  // L1 自动批/L0 弹卡语义不变），三级=看板广播升级提问；完成核验钩子缺省=诚实 unverified。
+  // real 语义继承原单；L1 自动批/L0 弹卡语义不变），三级=看板广播升级提问；
+  // 完成核验钩子缺省=诚实 unverified。
   const missionSupervisor = new MissionSupervisor({
     hooks: {
+      // 审计修正：rerun 的 REJECTED 是返回值不抛错——必须检查结果状态，
+      // 否则熔断停机期一级钩子误报"已入队"、阶梯死循环。
       retryDispatch: async (_taskId, report) => {
         if (report.last_dispatch_id === undefined) return false;
         try {
-          await dispatch.rerun(report.last_dispatch_id, { real: true });
-          return true;
+          const record = await dispatch.rerun(report.last_dispatch_id, {
+            real: report.last_real === true,
+          });
+          if (record.status === 'REJECTED') return 'rejected'; // 熔断/预检拒绝→跳三级
+          return true; // 已入队（执行中/弹审批卡均算——有犬在跑或 owner 在环）
         } catch {
-          return false;
+          return false; // 快照缺失等硬错误→升二级
         }
       },
       replanRequest: async (taskId, report) => {
@@ -302,6 +311,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
             adapter_id: record.adapter_id,
             status: record.status,
             error: record.error,
+            real: record.request?.real === true,
           });
           if (event.phase === 'REPORT' && (record.status === 'FAIL' || record.status === 'TIMEOUT')) {
             missionSupervisor.noteBlocked(record.task_id, record.adapter_id);
@@ -392,6 +402,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     wirePipelineEvents(nextDispatch, nextRuntime);
     // GOAL-080：热切换后的新管线同样接探针门（门本身单例，合同表 thunk 已惰性跟随）
     nextDispatch.setLivenessGate(livenessGate);
+    nextDispatch.completionGate = (taskId, claim) => missionSupervisor.approveCompletion(taskId, claim);
 
     workspaceRoot = resolved;
     approvalRoot = nextApproval;
@@ -662,6 +673,15 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       snapshot.roster = dispatch.roster();
       // GOAL-071：观察模式状态（UI 徽标数据源）。
       if (dispatch.observingWorkspace !== null) snapshot.observing_path = dispatch.observingWorkspace;
+      // GOAL-081：第一单零配置引导信号（只读派生，不改任何状态）——
+      // roster 无任何 verified 犬时，前端升起引导横幅直通免费通道首单。
+      {
+        const rosterList = snapshot.roster as Array<{ adapter_id?: string; verified?: boolean }>;
+        snapshot.first_task = {
+          zero_config: !rosterList.some((r) => r.verified === true),
+          free_adapter_id: 'opencode',
+        };
+      }
       sendJson(response, 200, snapshot);
       return;
     }
@@ -1178,12 +1198,8 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       guarded(response, async () => {
         const sweep = await missionSupervisor.sweep();
         const alive = new Set(livenessGate.snapshot().filter((s) => s.ok).map((s) => s.adapter_id));
-        const unfrozen = missionSupervisor.unfreezeRecovered(alive, (taskId, by) => {
-          try {
-            dispatch.unblockTask(taskId, by);
-          } catch {
-            /* 跨工作区陈旧任务 id：忽略（监理留痕已有记录） */
-          }
+        const unfrozen = missionSupervisor.unfreezeRecovered(alive, (taskId) => {
+          dispatch.unblockTask(taskId); // 抛错由监理捕获（陈旧任务不记假证据）
         });
         sendJson(response, 200, {
           ok: true,

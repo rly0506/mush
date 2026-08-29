@@ -97,6 +97,16 @@ test('GOAL-080 Gate：TTL 缓存——TTL 内只探一次，过期自动复检',
   assert.equal(spawnCount, 2, '过期后自动复检');
 });
 
+test('GOAL-080 阶梯：L1 鉴权失败（exit 1）→ DEAD（fail-closed）', async () => {
+  const r = await evaluateLiveness('a', contractOf('a', { liveness: { l1_args: ['--dump-config'] } }), {
+    spawnFn: async (_exe, args) => (args[0] === '--dump-config' ? { exitCode: 1, stdout: '', stderr: '401 unauthorized' } : { exitCode: 0, stdout: 'v', stderr: '' }),
+  });
+  assert.equal(r.ok, false);
+  assert.equal(r.label, 'DEAD');
+  assert.equal(r.level_reached, 1);
+  assert.match(r.detail, /401/);
+});
+
 function makePipeline(root: string, opts: {
   contracts: Record<string, AdapterContract>;
   gate: LivenessGate;
@@ -104,12 +114,6 @@ function makePipeline(root: string, opts: {
   breakerFailuresBefore?: number;
 }) {
   let call = 0;
-  const spawnCalls: Array<{ exe: string; args: string[] }> = [];
-  const gate: LivenessGate = {
-    ...opts.gate,
-    check: async () => okResult('fake-t1', 1),
-  };
-  void gate;
   const breaker = new CircuitBreaker(path.join(root, 'breaker.json'));
   for (let i = 0; i < (opts.breakerFailuresBefore ?? 0); i++) breaker.recordFailure({ seed: i });
   const pipeline = new DispatchPipeline({
@@ -134,7 +138,7 @@ function makePipeline(root: string, opts: {
       return { exitCode: run.exitCode, stdout: run.exitCode === 0 ? 'ok' : '', stderr: run.exitCode === 0 ? '' : 'boom', timedOut: false, childKilled: false };
     },
   });
-  return { pipeline, breaker, spawnCalls, getCall: () => call };
+  return { pipeline, breaker, getCall: () => call };
 }
 
 test('GOAL-080 预检门：通道死亡 → REJECTED 零台账副作用，且探针只发零成本 argv', async () => {
@@ -200,6 +204,41 @@ test('GOAL-080 故障转移：首犬失败 → 换 verified 备犬重试成功�
     const ledger = readFileSync(path.join(root, 'ledger.jsonl'), 'utf8');
     assert.equal((ledger.match(/"decision":"ADMITTED"/g) ?? []).length, 1, '同一已批单预算包络：仅一次 admission');
     assert.ok(existsSync(path.join(root, 'ws', '.mush-receipts', 'dispatch-' + rec.dispatch_id + '.attempt1.json')), '失败尝试旁路回执留痕');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('GOAL-080 故障转移：候选犬探针死亡 → 不换道（预检覆盖换道目标）', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'g080-deadcand-'));
+  mkdirSync(path.join(root, 'ws'), { recursive: true });
+  writeFileSync(
+    path.join(root, 'registry.json'),
+    JSON.stringify({ adapters: [{ adapter_id: 'fake-t2', verified: true }] }),
+    'utf8',
+  );
+  const contracts = { 'fake-t1': contractOf('fake-t1'), 'fake-t2': contractOf('fake-t2') };
+  const { pipeline, getCall } = makePipeline(root, {
+    contracts,
+    gate: {
+      // 首犬存活、候选 fake-t2 探针死亡
+      check: async (id) =>
+        id === 'fake-t1'
+          ? okResult('fake-t1', 1)
+          : { adapter_id: 'fake-t2', level_reached: 0 as const, ok: false, label: 'DEAD' as const, detail: 'candidate dead', checked_at_utc: new Date().toISOString() },
+      refresh: async (id) =>
+        id === 'fake-t1'
+          ? okResult('fake-t1', 1)
+          : { adapter_id: 'fake-t2', level_reached: 0 as const, ok: false, label: 'DEAD' as const, detail: 'candidate dead', checked_at_utc: new Date().toISOString() },
+      snapshot: () => [okResult('fake-t1', 1)],
+    },
+    runs: [{ adapter: 'fake-t1', exitCode: 1 }],
+  });
+  try {
+    const rec = await pipeline.dispatch({ adapter_id: 'fake-t1', prompt: 'task', real: true, cap_usd: 0.1 });
+    assert.equal(rec.status, 'FAIL');
+    assert.equal(getCall(), 1, '候选犬死亡：不换道，不浪费第二次尝试');
+    assert.equal(rec.failover_from, undefined);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

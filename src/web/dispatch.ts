@@ -357,6 +357,8 @@ export interface DispatchPipelineOptions {
   /** GOAL-080：探针阶梯门（预检 + 故障转移排序）。缺省不启用 = 无预检无换道
    *  （测试与旧场景零行为变化；server 层以 createLivenessGate 注入）。 */
   liveness?: LivenessGate;
+  /** GOAL-082：完成核验门——G024 自动推进 PASS→DONE 前询问；拒绝则不落 DONE。 */
+  completionGate?: (taskId: string, claim: string) => Promise<{ done: boolean; reason?: string }>;
   /** D82 批次：看板实时输出——开启后 stdout/stderr 增量以 EXECUTE 事件广播
    *  （SSE 直达浏览器，直连抽屉/派发卡可滚动观看干活过程）。默认关闭：
    *  测试与无宿主场景维持既有单帧语义。 */
@@ -546,6 +548,10 @@ export class DispatchPipeline {
     this.livenessGate = gate;
   }
 
+  /** GOAL-082：完成核验门（可注入）。G024 自动推进 PASS→DONE 前询问；
+   *  拒绝则任务不落 DONE。缺省未启用=既有行为（诚实 unverified）。 */
+  completionGate?: (taskId: string, claim: string) => Promise<{ done: boolean; reason?: string }>;
+
   /** GOAL-080：当前生效合同表只读视图（探针门/监理装配用）。 */
   getContractMap(): Record<string, AdapterContract> {
     return this.contracts;
@@ -623,6 +629,7 @@ export class DispatchPipeline {
     this.observationState = options.observationState ?? { path: null };
     this.unattended = options.unattended;
     this.livenessGate = options.liveness;
+    this.completionGate = options.completionGate;
     this.streamLiveOutput = options.streamLiveOutput === true;
     this.now = options.now ?? (() => new Date());
     this.persistence = options.persistence ?? null;
@@ -1381,10 +1388,27 @@ export class DispatchPipeline {
           ? (chunk: string) => liveStdoutThrottle.push(chunk)
           : undefined;
     const execStartedAt = Date.now(); // GOAL-073：熔断器单任务超时计量起点
-    // GOAL-080：故障转移尝试链——real 且接入探针门才启用；同一已批单的预算包络内
-    // 换道（不另过 D30：一次审批 = 一个派发记录，允许有界重试），上限 2 次尝试。
-    // resume 会话锚点不跨犬移植（会话 id 通道私有），换道犬从基线合同+同 effort 起跑。
-    const attemptChain = this.buildAttemptChain(adapterId, real, verifierDog === undefined);
+    // GOAL-080：故障转移尝试链——real 且接入探针门且无验证犬绑定才换道；
+    // 候选=verified 异构犬且探针通过（预检同样覆盖换道目标），按置信降序，
+    // 上限 2 次尝试（换道一跳，成本有界）。
+    const attemptChain: string[] = [adapterId];
+    if (real && verifierDog === undefined && this.livenessGate !== undefined) {
+      const snapshot = this.livenessGate.snapshot();
+      const candidates = Object.keys(this.contracts)
+        .filter((id) => id !== adapterId && this.isAdapterVerified(id))
+        .sort((a, b) => {
+          const la = snapshot.find((s) => s.adapter_id === a)?.level_reached ?? 0;
+          const lb = snapshot.find((s) => s.adapter_id === b)?.level_reached ?? 0;
+          return lb - la || a.localeCompare(b);
+        });
+      for (const candidate of candidates) {
+        const lv = await this.livenessGate.check(candidate);
+        if (lv.ok) {
+          attemptChain.push(candidate);
+          break; // 一跳
+        }
+      }
+    }
     let run: Awaited<ReturnType<RunAdapterFn>> | undefined;
     let attemptAdapterId = adapterId;
     let attemptContract = effectiveContract;
@@ -1439,7 +1463,10 @@ export class DispatchPipeline {
       } catch {}
     }
     if (run === undefined) throw new Error('unreachable: attempt chain is never empty');
-    if (failoverFrom !== undefined) record.failover_from = failoverFrom;
+    if (failoverFrom !== undefined) {
+      record.failover_from = failoverFrom;
+      record.adapter_id = attemptAdapterId; // 归因真实化：受阻/回执/台账都认实际执飞犬
+    }
     streamThrottle?.flush();
     liveStdoutThrottle?.flush();
     stderrThrottle?.flush();
@@ -1561,10 +1588,22 @@ export class DispatchPipeline {
     if (resolvedStream !== null) {
       this.recordStreamDispatch(resolvedStream, dispatchId, adapterId, record.session_id, prompt, run);
     }
-    // GOAL-024: 自动将关联任务推进到完成池 (DONE) 或受阻池 (BLOCKED)
+    // GOAL-024: 自动将关联任务推进到完成池 (DONE) 或受阻池 (BLOCKED)；
+    // GOAL-082：完成核验门——PASS≠DONE，配置了 completionGate 时先核验，
+    // 拒绝则任务不落 DONE（保持 IN_FLIGHT 留在监理视野）。
     if (typeof record.task_id === 'string' && record.task_id !== '') {
-      const target = pass ? 'DONE' : 'BLOCKED';
-      this.autoAdvanceTask(record.task_id, target);
+      let target: TaskStatus | null = pass ? 'DONE' : 'BLOCKED';
+      if (target === 'DONE' && this.completionGate !== undefined) {
+        const verdict = await this.completionGate(record.task_id, `派发 ${dispatchId} PASS`);
+        if (!verdict.done) {
+          this.emit(record, 'REVIEW', record.status, {
+            completion_rejected: true,
+            reason: verdict.reason ?? 'verification failed',
+          });
+          target = null; // 拦下：不自动 DONE（也不改 BLOCKED——交给监理阶梯）
+        }
+      }
+      if (target !== null) this.autoAdvanceTask(record.task_id, target);
     }
     return record;
   }
@@ -2300,38 +2339,15 @@ export class DispatchPipeline {
     return next;
   }
 
-  /** GOAL-082：列出全部受阻任务（监理自解冻的数据源）。 */
-  listBlockedTasks(): Task[] {
-    return loadTasks(this.tasksPath).filter((entry) => entry.status === 'BLOCKED');
-  }
-
   /** GOAL-082：监理自解冻——受阻任务转就绪（BLOCKED→READY 合法跃迁），append-only 留痕。 */
-  unblockTask(taskId: string, by: string): Task {
+  unblockTask(taskId: string): Task {
     const tasks = loadTasks(this.tasksPath);
     const task = tasks.find((entry) => entry.task_id === taskId);
     if (task === undefined) throw new InputError(`task not found: ${taskId}`);
     if (task.status !== 'BLOCKED') return task; // 幂等：非受阻态原样返回
     const next = advanceTaskToStatus(task, 'READY', this.now);
     if (next !== task) appendTask(this.tasksPath, next);
-    void by;
     return next;
-  }
-
-  /** GOAL-080：故障转移尝试链——real 且接入探针门且无验证犬绑定才换道；
-   *  候选=verified 异构犬，按探针置信降序，上限 2 次尝试（换道一跳，成本有界）。 */
-  private buildAttemptChain(adapterId: string, real: boolean, failoverAllowed: boolean): string[] {
-    const chain = [adapterId];
-    if (!real || !failoverAllowed || this.livenessGate === undefined) return chain;
-    const snapshot = this.livenessGate.snapshot();
-    const candidates = Object.keys(this.contracts)
-      .filter((id) => id !== adapterId && this.isAdapterVerified(id))
-      .sort((a, b) => {
-        const la = snapshot.find((s) => s.adapter_id === a)?.level_reached ?? 0;
-        const lb = snapshot.find((s) => s.adapter_id === b)?.level_reached ?? 0;
-        return lb - la || a.localeCompare(b);
-      });
-    if (candidates.length > 0) chain.push(candidates[0]);
-    return chain;
   }
 
   /** GOAL-080：换道犬的执行合同——基线合同 + 同 effort 注入；resume 会话锚点不跨犬移植。 */
