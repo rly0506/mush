@@ -379,6 +379,14 @@ function baseContracts(): Record<string, AdapterContract> {
     'deepseek-dsh': buildDeepSeekContract('dsh'),
     // 默认 sonnet-5：claude-real-011 实证该变体身份+nonce 双通过。
     'claude-code': buildClaudeContract('claude-sonnet-5'),
+    // TBTK 网关（New API 中转，Anthropic 兼容）：claude-code harness 指到 tbtk.asia，
+    // 模型走网关实测可用的 k3-256k（owner 2026-08-27 提供密钥，经 MUSH_CLAUDE_TBTK_API_KEY 注入）。
+    'claude-tbtk': validateAdapterContract({
+      ...buildClaudeContract('k3-256k'),
+      adapter_id: 'claude-tbtk',
+      role: 'executor',
+      provider_base_url: 'https://tbtk.asia',
+    }),
     zcode: buildZcodeContract(),
     codex: buildCodexContract(),
     opencode: buildOpencodeContract(),
@@ -397,6 +405,7 @@ export interface RegistryFile {
 const VERIFIED_WHITELIST = new Set<string>([
   'deepseek-dsh',
   'claude-code',
+  'claude-tbtk',
   'kimi-code',
   'zcode',
   'head-dog',
@@ -2193,6 +2202,16 @@ export class DispatchPipeline {
     return next;
   }
 
+  /** 手动标记完成：owner/头犬确认目标已在 mush 之外完成时使用。
+   *  走 advanceTaskToStatus 平滑跃迁链（同 receipt 对账口径），append-only 留痕。 */
+  markTaskDone(taskId: string): Task {
+    const tasks = loadTasks(this.tasksPath);
+    const task = tasks.find((entry) => entry.task_id === taskId);
+    if (task === undefined) throw new InputError(`task not found: ${taskId}`);
+    const next = advanceTaskToStatus(task, 'DONE', this.now);
+    if (next !== task) appendTask(this.tasksPath, next);
+    return next;
+  }
   /** GOAL-019 U3 & GOAL-024：派发回链——ADMITTED 后把 dispatch_id 追加进任务记录并跃迁至 IN_FLIGHT。 */
   private linkTaskDispatch(taskId: string, dispatchId: string): void {
     const tasks = loadTasks(this.tasksPath);

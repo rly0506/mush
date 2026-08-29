@@ -77,8 +77,8 @@ mush 是个人跨 harness 多 agent 编排工具（雪橇队）。你在本仓�
 - **RM-009：通用挂载、动态思维链、工犬直连与智能 Resume** ✅（GOAL-058 ~ GOAL-062，自由工作区挂载/多厂商思维链动态Spec/头像直连抽屉/Child Auto-Resume/DoD收官工具/多Provider动态发现与犬队医生 D76~D77）；
 - **RM-010：商业化就绪、零信任安全加固与 MVP 发版** ✅（GOAL-063 ~ GOAL-066，Caller-Token 零信任鉴权闭环/CSRF与沙箱白名单/服务端权威预算与台账持久化/EPIPE与进程树杀/Fail-Closed纠偏/Apache-2.0与EULA/桌面便携打包 D79）。
 
-**基线 652 tests 100% 全绿（24 suites, 0 fail）+ typecheck 零错误门禁**；版本 `v0.1.1-pilot`；奠基决议落地至 `D81`；RM-011 实战淬火路线图进行中（M0 GOAL-070 已收官）。
-**GOAL-075 + GOAL-076 已 AUTO_ACCEPTED（88b6435），076 返工批已落地**：导航 10 tab 收敛为 codex 式左侧栏 3 入口（对话/工作台/控制台）；配色按 §7.5 裁定回归**极夜暗色母题**（回退 D68 亮色越权）；L1 配置舱收进「⚙ 设置」面板守首屏预算；派发表单为右滑抽屉（工作台「＋派发任务」唤起）；术语全站人话化（状态码统一译出/stream-\* 折叠短码/版本号黑话剥离/effort 梯度留原文）；`fmtUsd` 兜底消灭 \$NaN、账号邮箱 `maskAccount` 脱敏、待办徽标点击有反馈；对话流三段式气泡（思考/工具/正文）且**帧持久化**（ChatTurn 带 thinking/tools/plan，历史回看可重建——075 附录）；076 回归基线 `scripts/g076-board-regression-baseline.cjs`（7/7）。
+**基线 661 tests 100% 全绿（26 suites, 0 fail）+ typecheck 零错误门禁**；版本 `v0.1.1-pilot`；奠基决议落地至 `D81`；RM-011 实战淬火路线图全线收官（M0~M4 GOAL-070~074 全 DONE）。
+**GOAL-075 + GOAL-076 + GOAL-078 已收官（88b6435 / 164a82f / 3a948bb + 078 落库）**：导航 10 tab 收敛为 codex 式左侧栏 6 入口（对话/工作台/犬队/治理/洞察/实验室，可折叠）；配色为**双主题「月之亮/暗面」**（亮面默认 + 🌓 切换 + localStorage 持久化；§7.5 极夜暗色母题保留为暗面档——owner 2026-08-28 反馈定调，覆盖原「仅暗色」裁定）；L1 配置舱收进「⚙ 设置」面板守首屏预算；**头犬/工作区胶囊即入口**（顶栏点击弹级联 popover，GOAL-078）；派发表单为右滑抽屉（工作台「＋派发任务」唤起）；泳道卡片动作分层（主行动作常驻 + 「⋯」溢出菜单 + 手动标记完成 `POST /api/tasks/:id/mark-done`）；顶栏收敛 5 件（快照/SSE 按需显示、遥测短码化）；术语全站人话化（状态码统一译出/stream-\* 折叠短码/版本号黑话剥离/effort 梯度留原文）；`fmtUsd` 兜底消灭 \$NaN、账号邮箱 `maskAccount` 脱敏、待办徽标点击有反馈；对话流三段式气泡（思考/工具/正文）且**帧持久化**（ChatTurn 带 thinking/tools/plan，历史回看可重建——075 附录）；076 回归基线 `scripts/g076-board-regression-baseline.cjs`（7/7）。
 犬队在册（deepseek/claude/kimi/zcode/codex/opencode/pi/agy；codex 因 F-50 故障禁任头犬；pi-rpc 通道实测贯通以绕开 DEF-13 上游挂起）。
 findings 默认裁决：docs/auto-decisions-log.md（D16）。
 GitHub 私有远端同步为常规动作（D19）；无人值守调度器仍默认关（D8）。

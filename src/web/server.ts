@@ -1339,6 +1339,30 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
 
+    // 手动标记完成（owner/头犬确认目标已在 mush 之外完成）：平滑跃迁 DONE，幂等。
+    const taskMarkDone = /^\/api\/tasks\/([A-Za-z0-9_-]+)\/mark-done$/.exec(url.pathname);
+    if (request.method === 'POST' && taskMarkDone !== null) {
+      guarded(response, async () => {
+        try {
+          const task = dispatch.markTaskDone(taskMarkDone[1]);
+          try {
+            recordActivity(runtimeRoot, translateTaskTransition(task, '', 'DONE'));
+          } catch (err) {
+            console.warn('[activity] failed to record task mark-done activity:', err);
+          }
+          sendJson(response, 200, { ok: true, task });
+        } catch (error) {
+          if (error instanceof InputError) {
+            const status = /not found/.test(error.message) ? 404 : 400;
+            sendJson(response, status, { ok: false, error: error.message });
+          } else {
+            sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+          }
+        }
+      });
+      return;
+    }
+
     if (route === 'GET /api/activity') {
       const taskId = url.searchParams.get('task_id') ?? undefined;
       const goalId = url.searchParams.get('goal_id') ?? undefined;

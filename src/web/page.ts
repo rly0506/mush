@@ -121,6 +121,30 @@ ${getCollaborationStyles()}
     font-size: 12px; color: var(--ember); border: 1px solid var(--line);
     background: var(--panel-hi); border-radius: 6px; padding: 2px 10px;
   }
+  /* GOAL-078：胶囊即入口——顶栏头犬/工作区胶囊可点击弹出 popover。 */
+  #head-dog-badge, #workspace-current { cursor: pointer; font-family: inherit; }
+  #head-dog-badge:hover, #workspace-current:hover { border-color: var(--accent, #62d8c9); }
+  .capsule-pop {
+    position: absolute; top: calc(100% + 8px); z-index: 60;
+    min-width: 300px; max-width: 420px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; box-shadow: 0 10px 32px rgba(0,0,0,0.35);
+    display: none; flex-direction: column; gap: 10px;
+    font-size: 12px; color: var(--ink); text-align: left;
+  }
+  .capsule-pop.open { display: flex; }
+  .capsule-pop .pop-title { font-size: 11px; color: var(--ink-faint); letter-spacing: 1px; margin-bottom: 2px; }
+  .capsule-pop label { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+  .capsule-pop select { flex: 1; max-width: 260px; padding: 4px 8px; font-size: 12px; }
+  .capsule-wrap { position: relative; }
+  /* GOAL-078：泳道卡片「⋯」溢出菜单 */
+  .task-menu {
+    position: absolute; right: 0; top: calc(100% + 4px); z-index: 50;
+    display: none; flex-direction: column; gap: 4px; min-width: 110px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+  .task-menu .act { width: 100%; text-align: left; }
   #head-dog-badge {
     display: inline-flex; align-items: center; gap: 7px;
     font-size: 12px; color: var(--ink);
@@ -154,7 +178,7 @@ ${getCollaborationStyles()}
   /* hover 样式统一由 GOAL-023 段（.task-card:hover 含 box-shadow）提供，GOAL-067 删除此重复块 */
   .task-card .task-title { font-weight: 600; color: var(--ink); margin-bottom: 4px; }
   .task-card .task-meta { font-size: 12px; color: var(--ink-faint); display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
-  .task-card .task-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .task-card .task-actions { display: flex; gap: 6px; flex-wrap: wrap; position: relative; }
   .task-card .task-actions .act { padding: 2px 10px; font-size: 11px; }
   .badge.prio-高 { color: var(--danger); border-color: var(--danger); }
   .badge.prio-中 { color: var(--ember); border-color: var(--ember); }
@@ -294,9 +318,8 @@ ${getCollaborationStyles()}
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; }
   .card h3 { margin: 0 0 8px; font-size: 13px; color: var(--ink-dim); font-weight: 600; }
   .empty { color: var(--ink-faint); font-size: 13px; padding: 24px 0; text-align: center; }
-  #sse-status { font-size: 11px; }
-  #sse-status.live { color: var(--ok); }
-  #sse-status.down { color: var(--danger); }
+  /* GOAL-078：SSE 状态默认隐藏，仅断线时显示红条（JS 控制 display）。 */
+  #sse-status { font-size: 11px; color: var(--danger); border: 1px solid var(--danger); border-radius: 6px; padding: 2px 8px; }
   form#dispatch-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
   form#dispatch-form label { font-size: 12px; color: var(--ink-dim); display: block; margin-bottom: 4px; }
   form#dispatch-form .full { grid-column: 1 / -1; }
@@ -561,12 +584,30 @@ ${getCollaborationStyles()}
     </svg>
     <h1>mush · 雪橇队指挥台</h1>
   </span>
-  <span id="head-dog-badge" title="当前头犬（role: head）"><span class="logo-slot" id="head-dog-logo"></span><span id="head-dog-name">当前头犬：…</span></span>
-  <span id="workspace-current" title="当前 workspace（视角切换：点右侧下拉换工作区）">…</span>
+  <span class="capsule-wrap">
+    <button id="head-dog-badge" type="button" title="当前头犬（点击更换 harness / 模型）"><span class="logo-slot" id="head-dog-logo"></span><span id="head-dog-name">当前头犬：…</span></button>
+    <span class="capsule-pop" id="head-dog-pop">
+      <span class="pop-title">头犬 / HARNESS / 模型</span>
+      <label style="display:flex">头犬 <select id="chat-head-select"></select></label>
+      <label id="chat-head-provider-wrap" style="display:none">Provider <select id="chat-head-provider"></select></label>
+      <label id="chat-head-variant-wrap" style="display:none">模型 <select id="chat-head-variant"></select></label>
+      <button class="act" id="chat-probe-btn" type="button" style="align-self:flex-start;padding:3px 10px;font-size:12px;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)" title="实测探测当前 Provider 模型">⚡ 探测</button>
+    </span>
+  </span>
+  <span class="capsule-wrap">
+    <button id="workspace-current" type="button" title="当前工作区（点击切换）">…</button>
+    <span class="capsule-pop" id="workspace-pop">
+      <span class="pop-title">工作区</span>
+      <label>📁 <select id="chat-workspace-select"></select></label>
+      <span style="display:flex;gap:8px">
+        <button class="act" id="chat-workspace-browse-btn" type="button" style="padding:3px 10px;font-size:12px;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)" title="调起系统文件管理器选取本地文件夹">📁 浏览</button>
+        <button class="act" id="chat-workspace-tree-btn" type="button" style="padding:3px 10px;font-size:12px;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)" title="打开网页目录树选择器">🗂️ 目录树</button>
+      </span>
+    </span>
+  </span>
   <button class="act" id="theme-toggle" type="button" title="切换月之亮面/暗面（主题偏好本地记忆）" style="padding:3px 10px;font-size:13px;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)">🌓</button>
   <button class="act" id="rail-toggle-btn" type="button" title="展开/收起右侧待办栏（审批·活动·犬队·预算）" style="padding:3px 10px;font-size:12px;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)">🛡️ <span id="waiting-count-rail"></span> 待办</button>
-  <span class="meta" id="generated"></span>
-  <span class="meta" id="sse-status">SSE 连接中…</span>
+  <span class="meta" id="sse-status" style="display:none"></span>
 </header>
 <div class="app-shell">
 <nav>
@@ -583,7 +624,7 @@ ${getCollaborationStyles()}
     <div class="deck-main">
     <div class="chat-toolbar">
       <span>你只和头犬说话 —— 它自主派活、审核回报，触发门会弹回这里。</span>
-      <span id="chat-context-gauge" class="badge mono" style="background:rgba(232,169,76,0.12);color:var(--ember);border:1px solid rgba(232,169,76,0.3);padding:2px 8px;border-radius:12px;font-size:11px;cursor:help" title="实时模型运作遥测与上下文监控">📊 上下文: 0.6k / 200k (0.3%) | ⚡ 缓存: 0% | 💰 $0.000</span>
+      <span id="chat-context-gauge" class="badge mono" style="background:var(--panel-hi);color:var(--ink-dim);border:1px solid var(--line);padding:2px 8px;border-radius:12px;font-size:11px;cursor:help" title="实时模型运作遥测与上下文监控">📊 …</span>
       <span style="flex:1"></span>
       <label style="display:inline-flex;align-items:center;gap:4px">会话 <select id="chat-session-select" style="width:auto;padding:3px 8px;font-size:12px"><option value="">（新会话）</option></select></label>
       <span class="mono" id="chat-session-label"></span>
@@ -591,11 +632,7 @@ ${getCollaborationStyles()}
       <button class="act cancel" id="chat-new-session" type="button" style="padding:3px 10px;font-size:12px">新会话</button>
     </div>
     <div class="chat-settings-panel" id="chat-settings-panel" style="display:none">
-      <label style="display:inline-flex;align-items:center;gap:4px">📁 工作区 <select id="chat-workspace-select" style="width:auto;max-width:160px;padding:3px 8px;font-size:12px"></select><button class="act" id="chat-workspace-browse-btn" type="button" style="padding:2px 6px;font-size:11px;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)" title="调起系统文件管理器选取本地文件夹">📁 浏览</button><button class="act" id="chat-workspace-tree-btn" type="button" style="padding:2px 6px;font-size:11px;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)" title="打开网页目录树选择器">🗂️ 目录树</button></label>
-      <label>头犬 <select id="chat-head-select" style="width:auto;padding:3px 8px;font-size:12px"></select></label>
-      <label id="chat-head-provider-wrap" style="display:none">Provider <select id="chat-head-provider" style="width:auto;padding:3px 8px;font-size:12px"></select></label>
-      <label id="chat-head-variant-wrap" style="display:none">模型 <select id="chat-head-variant" style="width:auto;padding:3px 8px;font-size:12px"></select></label>
-      <button class="act" id="chat-probe-btn" type="button" style="padding:2px 8px;font-size:12px;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)" title="实测探测当前 Provider 模型">⚡ 探测</button>
+      <span class="hint" style="display:inline">头犬与工作区已迁至顶栏胶囊，点击胶囊即可更换。</span>
       <label>思维 <select id="chat-effort" style="width:auto;padding:3px 8px;font-size:12px">
         <option>LOW</option>
         <option selected>HIGH</option>
@@ -604,6 +641,7 @@ ${getCollaborationStyles()}
       <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer" title="独奏直聊模式：仅与头犬一对一单聊，头犬独立完成所有分析与写码，不唤醒或派发任何子犬"><input type="checkbox" id="chat-solo-toggle"> 🔕 独奏直聊</label>
       <label><input type="checkbox" id="notify-toggle"> 浏览器通知</label>
       <button class="act" id="chat-compact-btn" type="button" style="padding:3px 10px;font-size:12px;background:var(--ok-tint);color:var(--ok);border:1px solid var(--ok)" title="提取结构化会话不变式并压缩上下文">📦 状态压缩</button>
+      <span class="meta" id="generated" style="font-size:11px"></span>
     </div>
     <div id="chat-stream"><div class="empty">向头犬下达第一条指令，开始对话。</div></div>
     <div id="chat-composer" style="display:flex;flex-direction:column;gap:6px">
@@ -3243,7 +3281,8 @@ ${getCollaborationStyles()}
       var outK = ((g.out_cnt || 0) / 1000).toFixed(1) + 'k';
       var costStr = g.is_free ? '免额度 免费' : ('$' + Number(g.cost_usd || 0).toFixed(4));
 
-      gaugeEl.textContent = '📊 上下文: ' + kTotal + ' / ' + kMax + ' (' + g.percent + '%) | ⚡ 缓存: ' + cachePct + '% | 📥 ' + inK + ' 📤 ' + outK + ' | 💰 ' + costStr;
+      // GOAL-078：遥测压缩为短码——常态只露水位百分比；完整遥测（窗口/缓存/IO/费用）全留 title tooltip。
+      gaugeEl.textContent = '📊 ' + g.percent + '%' + (g.is_free ? ' · 免费' : '');
 
       gaugeEl.title = '模型: ' + (g.model_id || '未知') +
         '\\n• 窗口上限: ' + (g.t_max || 0) +
@@ -3254,19 +3293,23 @@ ${getCollaborationStyles()}
         '\\n• ⚡ 缓存命中: ' + cachePct + '% (读 ' + (g.cache_read || 0) + ')' +
         '\\n• 💰 预估费用: ' + (g.is_free ? '0 USD (免费模型)' : ('$' + Number(g.cost_usd || 0).toFixed(6)));
 
-      // 动态颜色提示
+      // 动态颜色提示（GOAL-078：>90% 红色，>75% 琥珀，常态灰，免费模型绿）
       if (g.is_free) {
         gaugeEl.style.color = '#10b981';
         gaugeEl.style.background = 'rgba(16,185,129,0.1)';
         gaugeEl.style.borderColor = 'rgba(16,185,129,0.25)';
-      } else if (g.percent > 75) {
+      } else if (g.percent > 90) {
         gaugeEl.style.color = '#ef4444';
         gaugeEl.style.background = 'rgba(239,68,68,0.1)';
         gaugeEl.style.borderColor = 'rgba(239,68,68,0.25)';
-      } else {
+      } else if (g.percent > 75) {
         gaugeEl.style.color = '#d97706';
         gaugeEl.style.background = 'rgba(217,119,6,0.1)';
         gaugeEl.style.borderColor = 'rgba(217,119,6,0.25)';
+      } else {
+        gaugeEl.style.color = 'var(--ink-dim)';
+        gaugeEl.style.background = 'var(--panel-hi)';
+        gaugeEl.style.borderColor = 'var(--line)';
       }
     }).catch(function () {});
   }
@@ -3457,11 +3500,12 @@ ${getCollaborationStyles()}
       }
       el.innerHTML = blockedBadge + batchBar + list.map(function (t) {
         var transitions = (TASK_TRANSITIONS[t.status] || []);
-        var btns = transitions.map(function (next) {
-          return '<button class="act cancel" data-task-move="' + esc(t.task_id) + '" data-to="' + esc(next) + '" type="button">' + esc(TASK_VERB_CN[next] || next) + '</button>';
-        }).join('');
         var dispatchBtn = t.status === 'READY' || t.status === 'QUEUED'
           ? '<button class="act approve" data-task-dispatch="' + esc(t.task_id) + '" type="button">派发</button>' : '';
+        // 手动标记完成：目标在 mush 之外完成时，owner 一键直达完成池
+        //（服务端平滑跃迁 DONE 并 append-only 留痕；DONE/CANCELLED 终态不出现）。
+        var markDoneBtn = (t.status !== 'DONE' && t.status !== 'CANCELLED')
+          ? '<button class="act approve" data-task-mark-done="' + esc(t.task_id) + '" type="button" title="确认该目标已在 mush 之外完成，直接归档进完成池（留痕可溯）">✓ 标记完成</button>' : '';
         // D82 修订：失败/受阻/已取消且有过派发的任务 → 一键重新执行（重放最近一次
         // 派发快照；服务端 rerun 会回链 task_id 并把任务复活为 IN_FLIGHT）。
         var lastDispatchId = (t.dispatch_ids && t.dispatch_ids.length > 0)
@@ -3472,6 +3516,18 @@ ${getCollaborationStyles()}
           ? '<input type="checkbox" class="task-select" data-task-select="' + esc(t.task_id) + '"' + (taskSelection[t.task_id] ? ' checked' : '') + ' title="选中批量派发">' : '';
         var goalBadge = t.goal_id ? '<span class="badge goal-cluster">' + esc(t.goal_id) + '</span>' : '';
         var seq = taskSeq(t);
+        // GOAL-078：动作分层——主行动作常驻卡片，低频动作收进「⋯」溢出菜单。
+        var primaryBtns = dispatchBtn + rerunBtn +
+          (t.status === 'QUEUED'
+            ? '<button class="act cancel" data-task-move="' + esc(t.task_id) + '" data-to="IN_FLIGHT" type="button">' + esc(TASK_VERB_CN.IN_FLIGHT) + '</button>' : '');
+        var menuBtns = transitions.filter(function (next) {
+          return !(t.status === 'QUEUED' && next === 'IN_FLIGHT');
+        }).map(function (next) {
+          return '<button class="act cancel" data-task-move="' + esc(t.task_id) + '" data-to="' + esc(next) + '" type="button">' + esc(TASK_VERB_CN[next] || next) + '</button>';
+        }).join('') + markDoneBtn;
+        var overflowMenu = menuBtns !== ''
+          ? '<button class="act" data-task-menu type="button" title="更多操作" style="padding:3px 8px;font-size:12px;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)">⋯</button>' +
+            '<div class="task-menu" style="display:none">' + menuBtns + '</div>' : '';
         return '<div class="task-card" data-task-id="' + esc(t.task_id) + '" title="' + esc(t.task_id) + '">' +
           '<div class="task-title">' + checkbox + '<span class="task-seq">#' + seq + '</span> ' + esc(t.title) + '</div>' +
           '<div class="task-meta"><span class="badge prio-' + esc(t.priority || '中') + '">' + esc(t.priority || '中') + '</span>' +
@@ -3479,7 +3535,7 @@ ${getCollaborationStyles()}
           goalBadge +
           '<span>' + esc(t.source || 'manual') + '</span>' +
           '<span>派发链 ' + ((t.dispatch_ids || []).length) + '</span></div>' +
-          '<div class="task-actions">' + btns + dispatchBtn + rerunBtn + '</div></div>';
+          '<div class="task-actions">' + primaryBtns + overflowMenu + '</div></div>';
       }).join('');
       bindBatchBar(el);
       el.querySelectorAll('.task-card').forEach(function (card) {
@@ -3494,6 +3550,16 @@ ${getCollaborationStyles()}
           taskSelection[box.getAttribute('data-task-select')] = box.checked;
           if (!box.checked) delete taskSelection[box.getAttribute('data-task-select')];
           renderTasks();
+        });
+      });
+      el.querySelectorAll('button[data-task-menu]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var menu = btn.parentElement.querySelector('.task-menu');
+          if (!menu) return;
+          var opening = menu.style.display === 'none';
+          el.querySelectorAll('.task-menu').forEach(function (m) { m.style.display = 'none'; });
+          if (opening) menu.style.display = 'flex';
         });
       });
       el.querySelectorAll('button[data-task-move]').forEach(function (btn) {
@@ -3519,6 +3585,18 @@ ${getCollaborationStyles()}
           var taskId = btn.getAttribute('data-task-rerun');
           if (!dispatchId || !taskId) return;
           prefillDispatchFromSnapshot(dispatchId, taskId);
+        });
+      });
+      el.querySelectorAll('button[data-task-mark-done]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var taskId = btn.getAttribute('data-task-mark-done');
+          if (!taskId) return;
+          if (!window.confirm('确认该目标已完成（含在 mush 之外完成的情形）？将直接归档进完成池并留痕。')) return;
+          postJson('/api/tasks/' + encodeURIComponent(taskId) + '/mark-done', {}).then(function (result) {
+            if (result.body && result.body.ok) { toast('已标记完成并归档', true); loadTasks(); }
+            else { toast('标记完成失败：' + ((result.body && result.body.error) || result.status), false); }
+          }).catch(function (error) { toast('标记完成失败：' + error, false); });
         });
       });
     });
@@ -4427,6 +4505,26 @@ ${getCollaborationStyles()}
   if (chatSettingsToggle) chatSettingsToggle.addEventListener('click', function () {
     document.getElementById('chat-settings-panel').classList.toggle('open');
   });
+  /* GOAL-078：顶栏胶囊即入口——popover 开合（点外/Esc 关闭，互斥单开）。 */
+  function closeCapsulePops() {
+    document.querySelectorAll('.capsule-pop.open').forEach(function (p) { p.classList.remove('open'); });
+  }
+  function bindCapsulePop(btnId, popId) {
+    var btn = document.getElementById(btnId);
+    var pop = document.getElementById(popId);
+    if (!btn || !pop) return;
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var opening = !pop.classList.contains('open');
+      closeCapsulePops();
+      if (opening) pop.classList.add('open');
+    });
+    pop.addEventListener('click', function (e) { e.stopPropagation(); });
+  }
+  bindCapsulePop('head-dog-badge', 'head-dog-pop');
+  bindCapsulePop('workspace-current', 'workspace-pop');
+  document.addEventListener('click', closeCapsulePops);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeCapsulePops(); });
   function openDispatchDrawer() { document.getElementById('view-dispatch').classList.add('open'); }
   function closeDispatchDrawer() { document.getElementById('view-dispatch').classList.remove('open'); }
   var btnOpenDispatch = document.getElementById('btn-open-dispatch');
@@ -4446,10 +4544,11 @@ ${getCollaborationStyles()}
       toast(waiting > 0 ? '待办栏已展开：' + waiting + ' 项待你处理' : '待办栏已展开：当前无待处理审批', true);
     }
   });
-  document.querySelectorAll('nav button').forEach(function (btn) {
+  document.querySelectorAll('nav button[data-view]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var viewName = btn.getAttribute('data-view');
-      document.querySelectorAll('nav button').forEach(function (b) { b.classList.remove('active'); });
+      if (!viewName) return; // 防御：无 data-view 的 nav 按钮（如收起钮）不得触碰视图显隐
+      document.querySelectorAll('nav button[data-view]').forEach(function (b) { b.classList.remove('active'); });
       document.querySelectorAll('main > section.view, main > section.view-panel').forEach(function (s) {
         s.classList.remove('active');
         s.style.display = 'none';
@@ -5147,8 +5246,8 @@ ${getCollaborationStyles()}
     if (chatSessionId) switchChatSession(chatSessionId); else renderSessionSelector();
     var status = document.getElementById('sse-status');
     var source = new EventSource('/api/stream');
-    source.onopen = function () { status.textContent = 'SSE 实时'; status.className = 'live'; };
-    source.onerror = function () { status.textContent = 'SSE 断开（重连中）'; status.className = 'down'; };
+    source.onopen = function () { status.textContent = ''; status.style.display = 'none'; };
+    source.onerror = function () { status.textContent = '⚠ 实时通道断开，重连中…'; status.style.display = ''; };
     source.onmessage = function (msg) {
       var payload = null;
       try { payload = JSON.parse(msg.data); } catch (e) { payload = null; }
