@@ -912,6 +912,10 @@ ${getCollaborationStyles()}
   </section>
   <section id="view-insights" class="view">
     <div class="console-group">
+      <h2 class="console-group-title">🕵️ 任务监理（GOAL-082）</h2>
+      <div id="mission-panel"><div class="empty" style="padding:8px 0">加载中…</div></div>
+    </div>
+    <div class="console-group">
       <h2 class="console-group-title">📊 洞察与能效</h2>
   ${renderEloRankingsHtml()}
   ${renderSelfEvolvingRoutingHtml()}
@@ -4470,6 +4474,30 @@ ${getCollaborationStyles()}
   });
 
   /* ---------- GOAL-020 B2 & GOAL-025：右侧犬队栏（每犬一卡：徽标+实测状态+单犬探测⚡+最近回报摘要） ---------- */
+  /* GOAL-080：犬卡探针级位徽标——/api/dogs/liveness 恒零成本缓存快照，
+     60s 轮询；诚实标签映射（PROCESS_ONLY=可调度·未实弹，绝不冒充实弹）。 */
+  var livenessByAdapter = {};
+  var livenessLabels = {
+    DEAD: { text: '⛔ 失联', color: '#b91c1c', bg: 'rgba(239,68,68,0.15)' },
+    PROCESS_ONLY: { text: '可调度·未实弹', color: '#6b7280', bg: 'rgba(107,114,128,0.15)' },
+    AUTH_VERIFIED: { text: '鉴权·未实弹', color: '#92400e', bg: 'rgba(245,158,11,0.15)' },
+    FREE_ROUND_VERIFIED: { text: 'L2 免费实弹', color: '#047857', bg: 'rgba(16,185,129,0.15)' },
+    PAID_ROUND_VERIFIED: { text: 'L3 实弹', color: '#047857', bg: 'rgba(16,185,129,0.15)' }
+  };
+  function loadLiveness() {
+    getJson('/api/dogs/liveness').then(function (res) {
+      if (!(res.body && res.body.ok)) return;
+      (res.body.dogs || []).forEach(function (d) { livenessByAdapter[d.adapter_id] = d; });
+      renderRailDogs();
+    }).catch(function () { /* 探针端点不可用：徽标静默缺省 */ });
+  }
+  function livenessBadgeHtml(adapterId) {
+    var d = livenessByAdapter[adapterId];
+    if (!d) return '';
+    var m = livenessLabels[d.label] || { text: d.label, color: '#6b7280', bg: 'rgba(107,114,128,0.15)' };
+    return '<span class="badge" data-liveness-badge="' + esc(adapterId) + '" style="font-size:9px;padding:1px 4px;background:' + m.bg + ';color:' + m.color + '" title="探针 ' + esc(d.label) + ' · ' + esc(d.detail || '') + '">' + esc(m.text) + '</span>';
+  }
+
   function renderRailDogs() {
     var el = document.getElementById('rail-dogs');
     var roster = (snapshot.roster || []).filter(function (r) {
@@ -4491,6 +4519,7 @@ ${getCollaborationStyles()}
       var cardHtml = '<div class="rail-dog-card dog-avatar" data-dog="' + esc(r.adapter_id) + '" title="点击直连【' + esc(r.adapter_id) + '】专属终端">' + dogLogo(r.adapter_id + ' ' + (r.expected_model_id || ''), logoState) +
         '<span class="rail-dog-name">' + esc(r.adapter_id) + '</span>' +
         probeBadge +
+        livenessBadgeHtml(r.adapter_id) +
         '<button class="act" data-rail-probe="' + esc(r.adapter_id) + '" type="button" style="padding:1px 5px;font-size:10px;margin-left:auto;background:var(--panel-hi);border:1px solid var(--line);color:var(--ink)" title="单独探测 ' + esc(r.adapter_id) + '">⚡</button>' +
         '<span class="rail-dog-note"' + noteStyle + '>' + note + '</span></div>';
       return { key: String(r.adapter_id), html: cardHtml };
@@ -4671,6 +4700,49 @@ ${getCollaborationStyles()}
   });
   /* GOAL-081：渲染竞态根治——任务卡/审批/派发按钮文档级委托（捕获相，先于人卡监听）。 */
   g081DelegateClicks();
+  /* GOAL-080：犬卡探针级位徽标数据源——首拉 + 60s 轮询（服务端 TTL 缓存，恒零成本）。 */
+  loadLiveness();
+  window.setInterval(loadLiveness, 60_000);
+  /* GOAL-082：任务监理面板——拉取总览渲染（完成率/阶段分布/滞涩归因）。 */
+  function loadMissionPanel() {
+    var el = document.getElementById('mission-panel');
+    if (!el) return;
+    Promise.all([
+      getJson('/api/missions/overview').catch(function () { return null; }),
+      getJson('/api/tasks').catch(function () { return null; })
+    ]).then(function (arr) {
+      var ov = arr[0], tasksList = arr[1] && Array.isArray(arr[1].tasks) ? arr[1].tasks : [];
+      if (!ov || !ov.ok) { el.innerHTML = '<div class="empty" style="padding:8px 0">监理端点不可用</div>'; return; }
+      var missions = ov.missions || [];
+      var phases = { HEALTHY: 0, RETRYING: 0, REPLAN_PENDING: 0, ESCALATED: 0 };
+      missions.forEach(function (m) { if (phases[m.phase] !== undefined) phases[m.phase] += 1; });
+      // 完成率：DONE / (DONE+IN_FLIGHT+BLOCKED+READY+QUEUED+IDEA)，CANCELLED 排除
+      var done = 0, active = 0;
+      tasksList.forEach(function (t) {
+        if (t.status === 'CANCELLED') return;
+        if (t.status === 'DONE') done += 1; else active += 1;
+      });
+      var rate = (done + active) > 0 ? Math.round((done / (done + active)) * 100) : null;
+      var phaseColor = { HEALTHY: '#047857', RETRYING: '#92400e', REPLAN_PENDING: '#b45309', ESCALATED: '#b91c1c' };
+      var phaseHtml = Object.keys(phases).map(function (p) {
+        return '<span style="margin-right:10px;color:' + phaseColor[p] + '">' + p + ' <b>' + phases[p] + '</b></span>';
+      }).join('');
+      var recent = (ov.events || []).slice(-5).reverse().map(function (e) {
+        return '<div style="font-size:11px;color:var(--ink-dim);margin:2px 0">' + escTime(e.at_utc) + ' · ' +
+          esc(e.kind) + ' · ' + esc(e.task_id) + ' · ' + esc(String(e.detail).slice(0, 60)) + '</div>';
+      }).join('') || '<div class="empty" style="padding:4px 0">暂无监理事件</div>';
+      el.innerHTML =
+        '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:baseline;margin-bottom:6px">' +
+        '<span style="font-size:13px">任务完成率 <b style="font-size:18px;color:' + (rate === null ? 'var(--ink-dim)' : rate >= 80 ? '#047857' : rate >= 50 ? '#92400e' : '#b91c1c') + '">' + (rate === null ? '—' : rate + '%') + '</b>' +
+        '<span class="hint" style="font-size:11px">（DONE ' + done + ' / 在册 ' + (done + active) + '，不含已取消）</span></span>' +
+        '<span style="font-size:12px">' + phaseHtml + '</span>' +
+        (ov.unfrozen && ov.unfrozen.length ? '<span class="badge" style="background:rgba(16,185,129,0.15);color:#047857">本次自解冻 ' + ov.unfrozen.length + '</span>' : '') +
+        '</div>' +
+        '<div style="border-top:1px solid var(--line);padding-top:4px"><b style="font-size:12px">最近监理动作</b>' + recent + '</div>';
+    });
+  }
+  window.setInterval(loadMissionPanel, 30_000);
+  loadMissionPanel();
   /* GOAL-081：第一单零配置——无 verified 犬时升起引导横幅，一键预填免费通道首单。 */
   function g081FirstTaskBanner() {
     var banner = document.getElementById('first-task-banner');
@@ -4756,6 +4828,9 @@ ${getCollaborationStyles()}
       }
       if (viewName === 'workbench') {
         loadTasks(false);
+      }
+      if (viewName === 'insights') {
+        loadMissionPanel(); // GOAL-082：监理面板随视图懒刷新
       }
     });
   });

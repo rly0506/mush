@@ -1,6 +1,6 @@
 # GOAL-080: 犬链可靠性——探针阶梯、派发预检与故障转移 (Harness Link Reliability: Liveness Ladder, Pre-flight Gate & Failover)
 
-- 状态：`IN_PROGRESS`（2026-08-29 头犬施工 + **独立子代理审计一轮**：核心机制经审计确认——探针阶梯 L0-L3（L2/L3 由 live-probes 台账权威回填，恒零成本）/派发预检门（10min TTL、REJECTED 零台账副作用、L0 失败带修复指引）/故障转移（同审批预算包络内换道一跳、候选犬过预检才换、failover_from+attempt 旁路回执、record.adapter_id 归因实际执飞犬）/诚实标签；审计发现的预检无修复指引、候选犬不预检均已修复。g080 测试 9/9 + typecheck 0。**UI 级位徽标与注册表中间档接线并入 GOAL-081**（page.ts 战场）；dsh/opencode L1 声明按实证路径入合同）
+- 状态：`AUTO_ACCEPTED`（2026-08-29 收官：头犬施工 → 独立子代理审计一轮（缺口全数修复）→ UI 收尾完成。最终交付：探针阶梯 L0-L3（L2/L3 由 live-probes 台账权威回填，恒零成本——测试断言仅发 `--version`/合同声明探针，零 LLM 请求）/派发预检门（10min TTL、REJECTED 零台账副作用、L0 失败带修复指引）/故障转移（同审批预算包络内换道一跳、候选犬过预检才换、failover_from+attempt 旁路回执、record.adapter_id 归因实际执飞犬、熔断停机即停链）/**诚实标签 UI 落地**——犬卡级位徽标（`data-liveness-badge`，`/api/dogs/liveness` 60s 轮询，PROCESS_ONLY=「可调度·未实弹」绝不冒充实弹）。**去向决议**：能力注册表中间档字段不再新增——UI 直接消费阶梯 label 即唯一事实源，注册表再存一份属冗余（YAGNI）。g080 测试 10/10 + 全量 698/698 + typecheck 0 + 基线 7/7；D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 - 来源：owner 三关切（体验/链接/完成率）之二 + 头犬能力雷达评审（无人值守自主性 6.5 的欠账在「建成未证明」）
 - 优先级：高
 - 依赖：无硬依赖——零件已在库：G025 实测探测、G026 零 Token 信度梯队、D13 nonce 身份探测、G070 opencode 免费通道、G053 路由自进化、能力注册表
@@ -38,9 +38,9 @@
 
 ## 3. 验收规格
 
-- [ ] 新建自动化测试 `tests/g080-liveness.test.ts`：阶梯各级 fail-closed 单测（L0 缺失/L1 401/L2 超时的判级与降档）
-- [ ] 预检门：过期缓存触发 L0+L1，通道坏时派发被拒且错误含修复指引（断言不产生任何 LLM 调用——零成本断言）
-- [ ] 故障转移：注入首犬 exit 1 → 自动换道重试成功且台账含 `failover_from`；全员失败 → 任务受阻并进监理滞涩队列（GOAL-082 接口预留）
-- [ ] 诚实标签：L0/L1 过而 L2 未跑显示「可调度·未实弹」，不得计为 ONLINE
-- [ ] 熔断协同：熔断停机期间故障转移同样被 REJECTED（保险丝优先于换道，不得绕过 G073）
-- [ ] 严格遵守宪法红线：L0/L1 恒零成本、密钥零入库零日志、默认档位行为不变
+- [x] 新建自动化测试 `tests/g080-liveness.test.ts`：阶梯各级 fail-closed 单测（L0 缺失/L1 401/L2 超时的判级与降档） ✅（10/10：L0 失败→DEAD、L1 401→DEAD、实弹台账 free→L2/付费→L3、>24h 降档回 L1、TTL 缓存、预检门、换道、候选犬死亡不换道、熔断协同、UI 收尾标记）
+- [x] 预检门：过期缓存触发 L0+L1，通道坏时派发被拒且错误含修复指引（断言不产生任何 LLM 调用——零成本断言） ✅（REJECTED 零台账副作用——断言台账文件根本未创建；spawnCalls 全为 `--version`；L0 失败 detail 带 setup-harnesses 指引）
+- [x] 故障转移：注入首犬 exit 1 → 自动换道重试成功且台账含 `failover_from`；全员失败 → 任务受阻并进监理滞涩队列（GOAL-082 接口预留） ✅（换道成功 + failover_from + attempt1 旁路回执 + 单次 admission；候选犬探针死亡不换道；失败→noteBlocked 已接线监理）
+- [x] 诚实标签：L0/L1 过而 L2 未跑显示「可调度·未实弹」，不得计为 ONLINE ✅（PROCESS_ONLY 标签 + 犬卡徽标 `data-liveness-badge` 消费——注册表中间档决议不新增字段，UI 直采阶梯 label 为唯一事实源）
+- [x] 熔断协同：熔断停机期间故障转移同样被 REJECTED（保险丝优先于换道，不得绕过 G073） ✅（停链不换道 + 停机期新单 REJECTED 双用例）
+- [x] 严格遵守宪法红线：L0/L1 恒零成本、密钥零入库零日志、默认档位行为不变 ✅

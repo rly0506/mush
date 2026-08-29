@@ -6,6 +6,7 @@ import path from 'node:path';
 import { validateAdapterContract, type AdapterContract } from '../src/adapters/contract.ts';
 import { evaluateLiveness, createLivenessGate } from '../src/core/liveness-ladder.ts';
 import { DispatchPipeline } from '../src/web/dispatch.ts';
+import { renderBoardPage } from '../src/web/page.ts';
 import { CircuitBreaker } from '../src/core/circuit-breaker.ts';
 import type { LivenessGate, LivenessResult } from '../src/core/liveness-ladder.ts';
 
@@ -242,6 +243,19 @@ test('GOAL-080 故障转移：候选犬探针死亡 → 不换道（预检覆盖
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('GOAL-080/082 UI 收尾：犬卡级位徽标 + 洞察区监理面板标记在场', () => {
+  const html = renderBoardPage();
+  // 080：级位徽标渲染函数 + 数据源端点 + 诚实标签映射
+  assert.match(html, /function livenessBadgeHtml/, '级位徽标渲染函数');
+  assert.match(html, /\/api\/dogs\/liveness/, '探针端点数据源');
+  assert.match(html, /data-liveness-badge=/, '犬卡徽标挂载属性');
+  assert.match(html, /可调度·未实弹/, '诚实标签（未实弹不许冒充实弹）');
+  // 082：监理面板容器 + 总览端点 + 完成率口径
+  assert.match(html, /id="mission-panel"/, '洞察区监理面板容器');
+  assert.match(html, /\/api\/missions\/overview/, '监理总览数据源');
+  assert.match(html, /任务完成率/, '完成率上屏');
 });
 
 test('GOAL-080 熔断协同：三连败停机 → 停链不换道；停机期新单 REJECTED', async () => {
