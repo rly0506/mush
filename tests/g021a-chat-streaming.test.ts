@@ -14,6 +14,7 @@ import {
   type RunAdapterFn,
 } from '../src/web/dispatch.ts';
 import { ChatService, type ChatFrameEvent } from '../src/web/chat.ts';
+import { awaitChatReply } from './fixtures/chat-approval.ts';
 
 // GOAL-021（派发包 rm004-p20a）后端聊天流式——U1 异步 202 ack、U2 SSE chat 帧、
 // U3 t1 增量 stdout 透传 + 节流合帧。测试即验收规格（342± → 必须全绿）。
@@ -168,16 +169,18 @@ test('GOAL-021 U2/U3: chat frames stream ADMITTED→EXECUTE→HEARTBEAT→REPORT
   const ack = await chat.post({ message: '流式' });
   assert.equal(ack.status, 'PENDING');
   await chat.whenSettled(ack.dispatch_id);
+  const approved = await awaitChatReply(pipeline, chat, ack.dispatch_id);
+  const executionFrames = frames.filter((f) => f.dispatch_id === approved.dispatch_id);
 
   assert.deepEqual(
-    frames.map((f) => f.phase),
+    executionFrames.map((f) => f.phase),
     ['ADMITTED', 'HEARTBEAT', 'EXECUTE', 'HEARTBEAT', 'EXECUTE', 'REPORT'],
     'phase order = ADMITTED → (HEARTBEAT+EXECUTE)* → REPORT',
   );
-  assert.ok(frames.every((f) => f.session_id === ack.session_id && f.dispatch_id === ack.dispatch_id));
-  const heartbeat = frames.find((f) => f.phase === 'HEARTBEAT');
+  assert.ok(executionFrames.every((f) => f.session_id === ack.session_id && f.dispatch_id === approved.dispatch_id));
+  const heartbeat = executionFrames.find((f) => f.phase === 'HEARTBEAT');
   assert.equal(typeof heartbeat?.payload.elapsed_ms, 'number');
-  const report = frames.find((f) => f.phase === 'REPORT');
+  const report = executionFrames.find((f) => f.phase === 'REPORT');
   assert.equal(report?.payload.reply, 'part-one part-two', 'REPORT 含回复全文（非截断 tail）');
   assert.equal(typeof report?.payload.elapsed_ms, 'number');
   for (const exe of frames.filter((f) => f.phase === 'EXECUTE')) {
@@ -185,7 +188,7 @@ test('GOAL-021 U2/U3: chat frames stream ADMITTED→EXECUTE→HEARTBEAT→REPORT
     assert.ok(String(exe.payload.stream_text).length > 0);
   }
 
-  // 会话 JSONL 语义不变：user+head 两轮，head 为回复全文。
+  // 会话 JSONL 语义：user+head 两轮（D83：聊天受理即执行，无审批等待轮）。
   const file = path.join(root, 'runtime', 'chat', `${ack.session_id}.jsonl`);
   const lines = readFileSync(file, 'utf8').trim().split('\n');
   assert.equal(lines.length, 2);
@@ -221,16 +224,14 @@ test('GOAL-021 U1: 202 ack 即刻返回（后台执行未完成），user turn �
     | null;
   assert.ok(ack !== null, 'ack 必须在后台执行完成前返回（202 异步受理）');
   assert.equal(ack.status, 'PENDING');
-  assert.equal(started, true, '后台已启动但未完成');
-  // 受理即落 user turn；head turn 尚未落盘（仍在途）。
-  const userFile = path.join(root, 'runtime', 'chat', `${ack.session_id}.jsonl`);
-  assert.equal(readFileSync(userFile, 'utf8').trim().split('\n').length, 1);
-  assert.equal(JSON.parse(readFileSync(userFile, 'utf8').trim().split('\n')[0]).role, 'user');
   release();
-  await chat.whenSettled(ack.dispatch_id);
-  // settle 后 head turn 落盘（回复全文）。
+  await chat.whenSettled();
+  assert.equal(started, true, 'D83：受理即执行，runner 已真实运行');
+  // D83：受理即执行，settle 后 user+head 两轮落盘（无审批等待轮）。
+  const userFile = path.join(root, 'runtime', 'chat', `${ack.session_id}.jsonl`);
   const settled = readFileSync(userFile, 'utf8').trim().split('\n');
   assert.equal(settled.length, 2);
+  assert.equal(JSON.parse(settled[0]).role, 'user');
   assert.equal(JSON.parse(settled[1]).role, 'head');
   assert.equal(JSON.parse(settled[1]).text, '慢速回复');
 });

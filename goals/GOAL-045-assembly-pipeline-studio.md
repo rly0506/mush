@@ -1,6 +1,6 @@
 # GOAL-045: SOP 工序流水线与工件自动接力工作台 (Assembly Pipeline Studio)
 
-- 状态：`PROPOSED`（RM-005 M2 核心规划，2026-08-19 立项）
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；SOP 流水线在库（src/orchestration/pipeline-engine.ts），专测 tests/g045-*.test.ts 通过；目标池 RM-005 表已记完成；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 - 来源：2026-08-19 owner `/grill-me` 深度访谈裁决 + RM-005 路线图
 - 优先级：高（RM-005 M2）
 - 依赖：GOAL-043 (协作总线), GOAL-044 (辩论工作台), GOAL-033 (工作流与 Handoff)

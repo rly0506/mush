@@ -1,0 +1,78 @@
+{
+  "goal_id": "GOAL-085",
+  "phase": "stage3a-cli-thin-entry",
+  "executor": "GLM",
+  "reviewer_note": "执行与核验署名为 GLM（ZCode 会话）；非 Owner 正式验收，Goal 保持 PROPOSED",
+  "status": "PROPOSED",
+  "owner_formal_acceptance": "pending",
+  "at": "2026-10-06T19:05:00.000Z",
+  "implementation": "VERIFIED",
+  "scope": "第三阶段第一片：mush collab CLI 薄入口（check/create/status/result/stop）；MCP 与 skill 未开工",
+  "model_calls": 0,
+  "design_boundary": "五个子命令全部是看板 HTTP API 的 loopback 薄客户端（默认 4790，--board-url 覆盖）；零新端点、零凭据读写；底层完全复用看板审批/编排/停止/账本。create 仅创建待批准会话并返回 approval=PENDING_OWNER_APPROVAL + 审批卡路径 + readiness——不自动批准（D30），批准由 owner 在看板完成；CLI 不提供 approve/reject 子命令；stop 只发停止请求，终态以 status 为准",
+  "cli_surface": {
+    "check": "POST /api/collaboration/check（只读查询，ready=false 仍 exit 0）",
+    "create": "POST /api/collaboration/sessions（409 准入/版本拒绝 → exit 2 原样原因）",
+    "status": "GET /api/collaboration/sessions（列表）或 POST .../detail（摘要）",
+    "result": "POST /api/collaboration/sessions/result（--format json|markdown，--out 落盘）",
+    "stop": "POST .../cancel（409 → exit 2）",
+    "exit_codes": "0 成功 / 2 业务拒绝 / 3 看板不可达 / 64 用法错误 / 1 其他",
+    "caller_token_in_stdout": false
+  },
+  "focused_regressions": {
+    "file": "tests/g085-cli-collab.test.ts",
+    "passed": 5,
+    "failed": 0,
+    "first_round_failure_log": "首轮 1 例失败（夹具 create 未带材料 → 协调轮 m1 校验拒绝，夹具问题非实现缺陷），修复后全绿；失败输出保留于测试运行日志",
+    "coverage": [
+      "check 就绪 exit 0 / 看板不可达 exit 3 / 未知子命令 exit 64",
+      "create 待批卡（pending_approval、0 调用、审批卡生成）+ 缺参 64 + 准入 409→exit 2",
+      "status 列表与逐会话摘要（席位/评审关系/授权状态）",
+      "result JSON stdout（无 token 泄漏）与 Markdown --out 落盘，与黑板同源",
+      "stop 待批取消成功、终态会话 stop exit 2"
+    ]
+  },
+  "default": {
+    "file": ".test-fixtures/stage3a-full-default.log",
+    "total": 974,
+    "passed": 974,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "c97010701cbc4cf13f914d5bb833342e8f0a29fd0c2277874564985c222466f5"
+  },
+  "isolated": {
+    "file": ".test-fixtures/stage3a-full-isolated.log",
+    "total": 974,
+    "passed": 974,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "60af03f1371d7d66aa7ea0a8b233a962b7ed142be4568409edda02f5c29cc7a9"
+  },
+  "typecheck_exit_code": 0,
+  "docs_reconcile": "PASS（契约 v1.69，66 个版本节）",
+  "git_diff_check_exit_code": 0,
+  "api_contract": "v1.69",
+  "production_board": {
+    "pid": 11044,
+    "note": "生产看板本轮未再次重载——CLI 代码在 src/cli.ts，需下次空闲重载后 CLI 才在常驻进程外可用（CLI 本身按需进程运行，不经看板进程）；本轮零生产建卡/批准/启动"
+  },
+  "wording_correction_linked": {
+    "receipt": "goals/receipts/GOAL-085-result-stage2-close-wording-correction.json",
+    "sha256": "a32fbc5ea53b060c81c5a67eb771ce597c49a16e8613d4e2fb0034a82b61aa03"
+  },
+  "artifacts": [
+    { "file": "src/cli.ts", "sha256": "309e1fd01d68891ccccdb3a8d6eb8ad67615163f0e6078581f3cc734390bf9fa" },
+    { "file": "tests/g085-cli-collab.test.ts", "sha256": "2469e3fecd32c6af0f16c1599a6722b7ac611c1ce7b304f259603e7910811b93" },
+    { "file": "src/web/api-contract.md", "sha256": "8f0908b00ec14e09d8209ef5604298d2dbb229f81dc90d0ab59a441b169e0052" },
+    { "file": "goals/GOAL-085-claude-and-triple-model-discussion.md", "sha256": "f6f213dce7ca7a9024ada6a187898dd325024f0230510b6675df453ce55ba337" },
+    { "file": "docs/goal-pool.md", "sha256": "8a17202af24119745dcfbc1ae4ca2f4fd3564d5879e3094179af1676ae5528f8" },
+    { "file": ".test-fixtures/stage3a-full-default.log", "sha256": "c97010701cbc4cf13f914d5bb833342e8f0a29fd0c2277874564985c222466f5" },
+    { "file": ".test-fixtures/stage3a-full-isolated.log", "sha256": "60af03f1371d7d66aa7ea0a8b233a962b7ed142be4568409edda02f5c29cc7a9" }
+  ],
+  "limitations": [
+    "费用与账号权益仍 UNKNOWN；台账申报≠账单硬上限",
+    "pi-rpc 完成状态机独立全量间歇失败根因未确认（本轮两模式 974/974 通过，不视为已解决）",
+    "CLI 未接真实看板做端到端人工验收（fixture 已覆盖协议面）；生产重载由 owner 决定",
+    "MCP/skill 未开工；本轮零模型调用，未提交未推送"
+  ]
+}

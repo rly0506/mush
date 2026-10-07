@@ -1,0 +1,17 @@
+# Preserve byte-level hashes in immutable receipts and discussion evidence.
+goals/receipts/*.json -text
+docs/operations/*.md -text
+skills/**/SKILL.md -text
+.claude/skills/**/SKILL.md -text
+
+# Historical replay manifests hash the original CRLF JSON bytes.
+tests/fixtures/replay/**/*.json text eol=crlf
+
+# These current source snapshots are explicitly hash-bound by acceptance receipts.
+src/adapters/claude.ts -text
+src/adapters/contract.ts -text
+src/web/api-contract.md -text
+src/web/dispatch.ts -text
+src/web/page.ts -text
+src/web/server.ts -text
+tests/persistence.test.ts -text

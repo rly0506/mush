@@ -12,6 +12,7 @@ import { StringDecoder } from 'node:string_decoder';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { AdapterContract } from './contract.ts';
+import { capabilityArgs } from './contract.ts';
 import { sha256Hex } from '../core/event-log.ts';
 import { type TokenUsageTelemetry, calculateTokenCostAndSavings } from '../core/budget.ts';
 
@@ -89,6 +90,9 @@ export interface T1RunResult {
   receipt: T1Receipt;
   /** GOAL-075 切片2：ndjson-events 归一化回填的结构化会话锚点（ses_…）。 */
   sessionId?: string;
+  /** GOAL-084（2026-10-03）：合同 output_parser 声明的通道解析产物（如 agy
+   *  三形状结构化结果）；解析失败/无结构化结果 = 缺省，不伪造。 */
+  structuredOutput?: unknown;
 }
 
 /** GOAL-075 切片2：结构化 stdout 归一化产物（由声明 output_format 的通道提供实现）。 */
@@ -121,6 +125,20 @@ export interface T1RunOptions {
    *  在途流式 chunk 保持原始形态（节流在宿主侧）。 */
   outputFormat?: 'text' | 'ndjson-events';
   outputNormalizer?: (stdout: string) => OutputNormalization;
+  /** D84（2026-09-06）：owner 停止按钮的中断句柄——spawn 成功即注册，
+   *  kill 走 ChildProcessLike.kill（默认实现=taskkill 树杀）。缺失 = 该通道不可中断。 */
+  registerKill?: (kill: () => void) => void;
+  /** GOAL-084 §3.2：讨论通道工具限制（合同未声明 tool_restriction_args 即抛错，fail-closed）。 */
+  restrictTools?: boolean;
+  /** GOAL-084 §3.2：mush 预写的输出 schema 文件路径（file 运输，如 codex --output-schema）。 */
+  outputSchemaPath?: string;
+  /** GOAL-084 §3.2：输出 schema JSON 文本（inline 运输，如 claude --json-schema）。 */
+  outputSchemaJson?: string;
+  /** GOAL-084（2026-10-03，owner 复核缺口 1）：stdout 结构化结果解析器（合同
+   *  output_parser 声明的通道由 dispatch 注入）。进程退出后对完整 stdout 调用
+   *  一次，产出透传为 T1RunResult.structuredOutput（协调器结构化观点的第一
+   *  优先来源）。缺失 = 不解析。 */
+  structuredParser?: (stdout: string) => unknown | undefined;
 }
 
 /** G009（DEF-03）：Windows npm-global 的 .cmd 垫片不能被 node 直接 spawn
@@ -338,10 +356,23 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
   // 部分 CLI 不可靠，opencode 实证会自行解析项目根）。旗标置于 prompt 前参之前。
   const cwdDir = options.cwd ?? options.workspaceRoot;
   const cwdArgs = contract.cwd_flag !== undefined ? [contract.cwd_flag, cwdDir] : [];
+  // GOAL-084 §3.2：能力注入参数插在合同静态参数之后、cwd/prompt 之前。
+  const capability = capabilityArgs(contract, {
+    restrictTools: options.restrictTools,
+    outputSchemaPath: options.outputSchemaPath,
+    outputSchemaJson: options.outputSchemaJson,
+  });
   const args =
     contract.prompt_transport === 'argument'
-      ? [...contract.arguments, ...cwdArgs, options.prompt]
-      : [...contract.arguments, ...cwdArgs];
+      ? [
+          ...contract.arguments,
+          ...capability,
+          ...cwdArgs,
+          // GOAL-084：prompt_flag（如 agy `-p <prompt>`）由 runner 统一收尾拼接——
+          // 能力注入参数必须落在该值参旗标之前，否则会被 CLI 当作 prompt。
+          ...(contract.prompt_flag !== undefined ? [contract.prompt_flag, options.prompt] : [options.prompt]),
+        ]
+      : [...contract.arguments, ...capability, ...cwdArgs];
   const startedAt = new Date().toISOString();
 
   let child: ChildProcessLike;
@@ -375,6 +406,13 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
   let exitCode = 124;
   let identityError: Error | null = null;
   let spawnError: Error | null = null;
+
+  // D84：spawn 成功即向宿主注册树杀句柄（owner 停止按钮）；对已退出进程 kill 为无害空操作。
+  options.registerKill?.(() => {
+    try {
+      child.kill();
+    } catch {}
+  });
 
   child.onStdout((chunk) => {
     const text = chunk.toString();
@@ -493,6 +531,16 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
 
   if (spawnError !== null) throw new Error(`spawn failed (BLOCKED_ENV): ${(spawnError as Error).message}`);
   if (identityError !== null) throw identityError;
+  // GOAL-084（owner 复核缺口 1）：合同声明解析器的通道在退出后对完整 stdout
+  // 提取结构化结果；解析异常受控降级（不伪造、不阻断派发记录）。
+  let structuredOutput: unknown | undefined;
+  if (options.structuredParser !== undefined) {
+    try {
+      structuredOutput = options.structuredParser(stdout);
+    } catch {
+      structuredOutput = undefined;
+    }
+  }
   return {
     exitCode,
     stdout,
@@ -502,5 +550,6 @@ export async function runT1(options: T1RunOptions): Promise<T1RunResult> {
     receiptPath: options.receiptPath,
     receipt,
     ...(normalizedSessionId !== undefined ? { sessionId: normalizedSessionId } : {}),
+    ...(structuredOutput !== undefined ? { structuredOutput } : {}),
   };
 }

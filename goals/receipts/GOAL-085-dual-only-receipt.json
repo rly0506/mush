@@ -1,0 +1,95 @@
+{
+  "goal_id": "GOAL-085",
+  "status": "PROPOSED",
+  "executor": "Codex",
+  "owner_acceptance": "pending",
+  "at": "2026-10-06T01:03:46.007Z",
+  "scope": "Codex / Claude Code / agy dual-model review; historical three seats remain readable",
+  "local_verified": {
+    "typecheck_exit": 0,
+    "focused_pass": 52,
+    "logs": [
+      {
+        "mode": "default",
+        "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/default.log",
+        "sha256": "11ca6f741054545c23bec37d78ab0b19e03172cb0723ed5cb6fd432ce9f35965",
+        "tests": 952,
+        "pass": 952,
+        "fail": 0,
+        "skipped": 0,
+        "exit_code": 0
+      },
+      {
+        "mode": "isolated",
+        "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/isolated.log",
+        "sha256": "af7d48283568f222b15ce3551950ed4a77bed1c339e22a1989e3f20dd8b21216",
+        "tests": 952,
+        "pass": 952,
+        "fail": 0,
+        "skipped": 0,
+        "exit_code": 0
+      }
+    ],
+    "docs_reconcile": "PASS v1.65 D97",
+    "diff_check_exit": 0,
+    "chromium": {
+      "fixture_only": true,
+      "real_models": false,
+      "evidence_sha256": "45add615ffdbd5ea3d17a98e1eaddd591fa931b9d8ddedb8f5acae3950d14418",
+      "completed_status": "completed",
+      "completed_calls": 7,
+      "stopped_status": "interrupted",
+      "historical_c_readable": true,
+      "screenshots": [
+        {
+          "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/dual-form.png",
+          "sha256": "02ff0f7e88059334e504cfd8a50a99e8c33f5fcb4db1ddaf9b60ef0ad5584825"
+        },
+        {
+          "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/dual-approval.png",
+          "sha256": "5e1c3393cdcfa3440817b176a3990ac99b608de9fcb5091e1573ca1dd40c3ba1"
+        },
+        {
+          "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/dual-results.png",
+          "sha256": "3c7e2d7e65ccc3fe0590b4439e58e428468a0b2938c94447f84606f1edb3117d"
+        },
+        {
+          "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/narrow-results.png",
+          "sha256": "3096be2f19e4913da42e068e11cb1516adfefaf5c74dfd9fdecf878d50af2dac"
+        },
+        {
+          "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/historical-three-readonly.png",
+          "sha256": "d120f9f293bfc9e3aa419abb2c24ddc563abb9e977f4410491d48b6a52588813"
+        },
+        {
+          "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/stopped.png",
+          "sha256": "4de3044cbf9ebdec0477941f4123808cc052d3995a7eca20d28c1d1466b02098"
+        }
+      ]
+    }
+  },
+  "native_probe": {
+    "id": "A16",
+    "dispatch_id": "b5317d75eb1342098b9237955943eb09",
+    "status": "BLOCKED_WAITING_OWNER",
+    "model_calls": 0,
+    "candidate_original_bytes_restored": true,
+    "baseline_agent_sha256": "68e47ebb6845259901e25fb3c1ad3bcd263232d8a64d78d8815a55747abaa01e",
+    "candidate_not_admitted": true
+  },
+  "remaining": [
+    "A16 separately approved native run and audit; no automatic room retry",
+    "If successful, new fingerprint evidence applicability and authorization before Codex+agy reproduction",
+    "Claude observed 2.1.290 is outside D95 acceptance; no automatic expansion",
+    "Owner formal acceptance remains pending"
+  ],
+  "historical_baselines": {
+    "codex_claude": "4a77b7b5: seven outputs accepted by current offline replay; not a fresh real run",
+    "codex_agy": "7503ed94: historic review and revision completed; old cached views differ from current native terminal acceptance"
+  },
+  "production": {
+    "changes": "stale/offline board restored with current code; profiles activated, original fingerprints unchanged",
+    "commits": false,
+    "pushes": false
+  }
+}

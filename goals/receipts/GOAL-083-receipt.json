@@ -1,0 +1,51 @@
+{
+  "goal_id": "GOAL-083",
+  "file": "GOAL-083-test-isolation-and-regression-baseline.md",
+  "status": "AUTO_ACCEPTED",
+  "verified_at": "2026-09-05T13:03:29+08:00",
+  "base_commit": "e1b61bfa68defd61bd93e64181b3a2abca3ed744",
+  "environment": { "platform": "win32", "node": "v24.13.1" },
+  "checks": [
+    {
+      "command": "npm.cmd test",
+      "exit_code": 0,
+      "tests": 710,
+      "passed": 710,
+      "failed": 0,
+      "log": ".test-fixtures/g083-full-tests-verified.log",
+      "sha256": "555FFEDD3C92CB2694037CBBF0E4B0032CC2CC8EEBF169F56FA07DD4955E12A0"
+    },
+    {
+      "command": "npm.cmd run test:isolated",
+      "exit_code": 0,
+      "tests": 710,
+      "passed": 710,
+      "failed": 0,
+      "log": ".test-fixtures/g083-isolated-tests-verified.log",
+      "sha256": "7BBC97F72C6A5136113EB906CEDD4D63CDCB34AF95E701DBEC10E573A65D65BB"
+    },
+    { "command": "npm.cmd run typecheck", "exit_code": 0 },
+    {
+      "command": "node --import ./tests/setup.ts scripts/g076-board-regression-baseline.cjs",
+      "exit_code": 0,
+      "checks": 7,
+      "passed": 7
+    }
+  ],
+  "source_sha256": {
+    "src/web/persistence.ts": "46A5284DFEECFCE2EDED9B36370EE2C4E648DCAE08320947138DFD57D6309011",
+    "scripts/board-up.ps1": "E48AFE6FAC843A7405D57826A90FC953A4A098426ED55113D877EC11791E8538",
+    "tests/setup.ts": "C373C5AA534C32FEC1FC9A8DF5F4233B4A96AC56A94EC4734C84705CE88BB13E"
+  },
+  "host_master_ledger": {
+    "unchanged": true,
+    "before_sha256": "5D5276BD39F04F11395A62254A2F2AA92C47DCCC24337DC96856A410B32A706D",
+    "after_sha256": "5D5276BD39F04F11395A62254A2F2AA92C47DCCC24337DC96856A410B32A706D"
+  },
+  "limitations": [
+    "Linux and macOS paths were not exercised on their respective operating systems.",
+    "No real model dispatch, browser visual audit, or independent model review was performed.",
+    "The launcher probe was tested without starting the persistent board or opening a browser.",
+    "Changes remain uncommitted; formal DONE requires owner acceptance."
+  ]
+}

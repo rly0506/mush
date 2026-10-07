@@ -1,5 +1,7 @@
 # GOAL-025 模型实测选择与名册真实回填（Live Model Probing & Authoritative Roster Backfill）
 
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；模型实测探测（契约 v1.12）在库，专测 tests/g025-*.test.ts 通过；目标池 GP-16/GP-35 已记完成（2026-08-18/19）；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
+
 ## 目标与背景
 
 根据 owner 的核心治理原则——**「以实测为准（Ground-Truth Probing）」** 与 GP-35 目标定义：

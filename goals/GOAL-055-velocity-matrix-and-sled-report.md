@@ -1,6 +1,6 @@
 # GOAL-055: 多犬协作全景战报与研发能效大屏 (Velocity Matrix & Sled Report)
 
-- 状态：`PROPOSED`（RM-007 M4 核心规划，2026-08-19 立项）
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；能效大屏在库（velocity-matrix.ts），专测 tests/g055-*.test.ts 通过；目标池 RM-007 表已记完成；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 - 来源：2026-08-19 owner `/grill-me` 深度访谈裁决 + 软件工程能效学 (DORA & SPACE)
 - 优先级：中（RM-007 M4）
 - 依赖：GOAL-041 (审计日志导出), GOAL-036 (Trace 瀑布)

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { getHarnessHierarchy, getModelThinkingSpec, probeHttpModels } from '../src/adapters/live-probe.ts';
 import { renderBoardPage } from '../src/web/page.ts';
 import { renderEloRankingsHtml } from '../src/web/ui/views/elo-view.ts';
+import { installCcSwitchFixture } from './fixtures/ccswitch.ts';
 
 test('Harness -> Provider -> Model 3-tier Hierarchy Tests', async (t) => {
   await t.test('1. getHarnessHierarchy returns structured providers for all harnesses', () => {
@@ -29,7 +30,8 @@ test('Harness -> Provider -> Model 3-tier Hierarchy Tests', async (t) => {
     }
   });
 
-  await t.test('2. Specific Harness provider checks', () => {
+  await t.test('2. Specific Harness provider checks', (t) => {
+    installCcSwitchFixture(t);
     const agyH = getHarnessHierarchy('agy');
     const oauthP = agyH.providers.find((p) => p.id === 'oauth');
     assert.ok(oauthP?.models.includes('claude-sonnet-4-6'), 'AGY OAuth should include claude-sonnet-4-6');

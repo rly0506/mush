@@ -1,6 +1,6 @@
 # GOAL-050: 跨犬共享黑板协作空间与读写白名单仲裁 (Shared Blackboard Workspace)
 
-- 状态：`PROPOSED`（RM-006 M3 核心规划，2026-08-19 立项）
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；共享黑板在库（blackboard.ts），专测 tests/g050-*.test.ts 通过；目标池 RM-006 表已记完成；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 - 来源：2026-08-19 owner `/grill-me` 深度访谈裁决 + 经典 AI 黑板模型
 - 优先级：中（RM-006 M3）
 - 依赖：GOAL-042 (点对点信箱), GOAL-034 (写面白名单)

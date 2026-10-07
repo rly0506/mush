@@ -1,0 +1,239 @@
+{
+  "goal_id": "GOAL-085",
+  "status": "PROPOSED",
+  "executor": "Codex",
+  "owner_acceptance": "pending",
+  "decision": "D98",
+  "at": "2026-10-06T02:04:52.302Z",
+  "adoption": {
+    "decision": "D98",
+    "candidate_fingerprint": "43ae6c28ff26110c014bd162b3323a03b1b092b342e7ceed965c0b4144979c80",
+    "agent_sha256": "210355bd139dd796220e73001a45b448177d1eb5e76d351927b9dfe1608d7bda",
+    "policy_sha256": "a98e06b8ac3e73ddbabcf30201a21b8f902220c732afc9db57142b04529223c1",
+    "accepted_gaps": [
+      {
+        "dimension": "tool_scope",
+        "status": "unmet"
+      },
+      {
+        "dimension": "write_protection",
+        "status": "unmet"
+      },
+      {
+        "dimension": "read_scope",
+        "status": "unmet"
+      },
+      {
+        "dimension": "mcp_scope",
+        "status": "unmet"
+      },
+      {
+        "dimension": "recursion",
+        "status": "unmet"
+      }
+    ],
+    "scope": {
+      "adapter_ids": [
+        "agy",
+        "codex"
+      ],
+      "call_limit": 7,
+      "retry_limit": 1,
+      "single_call_timeout_s": 180,
+      "session_timeout_min": 20
+    },
+    "evidence_registered": false,
+    "models_called": 0,
+    "room_approved": false,
+    "at": "2026-10-06T01:58:47.311Z"
+  },
+  "tests": {
+    "typecheck_exit": 0,
+    "focused_pass": 41,
+    "logs": [
+      {
+        "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/d98-default-final.log",
+        "sha256": "d53c88c3663ba77c5c7524eeba2eba5608527c90aa026ff20ff508680c3a2cfa",
+        "tests": 955,
+        "pass": 955,
+        "exit_code": 0
+      },
+      {
+        "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/d98-isolated-final.log",
+        "sha256": "a3f72eaa84b58b1e38189b75358eb27bfec2886bdac7cb81c7fc96c7a138d5e2",
+        "tests": 955,
+        "pass": 955,
+        "exit_code": 0
+      }
+    ],
+    "docs_reconcile": "PASS v1.66/D98",
+    "diff_check_exit": 0
+  },
+  "room": {
+    "id": "24675150-8055-4794-93a1-bedd28aa93d0",
+    "status": "pending_approval",
+    "approved": false,
+    "calls": 0,
+    "authorization_hash": "86ce6d4a1f7ebb1d061da7a90e9db88bf94c69f6314db482512aa1abbe7d325f",
+    "participants": [
+      {
+        "seat": "A",
+        "adapter_id": "codex",
+        "provider_id": "openai",
+        "model_id": "gpt-5.5",
+        "effort": "LOW",
+        "config_fingerprint": "8194bb67a14f1eae74b218bf3724d13849cdb641d01dbd16451c1b24bda58936",
+        "is_coordinator": true
+      },
+      {
+        "seat": "B",
+        "adapter_id": "agy",
+        "provider_id": "google",
+        "model_id": "gemini-3.7-flash-high",
+        "effort": "HIGH",
+        "config_fingerprint": "43ae6c28ff26110c014bd162b3323a03b1b092b342e7ceed965c0b4144979c80"
+      }
+    ],
+    "policy_decision_ref": "D88/D89 + D98 2026-10-06",
+    "accepted_gaps": [
+      {
+        "adapter_id": "agy",
+        "dimension": "write_protection",
+        "config_fingerprint": "43ae6c28ff26110c014bd162b3323a03b1b092b342e7ceed965c0b4144979c80",
+        "reason": "D98 Owner接受候选新指纹的缺证（非行为级通过），仅Codex＋agy、正常≤7＋共享重试≤1、单次≤180秒、整场≤20分钟。资源守卫不变；已有失败反例不得接受。No behavioral isolation record registered under this new fingerprint. Old evidence is retained as referenced context, not relabeled.",
+        "equivalence": {
+          "gate_sha256": "4423994952133954d495a5cc0b5d8ffac244e47eefb95809e0dce6be60248ca0",
+          "hooks_sha256": "2d13fdaec68970c63291f3532d1d95fd5ddf2023e4c376b792bac128040b6b91",
+          "project_sha256": "f6bce486cf7155dd301258b0569881cc547569d9c0f9ba6fb0003d4c52a22b85",
+          "differing": "Agent tools [] -> [finish] only; configuration version exception unchanged. Single-variable asset comparison does not itself prove behavioral isolation.",
+          "reference": "goals/receipts/GOAL-085-a16-finish-receipt.json; docs/operations/goal084-seat-applicability-2026-10-04.md"
+        },
+        "decided_by": "D98 2026-10-06 (owner)",
+        "session_scope": {
+          "adapter_ids": [
+            "agy",
+            "codex"
+          ],
+          "call_limit": 7,
+          "retry_limit": 1,
+          "single_call_timeout_s": 180,
+          "session_timeout_min": 20
+        }
+      },
+      {
+        "adapter_id": "agy",
+        "dimension": "tool_scope",
+        "config_fingerprint": "43ae6c28ff26110c014bd162b3323a03b1b092b342e7ceed965c0b4144979c80",
+        "reason": "D98 Owner接受候选新指纹的缺证（非行为级通过），仅Codex＋agy、正常≤7＋共享重试≤1、单次≤180秒、整场≤20分钟。资源守卫不变；已有失败反例不得接受。No behavioral isolation record registered under this new fingerprint. Old evidence is retained as referenced context, not relabeled.",
+        "equivalence": {
+          "gate_sha256": "4423994952133954d495a5cc0b5d8ffac244e47eefb95809e0dce6be60248ca0",
+          "hooks_sha256": "2d13fdaec68970c63291f3532d1d95fd5ddf2023e4c376b792bac128040b6b91",
+          "project_sha256": "f6bce486cf7155dd301258b0569881cc547569d9c0f9ba6fb0003d4c52a22b85",
+          "differing": "Agent tools [] -> [finish] only; configuration version exception unchanged. Single-variable asset comparison does not itself prove behavioral isolation.",
+          "reference": "goals/receipts/GOAL-085-a16-finish-receipt.json; docs/operations/goal084-seat-applicability-2026-10-04.md"
+        },
+        "decided_by": "D98 2026-10-06 (owner)",
+        "session_scope": {
+          "adapter_ids": [
+            "agy",
+            "codex"
+          ],
+          "call_limit": 7,
+          "retry_limit": 1,
+          "single_call_timeout_s": 180,
+          "session_timeout_min": 20
+        }
+      },
+      {
+        "adapter_id": "agy",
+        "dimension": "read_scope",
+        "config_fingerprint": "43ae6c28ff26110c014bd162b3323a03b1b092b342e7ceed965c0b4144979c80",
+        "reason": "D98 Owner接受候选新指纹的缺证（非行为级通过），仅Codex＋agy、正常≤7＋共享重试≤1、单次≤180秒、整场≤20分钟。资源守卫不变；已有失败反例不得接受。No behavioral isolation record registered under this new fingerprint. Old evidence is retained as referenced context, not relabeled.",
+        "equivalence": {
+          "gate_sha256": "4423994952133954d495a5cc0b5d8ffac244e47eefb95809e0dce6be60248ca0",
+          "hooks_sha256": "2d13fdaec68970c63291f3532d1d95fd5ddf2023e4c376b792bac128040b6b91",
+          "project_sha256": "f6bce486cf7155dd301258b0569881cc547569d9c0f9ba6fb0003d4c52a22b85",
+          "differing": "Agent tools [] -> [finish] only; configuration version exception unchanged. Single-variable asset comparison does not itself prove behavioral isolation.",
+          "reference": "goals/receipts/GOAL-085-a16-finish-receipt.json; docs/operations/goal084-seat-applicability-2026-10-04.md"
+        },
+        "decided_by": "D98 2026-10-06 (owner)",
+        "session_scope": {
+          "adapter_ids": [
+            "agy",
+            "codex"
+          ],
+          "call_limit": 7,
+          "retry_limit": 1,
+          "single_call_timeout_s": 180,
+          "session_timeout_min": 20
+        }
+      },
+      {
+        "adapter_id": "agy",
+        "dimension": "mcp_scope",
+        "config_fingerprint": "43ae6c28ff26110c014bd162b3323a03b1b092b342e7ceed965c0b4144979c80",
+        "reason": "D98 Owner接受候选新指纹的缺证（非行为级通过），仅Codex＋agy、正常≤7＋共享重试≤1、单次≤180秒、整场≤20分钟。资源守卫不变；已有失败反例不得接受。No behavioral isolation record registered under this new fingerprint. Old evidence is retained as referenced context, not relabeled.",
+        "equivalence": {
+          "gate_sha256": "4423994952133954d495a5cc0b5d8ffac244e47eefb95809e0dce6be60248ca0",
+          "hooks_sha256": "2d13fdaec68970c63291f3532d1d95fd5ddf2023e4c376b792bac128040b6b91",
+          "project_sha256": "f6bce486cf7155dd301258b0569881cc547569d9c0f9ba6fb0003d4c52a22b85",
+          "differing": "Agent tools [] -> [finish] only; configuration version exception unchanged. Single-variable asset comparison does not itself prove behavioral isolation.",
+          "reference": "goals/receipts/GOAL-085-a16-finish-receipt.json; docs/operations/goal084-seat-applicability-2026-10-04.md"
+        },
+        "decided_by": "D98 2026-10-06 (owner)",
+        "session_scope": {
+          "adapter_ids": [
+            "agy",
+            "codex"
+          ],
+          "call_limit": 7,
+          "retry_limit": 1,
+          "single_call_timeout_s": 180,
+          "session_timeout_min": 20
+        }
+      },
+      {
+        "adapter_id": "agy",
+        "dimension": "recursion",
+        "config_fingerprint": "43ae6c28ff26110c014bd162b3323a03b1b092b342e7ceed965c0b4144979c80",
+        "reason": "D98 Owner接受候选新指纹的缺证（非行为级通过），仅Codex＋agy、正常≤7＋共享重试≤1、单次≤180秒、整场≤20分钟。资源守卫不变；已有失败反例不得接受。No behavioral isolation record registered under this new fingerprint. Old evidence is retained as referenced context, not relabeled.",
+        "equivalence": {
+          "gate_sha256": "4423994952133954d495a5cc0b5d8ffac244e47eefb95809e0dce6be60248ca0",
+          "hooks_sha256": "2d13fdaec68970c63291f3532d1d95fd5ddf2023e4c376b792bac128040b6b91",
+          "project_sha256": "f6bce486cf7155dd301258b0569881cc547569d9c0f9ba6fb0003d4c52a22b85",
+          "differing": "Agent tools [] -> [finish] only; configuration version exception unchanged. Single-variable asset comparison does not itself prove behavioral isolation.",
+          "reference": "goals/receipts/GOAL-085-a16-finish-receipt.json; docs/operations/goal084-seat-applicability-2026-10-04.md"
+        },
+        "decided_by": "D98 2026-10-06 (owner)",
+        "session_scope": {
+          "adapter_ids": [
+            "agy",
+            "codex"
+          ],
+          "call_limit": 7,
+          "retry_limit": 1,
+          "single_call_timeout_s": 180,
+          "session_timeout_min": 20
+        }
+      }
+    ],
+    "limits": {
+      "normal": 7,
+      "shared_retry": 1,
+      "single_call_seconds": 180,
+      "minutes": 20
+    },
+    "source": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/d98-room-detail.json",
+    "sha256": "a57a28401f164807e60ef48c748346f5ea5e60064ae24f95a6dd1a974f4e60ab"
+  },
+  "identity_limits": {
+    "claude": "2.1.290 not accepted by D95, unchanged; unselected stale channels cannot block the selected pair",
+    "models": "UI selection exists; unverified model/config combinations are not claimed executable",
+    "effort": "per-seat selection remains frozen at approval"
+  },
+  "future_packaging": "Skill/MCP/plugin deferred; no new CLI/MCP/plugin delivered, no blanket support for arbitrary harness",
+  "real_models_called_this_turn": 0,
+  "room_execution": "WAITING_FOR_SPECIFIC_APPROVAL",
+  "committed": false,
+  "pushed": false
+}

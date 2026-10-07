@@ -1,6 +1,6 @@
 ---
 goal_id: MUSH-GOAL-023
-status: QUEUED（RM-004 / 体验线；D38 信息披露架构首批；排在 GOAL-022 之后）
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；活动时间线与三透镜（契约 v1.11）在库（src/web/activity.ts），专测 tests/g023-*.test.ts 通过；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 mode: LIGHT
 rm: RM-004 / 体验线（活动时间线批）
 executor_model_profile: deepseek-dsh（后端，owner 窗口）+ kimi-code（前端，owner 窗口或审批卡）

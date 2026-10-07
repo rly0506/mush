@@ -1,6 +1,6 @@
 # GOAL-051: 液态临时战时攻关小队与指挥犬选举协议 (Dynamic Liquid Squads)
 
-- 状态：`PROPOSED`（RM-006 M4 核心规划，2026-08-19 立项）
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；液态小队在库（liquid-squad.ts），专测 tests/g051-*.test.ts 通过；目标池 RM-006 表已记完成；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 - 来源：2026-08-19 owner `/grill-me` 深度访谈裁决 + 液态组织学 (Holonic Multi-Agent System)
 - 优先级：中（RM-006 M4）
 - 依赖：GOAL-039 (智能路由), GOAL-050 (共享黑板)

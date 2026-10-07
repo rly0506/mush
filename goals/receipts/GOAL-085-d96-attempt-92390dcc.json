@@ -1,0 +1,230 @@
+{
+  "schema_version": 1,
+  "goal_id": "GOAL-085",
+  "goal_status": "PROPOSED",
+  "formal_owner_acceptance": false,
+  "executed_by": "Codex delegated by Owner",
+  "session_id": "92390dcc-61b4-4ce4-8bc8-14020659ce35",
+  "authorization_hash": "3039eca52c6ba9c3b90c15ca42ef7bbc5b9d8b86a0057b5135f9e65b755288b7",
+  "owner_authorization": "Explicit acceptance of only agy1.2.17 and new room max14; total three attempts max20; visible cost4USD only; unknown fees accepted",
+  "attempt_status": "failed",
+  "call_count": 4,
+  "normal_calls": 3,
+  "retry_calls": 1,
+  "total_actual_mush_dispatches": 10,
+  "actual_cost_usd": "UNKNOWN",
+  "claude_calls": 0,
+  "accepted_viewpoints": {
+    "A": 2,
+    "B": 0,
+    "C": 0
+  },
+  "outcome": {
+    "status": "failed",
+    "reason": "阶段 proposal 席位 B 输出无效且共享重试已用尽：输出不是单个 JSON 对象",
+    "dispatch_ids": [
+      "f8a880f14584459493c8212bb6f27e71",
+      "a2edf93f2e7446348ed082c5f0ff8093",
+      "0eaeed7678274789a3e67de7a2e8caa0",
+      "abbc03cfead34de6b985c53adaee448d"
+    ]
+  },
+  "execution_log": [
+    {
+      "seq": 33,
+      "session_id": "92390dcc-61b4-4ce4-8bc8-14020659ce35",
+      "call_index": 1,
+      "kind": "normal",
+      "seat": "A",
+      "status": "pass",
+      "started_at_utc": "2026-10-05T15:40:11.944Z",
+      "ended_at_utc": "2026-10-05T15:40:44.924Z",
+      "error": null
+    },
+    {
+      "seq": 34,
+      "session_id": "92390dcc-61b4-4ce4-8bc8-14020659ce35",
+      "call_index": 2,
+      "kind": "normal",
+      "seat": "A",
+      "status": "pass",
+      "started_at_utc": "2026-10-05T15:40:53.701Z",
+      "ended_at_utc": "2026-10-05T15:41:31.995Z",
+      "error": null
+    },
+    {
+      "seq": 35,
+      "session_id": "92390dcc-61b4-4ce4-8bc8-14020659ce35",
+      "call_index": 3,
+      "kind": "normal",
+      "seat": "B",
+      "status": "pass",
+      "started_at_utc": "2026-10-05T15:41:40.305Z",
+      "ended_at_utc": "2026-10-05T15:42:57.365Z",
+      "error": null
+    },
+    {
+      "seq": 36,
+      "session_id": "92390dcc-61b4-4ce4-8bc8-14020659ce35",
+      "call_index": 4,
+      "kind": "retry",
+      "seat": "B",
+      "status": "pass",
+      "started_at_utc": "2026-10-05T15:43:02.967Z",
+      "ended_at_utc": "2026-10-05T15:44:59.581Z",
+      "error": null
+    }
+  ],
+  "receipts": [
+    {
+      "dispatch_id": "f8a880f14584459493c8212bb6f27e71",
+      "adapter_id": "codex",
+      "file": "D:\\mush\\.mush-receipts\\dispatch-f8a880f14584459493c8212bb6f27e71.json",
+      "sha256": "4b10338b9e5ce777a0649d0640b86e6f15553e26dd205c7025fb1fff65db3790",
+      "cost_usd": null,
+      "observed_model_id": null,
+      "version_drift_accepted": null,
+      "exit_code": 0,
+      "timed_out": false
+    },
+    {
+      "dispatch_id": "a2edf93f2e7446348ed082c5f0ff8093",
+      "adapter_id": "codex",
+      "file": "D:\\mush\\.mush-receipts\\dispatch-a2edf93f2e7446348ed082c5f0ff8093.json",
+      "sha256": "65b12d5d261299d4c946c8e120f581423c2fbf112dc600f8f2510e2d02cfd090",
+      "cost_usd": null,
+      "observed_model_id": null,
+      "version_drift_accepted": null,
+      "exit_code": 0,
+      "timed_out": false
+    },
+    {
+      "dispatch_id": "0eaeed7678274789a3e67de7a2e8caa0",
+      "adapter_id": "agy",
+      "file": "D:\\mush\\.mush-receipts\\dispatch-0eaeed7678274789a3e67de7a2e8caa0.json",
+      "sha256": "f825c4d10bc1755ef6a19157e34ce67e0b8780f4eb5614dd2b688bb3e8aa1993",
+      "cost_usd": null,
+      "observed_model_id": null,
+      "version_drift_accepted": {
+        "decision": "D96",
+        "accepted_by": "owner",
+        "frozen_native_version": "1.2.16",
+        "observed_native_version": "1.2.17"
+      },
+      "exit_code": 0,
+      "timed_out": false
+    },
+    {
+      "dispatch_id": "abbc03cfead34de6b985c53adaee448d",
+      "adapter_id": "agy",
+      "file": "D:\\mush\\.mush-receipts\\dispatch-abbc03cfead34de6b985c53adaee448d.json",
+      "sha256": "5fdc48e8a1dad14dce7f80bc4ecdaf821d336acbe8f12e9b38141ecc111051d5",
+      "cost_usd": null,
+      "observed_model_id": null,
+      "version_drift_accepted": {
+        "decision": "D96",
+        "accepted_by": "owner",
+        "frozen_native_version": "1.2.16",
+        "observed_native_version": "1.2.17"
+      },
+      "exit_code": 0,
+      "timed_out": false
+    }
+  ],
+  "d96_audit": [
+    {
+      "dispatch_id": "0eaeed7678274789a3e67de7a2e8caa0",
+      "header_receipt_reload_agree": true,
+      "version_drift_accepted": {
+        "decision": "D96",
+        "accepted_by": "owner",
+        "frozen_native_version": "1.2.16",
+        "observed_native_version": "1.2.17"
+      }
+    },
+    {
+      "dispatch_id": "abbc03cfead34de6b985c53adaee448d",
+      "header_receipt_reload_agree": true,
+      "version_drift_accepted": {
+        "decision": "D96",
+        "accepted_by": "owner",
+        "frozen_native_version": "1.2.16",
+        "observed_native_version": "1.2.17"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "file": ".test-fixtures/g085-agy-finish-fix-2026-10-05/d96-default-host-after-doc-fix.log",
+      "pass": 957,
+      "fail": 0,
+      "exit_code": 0,
+      "sha256": "481443841169d2c4220b5253c829071448881d01991974c224bed62ad609434f"
+    },
+    {
+      "file": ".test-fixtures/g085-agy-finish-fix-2026-10-05/d96-isolated-host.log",
+      "pass": 957,
+      "fail": 0,
+      "exit_code": 0,
+      "sha256": "e6799e134d65b70823b141b7691eb2f07a0b1de980ceafac424662a6a0817e3c"
+    }
+  ],
+  "typecheck_exit_code": 0,
+  "source": [
+    {
+      "file": "src/adapters/agy-discussion-profile.ts",
+      "sha256": "893da7a092328a9d981fd008420dec9105107f6595234a46de11c573ec78763b"
+    },
+    {
+      "file": "src/web/dispatch.ts",
+      "sha256": "b72ca097df1b697bcc31e11fb223995e6047bb6648b052d5433aa02735d2c813"
+    },
+    {
+      "file": "src/orchestration/collaboration-coordinator.ts",
+      "sha256": "9be66693898fd850f05bb72fbee072fc388d75048091a13af6f77eea08ae3958"
+    }
+  ],
+  "evidence": [
+    {
+      "file": ".test-fixtures/g085-d96-real-triple-2026-10-05/real/final-detail.json",
+      "sha256": "c057340436cac24cf2b2996e01feaac469ca4f43e664585291bd1638481d1c14"
+    },
+    {
+      "file": ".test-fixtures/g085-d96-real-triple-2026-10-05/real/monitor.jsonl",
+      "sha256": "7e89e7209c0438d3b8de4b4dcff6170ad1d99c07b0d3413bdd38959b00a729a4"
+    },
+    {
+      "file": ".test-fixtures/g085-d96-real-triple-2026-10-05/real/receipt-index.json",
+      "sha256": "c3596c88cf311bdb09936c6f9232e7ccdb26cee09ab097442ca8416f6cdd129e"
+    },
+    {
+      "file": ".test-fixtures/g085-d96-real-triple-2026-10-05/native-generation-field-summary.json",
+      "sha256": "6145e6e8e2ade62e5c5188319a1727ae47df151cfdbcbb2ae27575eb4116fe52"
+    },
+    {
+      "file": ".test-fixtures/g085-d96-real-triple-2026-10-05/native-tool-definition-blocks.json",
+      "sha256": "df9b438a1514b1a288feeed2a41d22b49c3691a757119d2c6b31a5f443424883"
+    },
+    {
+      "file": ".test-fixtures/g085-d96-real-triple-2026-10-05/native-tool-definition-blocks-with-counts.json",
+      "sha256": "28767ca55afda4c2c0b114183baf5400003a5a02fca2ef54748b50d9b97a2010"
+    }
+  ],
+  "native_findings": {
+    "init_catalog_contains_finish": true,
+    "observed_finish_tool_calls": 0,
+    "unique_authoritative_answer": false,
+    "inspected_embedded_tool_definition_count": 6,
+    "finish_in_inspected_definition_blocks": false,
+    "private_schema_fully_mapped": false
+  },
+  "limitations": [
+    "Finish prompt delivery passed local fixture, but actual native fix was disproved by this retest",
+    "Global CLI tool inventory does not prove actual model-visible tool definition",
+    "Cause of missing finish needs a controlled configuration contrast; tools[] is not yet proved causal",
+    "Three-model review/revision never occurred; Claude not called in these attempts",
+    "All10 mush dispatches lack money telemetry; unknown is not zero",
+    "Mush dispatch count is not provider request count; agy internally continued generation",
+    "No further paid call, resource permission change, agent-file change or fingerprint re-signing"
+  ]
+}

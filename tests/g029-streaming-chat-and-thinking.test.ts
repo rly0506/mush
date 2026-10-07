@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { ChatService, type ChatFrameEvent } from '../src/web/chat.ts';
 import { DispatchPipeline } from '../src/web/dispatch.ts';
 import { renderBoardPage } from '../src/web/page.ts';
+import { awaitChatReply } from './fixtures/chat-approval.ts';
 
 describe('GOAL-029: Streaming Chat & Thinking Flow', () => {
   let tmpDir: string;
@@ -65,7 +66,7 @@ describe('GOAL-029: Streaming Chat & Thinking Flow', () => {
     assert.ok(ack.session_id);
 
     // 等待后台异步流式执行完毕
-    await chatService.whenSettled(ack.dispatch_id);
+    await awaitChatReply(pipeline, chatService, ack.dispatch_id);
 
     // 验证事件流序列：ADMITTED -> HEARTBEAT/EXECUTE -> REPORT
     const phases = events.map((e) => e.phase);
@@ -77,6 +78,7 @@ describe('GOAL-029: Streaming Chat & Thinking Flow', () => {
     assert.strictEqual(history.turns.length, 2);
     assert.strictEqual(history.turns[0].role, 'user');
     assert.strictEqual(history.turns[1].role, 'head');
+    assert.notEqual(history.turns[1].status, 'BLOCKED_WAITING_OWNER');
     assert.ok(history.turns[1].text.includes('你好！我是头犬。'));
   });
 

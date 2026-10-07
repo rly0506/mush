@@ -1,6 +1,6 @@
 ---
 goal_id: MUSH-GOAL-018
-status: QUEUED（RM-004 / M5；与 p17a/p17b 并行注意文件面——本 Goal 动 dispatch/
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；work-stream/HANDOFF/真续接在库（src/web/workstreams.ts），专测 tests/g018a-*/g018b-*.test.ts 通过；目标池 GP-02/GP-08/GP-12/GP-18 已记完成；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 chat/persistence 服务端与 page 聊天/流视图区，若在途则排其后）
 mode: LIGHT
 rm: RM-004 / M5 工作流与会话延续

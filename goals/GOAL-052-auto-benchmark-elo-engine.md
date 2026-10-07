@@ -1,6 +1,6 @@
 # GOAL-052: 影子评测与实战战绩 ELO 天梯榜引擎 (Auto-Benchmark ELO Engine)
 
-- 状态：`PROPOSED`（RM-007 M1 核心规划，2026-08-19 立项）
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；ELO 天梯在库（elo-engine.ts），专测 tests/g052-*.test.ts 通过；目标池 RM-007 表已记完成；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 - 来源：2026-08-19 owner `/grill-me` 深度访谈裁决 + 竞技对战 ELO 算法
 - 优先级：高（RM-007 M1）
 - 依赖：GOAL-040 (影子分流评测), GOAL-039 (智能路由)

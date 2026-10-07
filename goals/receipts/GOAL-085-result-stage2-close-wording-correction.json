@@ -1,0 +1,31 @@
+{
+  "goal_id": "GOAL-085",
+  "phase": "result-stage2-close-wording-correction",
+  "executor": "GLM",
+  "requested_by": "Owner（2026-10-06 指示，两处措辞更正）",
+  "at": "2026-10-06T18:45:00.000Z",
+  "kind": "append-only wording correction; original §7.4 text and GOAL-085-result-stage2-close-receipt.json are preserved unmodified",
+  "corrections": [
+    {
+      "original": "无版本漂移（重载后激活指纹与登记一致）",
+      "corrected": "配置指纹未变，版本差异仍在既有接受范围内",
+      "facts": {
+        "codex": { "observed": "0.160.0", "frozen": "0.160.0" },
+        "agy": { "observed": "1.2.17", "frozen": "1.2.16", "acceptance": "D96" },
+        "claude": { "observed": "2.1.290", "frozen": "2.1.286", "acceptance": "D99" },
+        "config_fingerprints": {
+          "codex": "8194bb67a14f1eae74b218bf3724d13849cdb641d01dbd16451c1b24bda58936",
+          "agy": "43ae6c28ff26110c014bd162b3323a03b1b092b342e7ceed965c0b4144979c80",
+          "claude": "5b5096e9c3d49f3d3d33a0f61d93d58d4bf30b4cacdf9913106ff056afd7857d"
+        },
+        "note": "指纹未变；版本差异由 D95/D96/D99 既有接受政策覆盖，不构成未漂移，接受名单不扩大"
+      }
+    },
+    {
+      "original": "Owner 裁定：第二阶段按本地实现验收收口（收口依据记为 Owner 决定）",
+      "corrected": "Codex 独立复核通过，Owner 转呈；第二阶段按本地实现验收收口",
+      "note": "收口的技术依据是 Codex 的独立复核（Owner 转呈）；Owner 的明确接受（正式验收）尚未发生，Goal §6 末项仍开放，Goal 保持 PROPOSED；收口回执 GOAL-085-result-stage2-close-receipt.json 的 owner_ruling 字段按同一口径读取"
+    }
+  ],
+  "model_calls": 0
+}

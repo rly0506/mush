@@ -1,0 +1,132 @@
+{
+  "goal_id": "GOAL-085",
+  "status": "PROPOSED",
+  "executor": "Codex",
+  "owner_acceptance": "pending",
+  "at": "2026-10-06T01:19:17.293Z",
+  "verification": {
+    "typecheck_exit": 0,
+    "focused_latest_pass": 18,
+    "default": {
+      "tests": 952,
+      "pass": 952,
+      "exit": 0,
+      "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/default-final.log",
+      "sha256": "91c7c6861edcb68ffeacd634e70625e92ac3d6e1323a3dfceeacdf4a5714a618"
+    },
+    "isolated": {
+      "tests": 952,
+      "pass": 951,
+      "fail": 1,
+      "exit": 1,
+      "clean": false,
+      "case": "pi-rpc-completion-state-machine.test.ts:376",
+      "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/isolated-final-rerun.log",
+      "sha256": "2e49084b9e1e12f2cd4326b3664078fd4bdaf7396223c0ec918e4bb6e0baae2e"
+    },
+    "isolated_failure_preserved": {
+      "tests": 952,
+      "pass": 951,
+      "fail": 1,
+      "exit": 1,
+      "case": "pi-rpc-completion-state-machine.test.ts:283",
+      "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/isolated-final.log",
+      "sha256": "4374833d3092c53de04ff13dbb9f812b538f8c0da6abdd3d4f7b34b811664be2",
+      "causation": "Root cause unconfirmed; impact of this implementation not ruled out"
+    },
+    "targeted_rerun": {
+      "pass": 32,
+      "exit": 0,
+      "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/pi-rpc-final-rerun.log",
+      "sha256": "5b6ca91e3fdfbaf1e15410a2dfaa319ef7cbfb59a970ccf4da101a314f14f3d1"
+    },
+    "browser": {
+      "fixture_only": true,
+      "real_models": false,
+      "creation_approval_result_stop": true,
+      "history_readable": true,
+      "outcome": "completed",
+      "calls": 7,
+      "stop_outcome": "interrupted",
+      "files": [
+        {
+          "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/browser-final/browser-verified.json",
+          "sha256": "f47b34ea83af3106ebfb8bfb10e5a612802d9d99a7313983fde11131f9dbd9e3"
+        },
+        {
+          "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/browser-final/dual-form.png",
+          "sha256": "33137d703b796ccf1010440d00c907395826cf16e205ff0a715262f38038466c"
+        },
+        {
+          "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/browser-final/dual-approval.png",
+          "sha256": "5e1c3393cdcfa3440817b176a3990ac99b608de9fcb5091e1573ca1dd40c3ba1"
+        },
+        {
+          "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/browser-final/dual-results.png",
+          "sha256": "602f2a4936251fa6ae76969d5b1eda51c3b4e2695b7b970e95e233fcef4ca008"
+        },
+        {
+          "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/browser-final/narrow-results.png",
+          "sha256": "4b277cbc0a1c816ae04b673d7f43929bbe503079116b815893062cd893f49f79"
+        },
+        {
+          "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/browser-final/historical-three-readonly.png",
+          "sha256": "3069fdc9d32f4c78a851257b34e2785103181cfc9cff1f93122b30ced59f4866"
+        },
+        {
+          "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/browser-final/stopped.png",
+          "sha256": "3a561ec0910e0277a6392fbf08604f9192a1e99b294fcba19a24ca4994e8c349"
+        }
+      ]
+    }
+  },
+  "real_A16": {
+    "receipt": {
+      "file": "D:/mush/goals/receipts/GOAL-085-a16-finish-receipt.json",
+      "sha256": "3e9faeb2e91bcff882d618a081abfa7308b8c1c5ca6869506c121774262cfa44"
+    },
+    "verified": "minimal native finish answer only",
+    "mush_dispatches": 1,
+    "internal_turns": 1,
+    "fee": "UNKNOWN"
+  },
+  "code": [
+    {
+      "file": "D:/mush/src/adapters/agy-discussion-profile.ts",
+      "sha256": "4beca8c7aa69dc3cc84c879edbf314680e5dd43d07ef41fe3026e66495b7b985"
+    },
+    {
+      "file": "D:/mush/src/web/collaboration-probes.ts",
+      "sha256": "8c73b8b4f9dd90e5d56cfa73ad796fb5414c1d271f1b937d031a48aaa40103d7"
+    },
+    {
+      "file": "D:/mush/src/web/dispatch.ts",
+      "sha256": "a95becbb2ff935cfebd992ba747787683ddc7c1f818837ea040f046e97daab8f"
+    },
+    {
+      "file": "D:/mush/src/web/server.ts",
+      "sha256": "41e96b480350abf8b63bdd3927b977ff710ca69bfc2ae02aa9aee9760699b20d"
+    },
+    {
+      "file": "D:/mush/src/web/page.ts",
+      "sha256": "d6de263effc28cd61ec3f5b5952d85437962adb567a648c65c3e66cc43ec2261"
+    },
+    {
+      "file": "D:/mush/src/orchestration/collaboration-blackboard.ts",
+      "sha256": "f4e3dc8f7544421afbe37167b894ba6892e9ae16007734b4e2e6c1cad9d070f3"
+    },
+    {
+      "file": "D:/mush/src/orchestration/collaboration-coordinator.ts",
+      "sha256": "757a1f56781f11e03c9876508426439a26005e95238a950e0213fb7aa813ebce"
+    }
+  ],
+  "remaining": {
+    "candidate_admission": "pending Owner decision, original config restored; no policy change",
+    "dual_model_reproduction": "not started",
+    "claude": "2.1.290 outside D95; no automatic acceptance",
+    "formal_goal_acceptance": "pending"
+  },
+  "corrections": [
+    "Final browser rerun initially reused earlier output filenames; earlier receipt retained but those paths no longer match its screenshot hashes. This receipt uses separately frozen browser-final files."
+  ]
+}

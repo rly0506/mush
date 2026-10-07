@@ -6,21 +6,9 @@ import path from 'node:path';
 import { buildOpencodeContract, parseOpencodeModelsList, OPENCODE_DEFAULT_MODEL } from '../src/adapters/opencode.ts';
 import { isFreeModel } from '../src/web/pricing.ts';
 import { DispatchPipeline } from '../src/web/dispatch.ts';
+import { installModelsFixture, MODELS_FIXTURE } from './fixtures/opencode.ts';
 
 // GOAL-070：opencode free 模型通道接入——发现枚举、variants 同步、-m 注入、零成本计费。
-
-const MODELS_FIXTURE = [
-  'opencode/big-pickle',
-  'opencode/hy3-free',
-  'opencode/mimo-v2.5-free',
-  'opencode/muse-spark-1.2-contributor-free',
-  'opencode/nemotron-3-ultra-free',
-  'opencode/nemotron-3.5-lightning-free',
-  'opencode/x-preview-f-free',
-  'botcf/kimi-k3',
-  'pixel/grok-4.5',
-  'tbtk/glm-5.3',
-].join('\n');
 
 function makePipeline(tmpDir: string, onDispatchArgs: (args: string[]) => void): DispatchPipeline {
   return new DispatchPipeline({
@@ -80,12 +68,12 @@ test('GOAL-070 Unit: free-tier models classify as zero-cost pricing', () => {
   assert.equal(isFreeModel('opencode/big-pickle'), false);
 });
 
-test('GOAL-070 Pipeline: probeLiveModels enumerates real models, syncs variants, marks channel verified', async () => {
+test('GOAL-070 Pipeline: probeLiveModels enumerates CLI fixture models, syncs variants, marks channel verified', async (t) => {
   const tmpDir = mkdtempSync(path.join(tmpdir(), 'mush-g070a-'));
   try {
+    installModelsFixture(t, tmpDir);
     const pipeline = makePipeline(tmpDir, () => {});
-    // opencode 分支直接执行本机 `opencode models`（零 token 本地清单），
-    // 断言用真实在册 free 档子集，不锁死全量清单。
+    // Exercise the real CLI enumeration path without depending on installed providers.
     const probes = await pipeline.probeLiveModels('opencode');
     assert.equal(probes.opencode.status, 'ONLINE');
     for (const id of ['opencode/hy3-free', 'opencode/x-preview-f-free', 'botcf/kimi-k3']) {
@@ -103,9 +91,10 @@ test('GOAL-070 Pipeline: probeLiveModels enumerates real models, syncs variants,
   }
 });
 
-test('GOAL-070 Pipeline: dry-run dispatch injects -m; explicit variant rewrites the value', async () => {
+test('GOAL-070 Pipeline: dry-run dispatch injects -m; explicit variant rewrites the value', async (t) => {
   const tmpDir = mkdtempSync(path.join(tmpdir(), 'mush-g070b-'));
   try {
+    installModelsFixture(t, tmpDir);
     let seenArgs: string[] = [];
     const pipeline = makePipeline(tmpDir, (args) => {
       seenArgs = args;

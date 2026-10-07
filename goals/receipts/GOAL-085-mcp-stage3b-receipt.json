@@ -1,0 +1,72 @@
+{
+  "goal_id": "GOAL-085",
+  "phase": "stage3b-mcp-stdio",
+  "executor": "GLM",
+  "reviewer_note": "执行与核验署名为 GLM（ZCode 会话）；非 Owner 正式验收，Goal 保持 PROPOSED",
+  "status": "PROPOSED",
+  "owner_formal_acceptance": "pending",
+  "at": "2026-10-06T20:35:00.000Z",
+  "implementation": "VERIFIED",
+  "scope": "第三阶段第二片：本地 stdio MCP 薄入口（mush mcp，五工具复用共享客户端与审批门）；skill 按 owner 排序随后再做",
+  "model_calls": 0,
+  "design_boundary": "零新 HTTP 端点、零网络监听（stdio JSON-RPC 常驻直到 stdin EOF）；HTTP 客户端提取共享模块 src/web/collab-client.ts，CLI 与 MCP 复用同一实现（回环限制/禁重定向/请求与正文读取截止时间/协议校验/原子排他写）；board URL 启动参数固定且必须本机回环（非回环 exit 64 拒绝启动），工具入参不暴露 board_url；collab_create 仅返回 approval=PENDING_OWNER_APPROVAL 不自动批准（D30），无 approve/reject 工具；collab_stop 只发停止请求；业务/边界错误按 MCP 惯例转 result.isError:true，进程不崩",
+  "mcp_protocol": {
+    "framing": "newline-delimited JSON-RPC 2.0（零依赖最小实现，无 SDK）",
+    "methods": ["initialize", "notifications/initialized(忽略)", "notifications/cancelled(忽略)", "ping", "tools/list", "tools/call"],
+    "errors": { "unknown_method": -32601, "parse_error": -32700, "invalid_request": -32600, "internal": -32603 },
+    "server_info": "mush-collab",
+    "protocol_version": "2024-11-05"
+  },
+  "focused_regressions": {
+    "file": "tests/g085-mcp-collab.test.ts",
+    "passed": 5,
+    "failed": 0,
+    "dev_round_failures": "开发轮 3 例失败均为测试自身问题（TS 类型访问、断言文案应匹配 stdout 而非 stderr、字段声明顺序），实现未变，修正后全绿",
+    "coverage": [
+      "initialize/serverInfo/capabilities + ping + 未知方法 -32601 + 工具清单与 board_url 不暴露静态断言",
+      "collab_check ready + collab_create 待批卡（pending_approval、0 调用、审批卡、allowed_seats/约束冻结）+ status 列表与摘要 + stop stop_requested",
+      "collab_result JSON/Markdown/--out 原子排他（已存在 isError 拒绝覆盖）+ 未知会话 isError",
+      "非回环 --board-url 拒绝启动 exit 64（stdout 错误行含原因）",
+      "未知工具名 isError（无 approve/reject）+ stdin EOF 正常退出 exit 0"
+    ],
+    "cli_regression_after_refactor": "tests/g085-cli-collab.test.ts 16/16 不变"
+  },
+  "default": {
+    "file": ".test-fixtures/stage3b-full-default.log",
+    "total": 990,
+    "passed": 990,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "7c7697a52fc98c285440558098843c703261e04a0d4c1e1c969b8efd87d1d71f"
+  },
+  "isolated": {
+    "file": ".test-fixtures/stage3b-full-isolated.log",
+    "total": 990,
+    "passed": 990,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "3a3df76ccc1539f8c72394824d87ac9bf69b4cb387d80f292d6f9f6d06251998"
+  },
+  "typecheck_exit_code": 0,
+  "docs_reconcile": "PASS（契约 v1.70，67 个版本节）",
+  "git_diff_check_exit_code": 0,
+  "api_contract": "v1.70",
+  "production_operations": "零模型调用、零生产会话操作；生产看板 PID 11044 未重载（MCP 按需进程 node bin/mush mcp 直接可用，无需重载）",
+  "artifacts": [
+    { "file": "src/mcp-collab.ts", "sha256": "8a6d7c66bda80c34c555686fcfa1ce4ca4cd4989112e3e07940a41f19bd3a176" },
+    { "file": "src/web/collab-client.ts", "sha256": "4b438b073fb01942f9b392c1c1c687d3472b3f311884990033e4d7a063fbf547" },
+    { "file": "src/cli.ts", "sha256": "3b8567b2e6f44af7211224e2eb88bbf152487e232a6735ad5691cf11067e39a9" },
+    { "file": "tests/g085-mcp-collab.test.ts", "sha256": "3c164213f4e0d7885c38b5f90ba07e6f5a3bf683a1c743a2cc0e8643f8fdec59" },
+    { "file": "tests/g085-cli-collab.test.ts", "sha256": "ba05b4ac812b24b15f23c6c270929b2c2cc6085e5938cced91545ca38c1edcec" },
+    { "file": "src/web/api-contract.md", "sha256": "a4abdcd306e74fa04f6b246f70926fe3c6ebc613df481d33765043430d9ff2c7" },
+    { "file": "goals/GOAL-085-claude-and-triple-model-discussion.md", "sha256": "263f73fe581a2691f5787f261bbaa70e5487b25d0b68e37c86aa5e5f5005a01b" },
+    { "file": "docs/goal-pool.md", "sha256": "ec34b766ec827bf8c85b33b671d9438d854436e0a096cfa7f3c75c64b0ee3ea7" },
+    { "file": ".test-fixtures/stage3b-full-default.log", "sha256": "7c7697a52fc98c285440558098843c703261e04a0d4c1e1c969b8efd87d1d71f" },
+    { "file": ".test-fixtures/stage3b-full-isolated.log", "sha256": "3a3df76ccc1539f8c72394824d87ac9bf69b4cb387d80f292d6f9f6d06251998" }
+  ],
+  "limitations": [
+    "费用与账号权益仍 UNKNOWN；pi-rpc 独立全量间歇失败根因未确认（本轮 990/990，不视为已解决）",
+    "MCP 未接真实 MCP 客户端（Claude Desktop 等）做人工验收——协议面由子进程 stdio 回归覆盖",
+    "skill 未开工；本轮零模型调用、未提交未推送；Goal 保持 PROPOSED"
+  ]
+}

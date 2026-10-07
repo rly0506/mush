@@ -1,6 +1,6 @@
 ---
 goal_id: MUSH-GOAL-021
-status: QUEUED（RM-004 / M2 流式体验；owner 2026-08-17 批准排期）
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；后端聊天流式（202 异步 + SSE chat 帧，契约 v1.9）在库，专测 tests/g021a-*/g021b-*.test.ts 通过；UI 侧由 GOAL-029 承接；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 mode: LIGHT
 rm: RM-004 / M2
 executor_model_profile: deepseek-dsh（后端，owner 手开窗口投喂——DEF-13）+ kimi-code（前端，看板审批卡）

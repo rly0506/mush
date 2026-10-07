@@ -12,7 +12,7 @@ import { existsSync, mkdirSync, readFileSync, appendFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import path from 'node:path';
-import type { DispatchPipeline } from './dispatch.ts';
+import type { DispatchPipeline, DispatchRecord } from './dispatch.ts';
 import { saveAttachment, type AttachmentInput, type StoredAttachment } from './attachments.ts';
 
 export interface ChatTurn {
@@ -20,6 +20,7 @@ export interface ChatTurn {
   text: string;
   at_utc: string;
   dispatch_id?: string;
+  status?: string;
   attachments?: StoredAttachment[];
   /** GOAL-076 返工（承接 075 附录）：三段式帧持久化——思考/工具/计划卡随轮落盘，
    *  使历史会话回看时仍能重建三段式气泡（此前帧随会话结束即丢）。 */
@@ -41,6 +42,7 @@ export interface ChatFrameEvent {
   session_id: string;
   dispatch_id: string;
   phase: 'ADMITTED' | 'EXECUTE' | 'HEARTBEAT' | 'REPORT' | 'PLAN_WAIT' | 'PLAN_DECIDED';
+  workspace_root?: string;
   payload: Record<string, unknown>;
 }
 
@@ -125,7 +127,7 @@ export class ChatService extends EventEmitter {
    *  （实测 pong 单发 41~58s 波动）必然截断长回复——f62c928f 实证。
    *  对齐 real 派发缺省 900s；可经 options 覆盖。 */
   private readonly chatTimeoutS: number;
-  private readonly pending = new Map<string, Promise<void>>();
+  private readonly pending = new Map<string, Promise<unknown>>();
   /** GOAL-075 切片3：待决断派发计划（plan_id → 计划；内存态，重载后未决计划失效）。 */
   private readonly plans = new Map<string, PendingPlan>();
 
@@ -164,6 +166,7 @@ export class ChatService extends EventEmitter {
       dispatch_id: dispatchId,
       phase,
       payload,
+      workspace_root: this.pipeline.workspaceRoot,
     };
     this.emit(phase, frame);
     this.emit('frame', frame);
@@ -201,7 +204,7 @@ export class ChatService extends EventEmitter {
    *  立即返回 202 异步受理回执；后台异步执行并通过 SSE chat 帧流式推送；
    *  校验错误（空消息/未知/未验证 adapter/非法 effort）仍同步抛（HTTP 400）。
    */
-  async post(input: { message: string; resume?: string; adapter_id?: string; effort?: string; attachments?: AttachmentInput[]; solo?: boolean }): Promise<ChatAck> {
+  async post(input: { message: string; resume?: string; adapter_id?: string; model_id?: string; effort?: string; attachments?: AttachmentInput[]; solo?: boolean }): Promise<ChatAck> {
     const message = String(input.message ?? '').trim();
     if (message === '') throw new Error('message must be non-blank');
     const requestedAdapter =
@@ -231,11 +234,12 @@ export class ChatService extends EventEmitter {
       role: 'user',
       text: message,
       at_utc: new Date().toISOString(),
+      dispatch_id: dispatchId,
       attachments: storedAttachments.length > 0 ? storedAttachments : undefined,
     });
 
     // 后台执行：ADMITTED → EXECUTE(增量) → HEARTBEAT → REPORT。
-    const run = this.execute(adapterId, effort, sessionId, dispatchId, message, storedAttachments, input.solo === true);
+    const run = this.execute(adapterId, effort, sessionId, dispatchId, message, storedAttachments, input.solo === true, input.model_id);
     this.pending.set(dispatchId, run);
     void run.finally(() => this.pending.delete(dispatchId));
 
@@ -257,9 +261,11 @@ export class ChatService extends EventEmitter {
     message: string,
     attachments: StoredAttachment[] = [],
     solo: boolean = false,
-  ): Promise<void> {
+    modelId?: string,
+    replay?: { id: string; overrides: Record<string, unknown> },
+  ): Promise<DispatchRecord | undefined> {
     const startedAt = Date.now();
-    this.emitFrame('ADMITTED', sessionId, dispatchId, { status: 'ADMITTED' });
+    this.emitFrame('ADMITTED', sessionId, dispatchId, { status: 'ADMITTED', ...(replay ? { rerun_of: replay.id } : {}) });
     // F-48 修复：dsh headless 无 --resume——多轮上下文改为 prompt 缝合。
     const prior = (await this.history(sessionId, 12)).turns.filter((t) => t.text && !t.text.startsWith('[dry-run'));
     const transcript = prior.length > 1
@@ -269,28 +275,40 @@ export class ChatService extends EventEmitter {
     let replyAccum = '';
     const activeCharter = solo ? SOLO_HEAD_DOG_CHARTER : HEAD_DOG_CHARTER + PLAN_GATE_CHARTER_SECTION;
     try {
-      const record = await this.pipeline.dispatch({
-        adapter_id: adapterId,
-        prompt: activeCharter + transcript + (attachments.length > 0 ? '\n\n[附加本地图片/多模态视觉文件]:\n' + attachments.map((a, i) => `  ${i + 1}. ${a.name} -> ${a.localPath}`).join('\n') : '') + '\n\nOwner: ' + message,
-        effort,
-        real: true, // 聊天即真实执行；GP-32/D30：owner 亲自敲字即批准（originOwner）
-        timeout_s: this.chatTimeoutS,
-      }, {
-        originOwner: true,
+      const internal = {
         dispatchId,
-        onStdout: (chunk) => {
+        // D83（2026-09-06，owner 决议）：聊天回复豁免 D30 逐单审批——恢复
+        // "owner 敲字即批准"的 originOwner 语义（server 侧子会话注释同源），
+        // 聊天派发受理即执行；预算 cap、通道预检门与计划门不受影响。
+        originOwner: true,
+        chat: { session_id: sessionId, solo },
+        onStdout: (chunk: string) => {
           replyAccum += chunk;
-          // 心跳（耗时）随增量帧同出：前端实时看生成进度 + 已耗时。
           this.emitFrame('HEARTBEAT', sessionId, dispatchId, { elapsed_ms: Date.now() - startedAt });
           this.emitFrame('EXECUTE', sessionId, dispatchId, { stream_text: chunk });
         },
-      });
-      const headText = replyAccum !== '' ? replyAccum : record.stdout_tail?.text ?? `[dry-run ${record.status}]`;
+      };
+      const record = replay
+        ? await this.pipeline.rerun(replay.id, replay.overrides, internal)
+        : await this.pipeline.dispatch({
+        adapter_id: adapterId,
+        model_id: modelId,
+        prompt: activeCharter + transcript + (attachments.length > 0 ? '\n\n[附加本地图片/多模态视觉文件]:\n' + attachments.map((a, i) => `  ${i + 1}. ${a.name} -> ${a.localPath}`).join('\n') : '') + '\n\nOwner: ' + message,
+        effort,
+        real: true,
+        timeout_s: this.chatTimeoutS,
+      }, internal);
+      const headText = replyAccum || record.stdout_tail?.text || (
+        record.status === 'BLOCKED_WAITING_OWNER' ? '等待你批准本次任务。' :
+        // D84：owner 主动停止——中断说明优先于被杀子进程的 stderr 残渣。
+        record.status === 'INTERRUPTED' ? (record.error || '已由 owner 停止。') :
+        record.stderr_tail?.text || record.error || `[${record.status}]`
+      );
       // D82 修订：超时/失败但已有部分产出时如实标注——f62c928f 实证 300s 截断
       // 时 stdout 非空，已生成内容不应被终态淹没。
       const degraded = record.status === 'TIMEOUT' || record.status === 'FAIL' || record.status === 'INTERRUPTED';
       const partialNote =
-        degraded && headText.trim() !== '' && !headText.startsWith('[dry-run')
+        degraded && (replyAccum || record.stdout_tail?.text || '').trim() !== ''
           ? `\n\n[注意：本单 ${record.status}，以上为中断前已产出的部分回复；可点「重试」重发]`
           : '';
       // GOAL-075 切片3：计划门拦截——头犬输出 <PLAN> 块时转为待决断计划，
@@ -327,6 +345,7 @@ export class ChatService extends EventEmitter {
         text: bubbleText,
         at_utc: new Date().toISOString(),
         dispatch_id: record.dispatch_id,
+        status: record.status,
         ...(persistedThinking ? { thinking: persistedThinking } : {}),
         ...(persistedTools.length > 0 ? { tools: persistedTools } : {}),
         ...(planHit !== null ? { plan: planHit.plan } : {}),
@@ -340,9 +359,10 @@ export class ChatService extends EventEmitter {
       if (planHit !== null && planIdForFrame !== undefined) {
         this.emitFrame('PLAN_WAIT', sessionId, dispatchId, { plan_id: planIdForFrame, plan: planHit.plan });
       }
+      return record;
     } catch (error) {
       const text = `[error] 头犬回复失败：${error instanceof Error ? error.message : String(error)}`;
-      this.append(sessionId, { role: 'head', text, at_utc: new Date().toISOString(), dispatch_id: dispatchId });
+      this.append(sessionId, { role: 'head', text, at_utc: new Date().toISOString(), dispatch_id: dispatchId, status: 'FAIL' });
       this.emitFrame('REPORT', sessionId, dispatchId, {
         status: 'FAIL',
         elapsed_ms: Date.now() - startedAt,
@@ -350,6 +370,33 @@ export class ChatService extends EventEmitter {
         reply: text,
       });
     }
+  }
+
+  async rerun(dispatchId: string, overrides: Record<string, unknown> = {}): Promise<DispatchRecord> {
+    const request = this.pipeline.get(dispatchId)?.request;
+    if (!request?.chat) return this.pipeline.rerun(dispatchId, overrides);
+    const id = randomUUID().replace(/-/g, '');
+    const run = this.execute(request.adapter_id, request.effort, request.chat.session_id, id,
+      request.prompt, [], request.chat.solo, request.model_id, { id: dispatchId, overrides });
+    this.pending.set(id, run);
+    try {
+      const record = await run;
+      if (!record) throw new Error('chat replay failed');
+      return record;
+    } finally {
+      this.pending.delete(id);
+    }
+  }
+
+  reject(dispatchId: string): DispatchRecord {
+    const record = this.pipeline.rejectDispatch(dispatchId);
+    const sessionId = record.request?.chat?.session_id;
+    if (sessionId) {
+      const reply = '本次任务已否决，未执行。';
+      this.append(sessionId, { role: 'head', text: reply, at_utc: new Date().toISOString(), dispatch_id: dispatchId, status: record.status });
+      this.emitFrame('REPORT', sessionId, dispatchId, { status: record.status, reply });
+    }
+    return record;
   }
 
   /** GOAL-075 切片3：owner 对派发计划的决断。批准 = 以同会话续跑执行（计划

@@ -1,0 +1,55 @@
+{
+  "goal_id": "GOAL-085",
+  "phase": "stage3c-skill-typecheck-correction",
+  "executor": "GLM",
+  "independent_reviewer": "Codex（发现 typecheck 实际失败的两处残留参数并给出修正建议；证据 .test-fixtures/stage3c-codex-fix-review.json）",
+  "reviewer_note": "执行与核验署名为 GLM（ZCode 会话）；Codex 为独立复核方；非 Owner 正式验收，Goal 保持 PROPOSED",
+  "status": "PROPOSED",
+  "owner_formal_acceptance": "pending",
+  "at": "2026-10-07T09:55:00.000Z",
+  "implementation": "VERIFIED",
+  "scope": "skill 片更正轮：typecheck 两处残留参数修正与复跑；讨论引擎、CLI/MCP 行为、契约均未变；此前回执保留不改写",
+  "root_cause_and_lesson": "§7.16 的 typecheck 实际失败被漏报：机检命令用了『npm.cmd run typecheck 2>&1 | tail -3』——管道使 $? 变成 tail 的退出码，tsc 非零退出被吞；且只看尾部输出恰好只见标题行。教训已记录：机检命令一律重定向到日志文件后取真实退出码",
+  "fix": "tests/g085-skill-collab.test.ts 第 195/201 行两处 argvOf(...) 调用删除多余的第三个参数 outPath（输出路径已由闭包传递）——与 Codex 建议一致",
+  "focused_regressions": {
+    "combined_run": "skill＋CLI＋MCP 聚焦回归 34/34（skill 7/7 + CLI 16/16 + MCP 11/11）",
+    "runtime_behavior": "未变（类型标注不影响执行）；全量重跑为以当前代码为准的如实确认"
+  },
+  "typecheck": {
+    "file": ".test-fixtures/stage3c-fix2-typecheck.log",
+    "exit_code": 0,
+    "sha256": "76e242f2a8428dd7b0f0ebd221e4c2b6263943c16aa40f375c4fa31ec2d88e1a",
+    "note": "重定向到日志文件后取真实退出码，不再经管道"
+  },
+  "default": {
+    "file": ".test-fixtures/stage3c-fix2-full-default.log",
+    "total": 1003,
+    "passed": 1003,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "fd3c9a463759e164d475661b6ced832054e937e75f48f4d4bba2dbf06f90f8b2"
+  },
+  "isolated": {
+    "file": ".test-fixtures/stage3c-fix2-full-isolated.log",
+    "total": 1003,
+    "passed": 1003,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "14b19bf491049dc11e8535593072053b7499976bb4fe9ce5f9c524beef42ed4d"
+  },
+  "docs_reconcile": "PASS",
+  "git_diff_check_exit_code": 0,
+  "api_contract": "v1.70",
+  "production_operations": "零模型调用、零生产会话操作、未重载看板（无需重载）；讨论引擎未动",
+  "artifacts": [
+    { "file": "tests/g085-skill-collab.test.ts", "sha256": "1bf56f0bb425ea79cc28931319b715f4cc26d0db4bafb829896cdbe42dfafb4f" },
+    { "file": ".test-fixtures/stage3c-fix2-typecheck.log", "sha256": "76e242f2a8428dd7b0f0ebd221e4c2b6263943c16aa40f375c4fa31ec2d88e1a" },
+    { "file": ".test-fixtures/stage3c-fix2-full-default.log", "sha256": "fd3c9a463759e164d475661b6ced832054e937e75f48f4d4bba2dbf06f90f8b2" },
+    { "file": ".test-fixtures/stage3c-fix2-full-isolated.log", "sha256": "14b19bf491049dc11e8535593072053b7499976bb4fe9ce5f9c524beef42ed4d" }
+  ],
+  "limitations": [
+    "费用与账号权益仍 UNKNOWN；pi-rpc 独立全量间歇失败根因未确认（本轮 1003/1003，不视为已解决）",
+    "skill 未在具体 harness 装载机制做人工验收、未全局安装（符合当前范围）",
+    "本轮零模型调用、未提交未推送；Goal 保持 PROPOSED"
+  ]
+}

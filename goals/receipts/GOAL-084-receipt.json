@@ -1,0 +1,127 @@
+{
+  "goal_id": "GOAL-084",
+  "file": "GOAL-084-controlled-blackboard-collaboration.md",
+  "status": "PROPOSED",
+  "status_note": "机检与真实验收已完成；D88/D89 条件化准入经 HTTP 与真实浏览器两侧验收。DONE/AUTO_ACCEPTED 仅由 owner 决定——本回执不代替 Owner 正式验收。",
+  "created_at": "2026-10-04T14:12:00Z",
+  "environment": { "platform": "win32", "node": "v24.13.1", "board_port": 4790, "board_pid": 31456 },
+  "checks": [
+    {
+      "command": "npm.cmd test",
+      "exit_code": 0,
+      "tests": 884,
+      "passed": 884,
+      "failed": 0,
+      "duration_ms": 85300,
+      "log": ".test-fixtures/g084-deepseek-final-2026-10-04/full-default-late.stdout.log",
+      "sha256": "c8d02e6645fd3200ce2adb7c293b25fcff1a29398f0baba2487ecd5fa4c67cf7"
+    },
+    {
+      "command": "npm.cmd run test:isolated",
+      "exit_code": 0,
+      "tests": 884,
+      "passed": 884,
+      "failed": 0,
+      "duration_ms": 24732,
+      "log": ".test-fixtures/g084-deepseek-final-2026-10-04/full-isolated-late.stdout.log",
+      "sha256": "d980ef39376d0740e68b9a21a49fa79902ac781e274c55addd4bddc9f4ec8762"
+    },
+    { "command": "npm.cmd run typecheck", "exit_code": 0 },
+    { "command": "node scripts/docs-reconcile.cjs", "exit_code": 0, "contract_version": "v1.58" },
+    { "command": "git diff --check", "exit_code": 0 },
+    {
+      "command": "node --import ./tests/setup.ts --test --test-isolation=none tests/g084-admission-policy.test.ts",
+      "exit_code": 0,
+      "tests": 14,
+      "passed": 14,
+      "failed": 0,
+      "log": ".test-fixtures/g084-deepseek-handoff-2026-10-04/policy-late7.log"
+    },
+    {
+      "command": "node --import ./tests/setup.ts .test-fixtures/g084-d89-browser-2026-10-04/run-browser-acceptance.mjs",
+      "exit_code": 0,
+      "kind": "真实 Chromium（Playwright，仓库 .venv-pw）+ fixture 看板 + fake runner",
+      "result": {
+        "create_status": 201,
+        "authorization_ready": true,
+        "seat_fingerprint": "05c2a65b342ce52a7be4855eaebcd92b4512ff45d6f2a69fda4dec0c0d31d286",
+        "policy_decision_ref": "D88/D89 2026-10-04",
+        "accepted_gap_dimensions": ["read_scope", "recursion", "tool_scope", "write_protection"],
+        "rail_toggle_present": true,
+        "card_visible_after_rail_open": true,
+        "hidden_before_expand": true,
+        "clicked_detail": true,
+        "visible_labels": ["隔离维度证据", "已接受的已知缺口", "准入政策"],
+        "visible_gap_items": 8,
+        "equivalence_visible": true,
+        "decided_by_visible": true,
+        "evidence_rows_visible": true,
+        "approve_button_visible": true,
+        "approve_status": 201,
+        "frozen_gaps_match": true,
+        "real_harness_spawned": false
+      },
+      "artifact": ".test-fixtures/g084-d89-browser-2026-10-04/browser-acceptance.json",
+      "sha256": "df0f7d3aefc44ca6b26b7cd6ad63cd2236388637625993ac65df9130912738f4",
+      "screenshot": ".test-fixtures/g084-d89-browser-2026-10-04/approval-card-expanded.png",
+      "screenshot_sha256": "3dbd769f3c02fcddfb1de9af08b3458e3749b95ddd650094967fa6a81dd1cd41"
+    },
+    {
+      "command": "node --import ./tests/setup.ts .test-fixtures/g084-d89-acceptance-2026-10-04/run-acceptance.mjs",
+      "exit_code": 0,
+      "kind": "HTTP 侧验收（独立 fixture 数据根：黑板库/证据副本/政策副本）",
+      "result": {
+        "projection_session_present": true,
+        "projection_gap_dimensions": ["read_scope", "recursion", "tool_scope", "write_protection"],
+        "evidence_entries": 26,
+        "failure_counterexamples": 0,
+        "runner_calls": 2,
+        "real_harness_spawned": false
+      },
+      "artifact": ".test-fixtures/g084-d89-acceptance-2026-10-04/acceptance.json",
+      "sha256": "00f81c07cda8331d93e308a05c0f839b6441673f2e6710b4589d3eab10ea46e3"
+    }
+  ],
+  "acceptance_criteria": [
+    { "item": "恰好 7 次调用；一次共享重试后不超过 8 次", "status": "verified", "evidence": "首场真实会话 7503ed94… 精确 8 次（正常 7＋共享重试 1），ledger ADMITTED" },
+    { "item": "独立提案互不可见；越权读取/伪造作者/扩权 skill/覆盖原文被拒", "status": "verified", "evidence": "g084-coordinator/blackboard 回归 + 首场真实会话" },
+    { "item": "默认真实 runner 可停止在途子进程，停止后无下一轮；重启不重放", "status": "verified", "evidence": "g084-default-runner-cancel + g084-board（停止/重启不重放）" },
+    { "item": "看板浏览器实测创建/审批/阶段/结果/失败/停止", "status": "verified", "evidence": "docs/operations/goal084-admission-matrix 与 g084-browser fixtures；本轮新增 D89 审批卡真实 Chromium 验收" },
+    { "item": "隔离执行：单测/typecheck/两模式全量/git diff --check 记录退出码", "status": "verified", "evidence": "本回执 checks（884/884 双模式、typecheck 0、diff-check 0）" },
+    { "item": "单独批准的真实会话确认两模型身份、材料传递、互评与修订；回执含哈希锚点", "status": "verified", "evidence": "首场真实会话 7503ed94…（Codex gpt-5.5 LOW＋agy gemini-3.7-flash-high HIGH，7.3 分钟，费用 UNKNOWN）" },
+    { "item": "权限无法落实/身份未解决/取消失败时停止并记明原因，不降权限凑绿", "status": "verified", "evidence": "A9/A9b/A10/A11–A15 探针如实登记；四项未证声明 2026-10-04 撤回；未演练边界全程保留" },
+    { "item": "Owner 正式验收", "status": "pending", "evidence": "未做；DONE/AUTO_ACCEPTED 仅 owner 决定" }
+  ],
+  "admission_state": {
+    "seat_fingerprint": "05c2a65b342ce52a7be4855eaebcd92b4512ff45d6f2a69fda4dec0c0d31d286",
+    "live_verified_dimensions": ["mcp_scope"],
+    "unmet_dimensions": ["tool_scope", "write_protection", "read_scope", "recursion"],
+    "guard_contract_fingerprint": "4e71fed2082c2134f918eace69b6b15f75eed0902c45b51db6ba4db4362e9bb3",
+    "guard_live_verified_dimensions": ["tool_scope", "recursion"],
+    "policy_file": "runtime/collaboration-admission-policy.json",
+    "policy_sha256": "d5bb7e5e0b38e30cb285c96ddd868eefcab82c42f2555c48c5833f2cba748c6a",
+    "decision_ref": "D88/D89 2026-10-04",
+    "statement": "五维证据未全部通过（席位四维缺证，owner 明确接受的限制；不用守卫层结果顶替）与 D89 条件准入可以满足（政策逐条接受缺口 + 创建/批准/占额前反例硬前置 + 快照冻结 + 审批卡可见）是两件事，分别验收。"
+  },
+  "source_sha256": {
+    "src/orchestration/collaboration-admission-policy.ts": "ba4aa31f3e2578c9c36ccf95f399be939cfbe0fdbabc84a844c63d6c5cc6c65b",
+    "src/orchestration/collaboration-blackboard.ts": "11ee160a840260a42f09f7853cc15625705e65a826f014a3b9155249823852a8",
+    "src/orchestration/collaboration-evidence-store.ts": "b27d5c66c3e1daa5767134e216fe1afed4edbd70682b680b3fbffc94e67db3ca",
+    "src/web/sources.ts": "e69f1eb0844a5ad66be89f320b34cc8d38e5b433426d18cd225e71fa621a81b6",
+    "src/web/page.ts": "5bfb5dc450208f270db01f9c18e8798175daf38d150c9cd7f397d7b9a876348c",
+    "src/web/server.ts": "7a5b3fdcba2ad614ed411b269ce088998b7d753fbb3cc4f9b7ef5966462cbe22",
+    "src/web/dispatch.ts": "879a551672ab0aa32b9a630ecae271c62099f690896eee2210d08196eb3de2e9",
+    "src/web/persistence.ts": "9b693797a08e9288367e63919836787863ad3b587951f0f4d93af7ca4b4623a6",
+    "tests/g084-admission-policy.test.ts": "4dfd98cfce12c3c5e98777d5e6837decf1e2780b5a6d70b7978b9c7b2afc73b9",
+    "tests/persistence.test.ts": "ef15f4b7724c813f065fa74310e4193d10fd657d6320fe5f377cb4e4cad4b374"
+  },
+  "known_limitations": [
+    "五维证据未全部通过：agy 正式讨论席位 tool_scope/write_protection/read_scope/recursion 仍为 unmet（席位 agent 自身不发起该类请求；按 owner 裁定“未尝试”不构成限制被验证的证据）。该缺口由 D89 政策显式接受，非被消除。",
+    "故障语义证据（gate 崩溃/超时/输出不可解析）只属守卫探针合同 4e71fed2…；席位指纹下结构性无法复现（档案绑定会拒绝被改造的 gate），不得跨指纹登记。",
+    "未演练边界：invoke_subagent 的 Subagents 非空、真实子模型、真实 MCP 服务器、真实文件写入。",
+    "底层服务模型权重与账号权益不做独立证明；费用全程 UNKNOWN，cap 为准入门阈值而非账单硬上限。",
+    "本轮 D89 浏览器验收在 fixture 看板（独立数据根）完成，未在生产看板 4790 上创建/批准任何会话；生产看板已于本轮重载新代码（PID 31456）。",
+    "此前两轮 fixture 验收曾向生产黑板库写入 fixture 会话记录（库 mtime 2026-10-04 21:22:14），按要求未删除，仅更正“未碰生产数据”的表述。",
+    "改动仍未提交、未推送。"
+  ]
+}

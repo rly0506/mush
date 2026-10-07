@@ -1,9 +1,11 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { startBoardServer, type BoardServer } from '../src/web/server.ts';
+import { DispatchPipeline } from '../src/web/dispatch.ts';
+import type { RunAdapterResult } from '../src/web/dispatch.ts';
 
 // GOAL-005 U2：零依赖 node:http 服务 + SSE 推送 + 审批动作闭环。
 // 审批 = 写 append-only owner-response 文件（与 approval-requests 现有流程同构）；
@@ -163,6 +165,71 @@ test('POST /api/approvals/respond writes an append-only owner-response file', as
     approvals: { request_file: string; status: string }[];
   };
   assert.equal(snapshot.approvals[0].status, 'APPROVED');
+});
+
+test('approval response returns before an approved rerun finishes', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'mush-board-approval-rerun-'));
+  const approvalRoot = path.join(root, 'approval-requests');
+  const workspaceRoot = path.join(root, 'workspace');
+  mkdirSync(approvalRoot, { recursive: true });
+  mkdirSync(workspaceRoot, { recursive: true });
+
+  let releaseExecution = (): void => {};
+  let markExecutionStarted = (): void => {};
+  const executionStarted = new Promise<void>((resolve) => { markExecutionStarted = resolve; });
+  const executionReleased = new Promise<void>((resolve) => { releaseExecution = resolve; });
+  const runAdapter = async (): Promise<RunAdapterResult> => {
+    markExecutionStarted();
+    await executionReleased;
+    return { exitCode: 0, stdout: 'approved rerun output', stderr: '', timedOut: false, childKilled: false };
+  };
+  const pipeline = new DispatchPipeline({
+    workspaceRoot,
+    approvalRoot,
+    approvalRequestRoot: approvalRoot,
+    ledgerPath: path.join(root, 'runtime', 'budget-ledger.jsonl'),
+    runAdapter,
+  });
+  const server = await startBoardServer({
+    approvalRoot,
+    workspaceRoot,
+    ledgerPath: path.join(root, 'runtime', 'budget-ledger.jsonl'),
+    dispatch: pipeline,
+    runAdapter,
+    runId: 'approval-rerun-run',
+    assignmentEpoch: 1,
+  });
+  servers.push(server);
+  const base = `http://127.0.0.1:${server.port}`;
+
+  const created = await fetch(base + '/api/dispatch', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ adapter_id: 'fake-t1', prompt: 'approval rerun latency', real: true }),
+  });
+  assert.equal(created.status, 202);
+  const createdBody = (await created.json()) as { dispatch_id: string; status: string };
+  assert.equal(createdBody.status, 'BLOCKED_WAITING_OWNER');
+  const requestFile = `dispatch-${createdBody.dispatch_id}.json`;
+
+  const responsePromise = fetch(base + '/api/approvals/respond', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ request_file: requestFile, decision: 'APPROVED' }),
+  });
+  const responseOrTimeout = await Promise.race([
+    responsePromise.then((response) => ({ response })),
+    new Promise<{ timeout: true }>((resolve) => setTimeout(() => resolve({ timeout: true }), 500)),
+  ]);
+  assert.ok(!('timeout' in responseOrTimeout), 'approval endpoint must not wait for the executor');
+  assert.equal(responseOrTimeout.response.status, 201);
+  const body = (await responseOrTimeout.response.json()) as { ok: boolean; dispatch?: { rerun?: string } };
+  assert.equal(body.ok, true);
+  assert.equal(body.dispatch?.rerun, 'STARTED');
+  await executionStarted;
+
+  releaseExecution();
+  await responsePromise;
 });
 
 test('approval respond is fail-closed: unknown request 404, double respond 409, bad decision 400, traversal 400', async () => {

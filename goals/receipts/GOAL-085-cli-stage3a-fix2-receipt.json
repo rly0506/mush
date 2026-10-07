@@ -1,0 +1,70 @@
+{
+  "goal_id": "GOAL-085",
+  "phase": "stage3a-cli-fix2",
+  "executor": "GLM",
+  "independent_reviewer": "Codex（四边界独立复现，未修改产品代码、未操作生产会话；证据 .test-fixtures/stage3a-fix-review-TsJYDe/review.json）",
+  "reviewer_note": "执行与核验署名为 GLM（ZCode 会话）；Codex 为独立复核方；非 Owner 正式验收，Goal 保持 PROPOSED",
+  "status": "PROPOSED",
+  "owner_formal_acceptance": "pending",
+  "at": "2026-10-06T20:05:00.000Z",
+  "implementation": "VERIFIED",
+  "scope": "CLI 薄入口修复轮二：Codex 二轮复核四边界的修复与回归；MCP/skill 按 owner 指示暂不推进；此前回执（stage3a / stage3a-fix）保留不改写",
+  "confirmed_by_reviewer": [
+    "外部 URL 请求被提前拒绝",
+    "JSON 请求保留工作区和席位权限",
+    "两份材料均提交",
+    "已存在文件在普通场景下保留"
+  ],
+  "fixes": [
+    "① 覆盖竞态闭合：--out 改为原子排他创建（writeFileSync flag:'wx'）——existsSync 前置检查只为友好报错，竞态窗口同样拒绝（EEXIST→exit 64，原文件保留）；并发双 CLI 写同一目标实测恰一成功一拒绝、落盘内容完整",
+    "② check/stop 协议校验：check 要求 ok:true + ready 布尔值；stop 要求 ok:true 且（status:'cancelled' 或 stop_requested:true）——非协议 200 一律 exit 1，stop 不再声称『停止请求已提交』",
+    "③ 正文超时归口：collabReadText 把响应正文读取纳入请求截止时间封装——headers 到达后正文挂起的超时归 exit 3（此前 exit 1）",
+    "④ IPv6 回环：URL.hostname 的 '[::1]' 剥方括号后比较——http://[::1]:… 被正确接受"
+  ],
+  "focused_regressions": {
+    "file": "tests/g085-cli-collab.test.ts",
+    "passed": 16,
+    "failed": 0,
+    "new_cases": [
+      "并发 --out 竞态：恰一 exit 0 一 exit 64，落盘为完整导出",
+      "非协议 200（HTML / ok:true 缺必需字段）时 check/stop 一律 exit 1，stop 不声称已提交",
+      "响应头到达后正文挂起 + MUSH_COLLAB_TIMEOUT_MS=200 → exit 3",
+      "http://[::1]:… IPv6 回环被接受（mock 实测 exit 0）"
+    ]
+  },
+  "default": {
+    "file": ".test-fixtures/stage3a-fix2-full-default.log",
+    "total": 985,
+    "passed": 985,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "e78cbd9dbf7bbeefaceface8e4481ea3c1730443880605b4c1c09101743b847a"
+  },
+  "isolated": {
+    "file": ".test-fixtures/stage3a-fix2-full-isolated.log",
+    "total": 985,
+    "passed": 985,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "0f8a1477ab0aeacb6d794785495cab2381d9f8eb471fff5759b7844853e713a4"
+  },
+  "typecheck_exit_code": 0,
+  "docs_reconcile": "PASS（契约 v1.69 修复轮修订二同节，66 个版本节）",
+  "git_diff_check_exit_code": 0,
+  "api_contract": "v1.69",
+  "production_operations": "零模型调用、零生产会话操作；未重载看板（无需重载）",
+  "artifacts": [
+    { "file": "src/cli.ts", "sha256": "e68b3c1a2930e29e460ebaf02d2022681e596cbe75d64cfceb39e284583667d5" },
+    { "file": "tests/g085-cli-collab.test.ts", "sha256": "ba05b4ac812b24b15f23c6c270929b2c2cc6085e5938cced91545ca38c1edcec" },
+    { "file": "src/web/api-contract.md", "sha256": "0d95b9c07f563c306800a040ba51a235582f9699b5573724d23a184b432cb5c1" },
+    { "file": "goals/GOAL-085-claude-and-triple-model-discussion.md", "sha256": "a9151e42fc12a71ee8994923521a2a6d4c20e8053619156ab2d6aebc2913c8b2" },
+    { "file": "docs/goal-pool.md", "sha256": "311d61d9ab991cca74fc551ce28f74983a2482dcb31788980bd26a2409c7597c" },
+    { "file": ".test-fixtures/stage3a-fix2-full-default.log", "sha256": "e78cbd9dbf7bbeefaceface8e4481ea3c1730443880605b4c1c09101743b847a" },
+    { "file": ".test-fixtures/stage3a-fix2-full-isolated.log", "sha256": "0f8a1477ab0aeacb6d794785495cab2381d9f8eb471fff5759b7844853e713a4" }
+  ],
+  "limitations": [
+    "费用与账号权益仍 UNKNOWN；pi-rpc 独立全量间歇失败根因未确认（本轮 985/985，不视为已解决）",
+    "MCP/skill 按 owner 指示暂不推进",
+    "本轮零模型调用、未提交未推送；Goal 保持 PROPOSED"
+  ]
+}

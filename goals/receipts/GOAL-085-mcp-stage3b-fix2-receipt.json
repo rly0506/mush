@@ -1,0 +1,74 @@
+{
+  "goal_id": "GOAL-085",
+  "phase": "stage3b-mcp-fix2",
+  "executor": "GLM",
+  "independent_reviewer": "Codex（三残留独立复现，未修改产品代码、未操作生产会话；证据 stage3b-fix-review-pWoPU0/review.json 与 stage3b-fix-stdio-review-3v8NHc/review.json）",
+  "reviewer_note": "执行与核验署名为 GLM（ZCode 会话）；Codex 为独立复核方；非 Owner 正式验收，Goal 保持 PROPOSED",
+  "status": "PROPOSED",
+  "owner_formal_acceptance": "pending",
+  "at": "2026-10-06T21:15:00.000Z",
+  "implementation": "VERIFIED",
+  "scope": "MCP 片修复轮二：Codex 三轮复核三残留的修复与回归；独立 MCP 客户端验收待 owner 安排；skill 暂缓；此前回执（stage3b / stage3b-fix）保留不改写",
+  "confirmed_by_reviewer": [
+    "path/out 被拒",
+    "没有文件创建",
+    "effort:99 被拒",
+    "7 项 MCP 主流程测试恢复后通过",
+    "CLI+MCP 23/23、typecheck、对账、diff 检查实跑",
+    "原回执 10 项哈希一致"
+  ],
+  "fixes": [
+    "① 完整握手状态：McpSession.initializeResponded——notifications/initialized 通知只在 initialize 请求已被响应后才置 initialized；只发通知的绕过路径失效（实测 tools/call 仍 -32600 not initialized，看板零会话创建）",
+    "② 请求 id 校验：id 必须是 string 或 number（MCP 2024-11-05）——对象/布尔/null id 一律 -32600 且响应 id 恒为 null（不原样回显无效 id）；无法确定 id 的无效请求（如空对象）响应 id 同样为 null",
+    "③ 严格类型校验补全：workspace_root/constraints（string）、refresh/isolation_required（boolean）存在但类型错误一律 isError 拒绝——已声明字段全部覆盖（实测四例拒绝且看板零写入）",
+    "④ MCP 前置错误走 stderr：mush mcp 的未知旗标/重复旗标等用法错误写 stderr、stdout 零输出（failPreflight 仅在 mcp 命令生效，其余命令不变）"
+  ],
+  "focused_regressions": {
+    "file": "tests/g085-mcp-collab.test.ts",
+    "passed": 10,
+    "failed": 0,
+    "new_cases": [
+      "只发 notifications/initialized 无法绕过握手（tools/call 仍 -32600；board 零会话）",
+      "对象/null 请求 id → -32600 且响应 id 恒 null（不原样回显）",
+      "workspace_root:99 / constraints:123 / refresh:'yes' / isolation_required:99 → isError 拒绝且 board 零写入",
+      "未知旗标 / 重复旗标启动 → exit 64、错误在 stderr、stdout 零输出"
+    ],
+    "cli_regression_after_refactor": "tests/g085-cli-collab.test.ts 16/16 不变"
+  },
+  "default": {
+    "file": ".test-fixtures/stage3b-fix3-full-default.log",
+    "total": 995,
+    "passed": 995,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "ceced72218f8e49b705024eb870b4a77dc5a1325d0afaa9f6592665442fd6378"
+  },
+  "isolated": {
+    "file": ".test-fixtures/stage3b-fix3-full-isolated.log",
+    "total": 995,
+    "passed": 995,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "931ba20b41f9680448d9c28614ecf3c3f7c456cbf0f3cb56884b10db29ba7ae1"
+  },
+  "typecheck_exit_code": 0,
+  "docs_reconcile": "PASS（契约 v1.70 修复轮修订二同节，67 个版本节）",
+  "git_diff_check_exit_code": 0,
+  "api_contract": "v1.70",
+  "production_operations": "零模型调用、零生产会话操作；未重载看板（无需重载）",
+  "artifacts": [
+    { "file": "src/mcp-collab.ts", "sha256": "eff9dee2a56d8ebcf1ddb468f7ab4f88d21c2ab390f3ef9e9eb59bf94a23283f" },
+    { "file": "src/cli.ts", "sha256": "fa3b12fccb20e12b0eb013756555e9c2f7c0f7a10d45680a98aed9f7a1a816a6" },
+    { "file": "tests/g085-mcp-collab.test.ts", "sha256": "86a5bec5fd6491ebf35c39f5b0ed65ba821e400d94532ca9f5e1d8916bc8f758" },
+    { "file": "src/web/api-contract.md", "sha256": "ac16bba7c82c96489a9178c76f4504b62d6adf0ccb4bafd497126a95e2c0cb8c" },
+    { "file": "goals/GOAL-085-claude-and-triple-model-discussion.md", "sha256": "acadb9175e3fab38f6590622eaf2f1dc72060a9f8dbbaa97c694eab72c568147" },
+    { "file": "docs/goal-pool.md", "sha256": "a4b7743cc0f91b78ebcd3b600eead44f8c33b31004a3e1b40479415aa0037af0" },
+    { "file": ".test-fixtures/stage3b-fix3-full-default.log", "sha256": "ceced72218f8e49b705024eb870b4a77dc5a1325d0afaa9f6592665442fd6378" },
+    { "file": ".test-fixtures/stage3b-fix3-full-isolated.log", "sha256": "931ba20b41f9680448d9c28614ecf3c3f7c456cbf0f3cb56884b10db29ba7ae1" }
+  ],
+  "limitations": [
+    "费用与账号权益仍 UNKNOWN；pi-rpc 独立全量间歇失败根因未确认（本轮 995/995，不视为已解决）",
+    "MCP 未接真实 MCP 客户端（Claude Desktop 等）人工验收——协议面由子进程 stdio 回归覆盖；独立客户端验收由 Codex 按 owner 安排执行",
+    "skill 暂缓（owner 指示）；本轮零模型调用、未提交未推送；Goal 保持 PROPOSED"
+  ]
+}

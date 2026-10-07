@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { startBoardServer } from '../src/web/server.ts';
+import { startBoardServer, type BoardServer } from '../src/web/server.ts';
 import { DispatchPipeline, type RunAdapterFn } from '../src/web/dispatch.ts';
 import { BoardPersistence } from '../src/web/persistence.ts';
 import { MasterBudgetGate } from '../src/core/budget-master.ts';
@@ -32,6 +32,17 @@ test('GOAL-068 multi-project full data isolation & hot-switching suite', async (
   mkdirSync(path.join(wsB, 'goals', 'receipts'), { recursive: true });
   mkdirSync(path.join(wsA, 'runtime'), { recursive: true });
   // GOAL-068（D2）：把 master ledger 指到测试临时目录，避免污染真实 ~/.mush。
+  const previousLedgerPath = process.env.MUSH_MASTER_LEDGER_PATH;
+  let server: BoardServer | undefined;
+  t.after(async () => {
+    try {
+      await server?.close();
+    } finally {
+      if (previousLedgerPath === undefined) delete process.env.MUSH_MASTER_LEDGER_PATH;
+      else process.env.MUSH_MASTER_LEDGER_PATH = previousLedgerPath;
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
   process.env.MUSH_MASTER_LEDGER_PATH = path.join(root, 'master-ledger.jsonl');
 
   // 缺省上下文：注入 fake runner 管线（沙箱 piped-spawn 不可用，AD-02）。
@@ -43,7 +54,7 @@ test('GOAL-068 multi-project full data isolation & hot-switching suite', async (
     runAdapter: fakeOk,
   });
 
-  const server = await startBoardServer({
+  server = await startBoardServer({
     approvalRoot: path.join(wsA, 'approvals'),
     workspaceRoot: wsA,
     runtimeRoot: path.join(wsA, 'runtime'),
@@ -54,12 +65,6 @@ test('GOAL-068 multi-project full data isolation & hot-switching suite', async (
     masterCapUsd: 1,
     dispatch: injectedPipeline,
   });
-  t.after(async () => {
-    await server.close();
-    delete process.env.MUSH_MASTER_LEDGER_PATH;
-    rmSync(root, { recursive: true, force: true });
-  });
-
   const base = `http://127.0.0.1:${server.port}`;
   const headers = {
     'content-type': 'application/json',

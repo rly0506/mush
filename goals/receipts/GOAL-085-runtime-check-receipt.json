@@ -1,0 +1,47 @@
+{
+  "goal_id": "GOAL-085",
+  "phase": "runtime-check-and-claude-292",
+  "executor": "GLM",
+  "reviewer_note": "执行与核验署名为 GLM（ZCode 会话）；非 Owner 正式验收，Goal 保持 PROPOSED",
+  "status": "PROPOSED",
+  "owner_formal_acceptance": "pending",
+  "at": "2026-10-07T09:15:00.000Z",
+  "implementation": "VERIFIED",
+  "scope": "按 owner 指示顺序：在途与遗留进程核查 → 看板恢复 → 激活档案 → Claude 2.1.292 免费兼容检查 → skill 发现通路调查；版本接受与付费复测另行决定",
+  "model_calls": 0,
+  "step1_inflight_and_leftover": {
+    "scan_inflight": "无犬窗、无工作树；board unreachable（未据离线推断无在途）",
+    "node_process_triage": "56 个 node.exe 全部甄别命令行：均为 MCP 服务器等无关进程，mush/board/collab 匹配为空——无遗留看板或犬进程"
+  },
+  "step2_board_restored": { "pid": 29028, "port": 4790, "get_root": 200, "note": "当前代码（第三阶段三片）已上线" },
+  "step3_profiles": {
+    "codex": "8194bb67a14f1eae74b218bf3724d13849cdb641d01dbd16451c1b24bda58936",
+    "agy": "43ae6c28ff26110c014bd162b3323a03b1b092b342e7ceed965c0b4144979c80",
+    "claude": "5b5096e9c3d49f3d3d33a0f61d93d58d4bf30b4cacdf9913106ff056afd7857d",
+    "config_fingerprints_unchanged": true
+  },
+  "step4_claude_2_1_292": {
+    "check_result": "ready=false，reason='Claude discussion native version mismatch'",
+    "observed": "2.1.292",
+    "frozen": "2.1.286",
+    "accepted_list": "2.1.289/2.1.290（D95/D99）——2.1.292 未在接受名单",
+    "conclusion": "不能据 skill 文件就位宣称新版 Claude 可参与真实讨论；版本接受与付费复测另行决定",
+    "control_group": "codex＋agy ready=true（codex 无漂移；agy 1.2.17/冻结 1.2.16 在 D96 范围）"
+  },
+  "step5_skill_discovery_investigation": {
+    "claude_code_skill_features": "--disable-slash-commands、--bare/--safe-mode 加载开关、『Skills still resolve via /skill-name』",
+    "skills_subcommand": "不存在",
+    "conclusion": "Claude Code 无零模型的 skill 列举/发现子命令——发现发生在会话启动并与模型会话绑定；零模型验证会话内发现不可行，真实验证需一次模型调用（另行授权）",
+    "already_verified_zero_model": "文件就位 + frontmatter + 内容完整性（stage3d-skill-load-verify.json all_pass）"
+  },
+  "evidence": { "file": ".test-fixtures/stage3d-runtime-check.json", "sha256": "1ee958916ecca6f45109cd34de989263df6dde82aaf280147c14ab51b829c432" },
+  "artifacts": [
+    { "file": ".test-fixtures/stage3d-runtime-check.json", "sha256": "1ee958916ecca6f45109cd34de989263df6dde82aaf280147c14ab51b829c432" },
+    { "file": ".test-fixtures/stage3d-skill-load-verify.json", "sha256": "16e4163d1b9bf4e5d8e73c2ecdf24a799fb9be813edba567e64f40c0840bad5c" }
+  ],
+  "limitations": [
+    "费用与账号权益仍 UNKNOWN；pi-rpc 独立全量间歇失败根因未确认",
+    "Claude 2.1.292 版本接受与付费复测另行决定（owner）；会话内 skill 发现验证需模型调用另行授权",
+    "本轮零模型调用、未提交未推送；Goal 保持 PROPOSED"
+  ]
+}

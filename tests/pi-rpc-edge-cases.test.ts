@@ -75,10 +75,10 @@ function sessionOptions(overrides: Partial<RpcSessionOptions> = {}): RpcSessionO
     goalPacketPath: path.join(FIXTURE_ROOT, 'goal-packet.json'),
     runRoot: FIXTURE_ROOT,
     maxNonTerminalTurns: 8,
-    handshakeTimeoutMs: 60,
-    settleTimeoutMs: 60,
-    exitTimeoutMs: 60,
-    processTimeoutMs: 300,
+    handshakeTimeoutMs: 5000,
+    settleTimeoutMs: 5000,
+    exitTimeoutMs: 5000,
+    processTimeoutMs: 15000,
     childScript: async function* () {
       yield agentSettled();
     },
@@ -121,6 +121,7 @@ test('empty runtime identity fails closed as missing-runtime-identity (PS L351)'
 test('prompt handshake deadline after state confirmation fails closed (PS L297-L298, L475-L481)', async () => {
   const result = await runRpcSession(
     sessionOptions({
+      handshakeTimeoutMs: 60,
       childScript: async function* (api) {
         yield stateResponse(api.stateCommandId);
         yield* hangForever();
@@ -151,6 +152,8 @@ test('child EOF during settle fails closed as agent-exited-before-settled (PS L3
 test('commit-phase exit deadline fails closed after the signed event (PS L309-L311)', async () => {
   const result = await runRpcSession(
     sessionOptions({
+      // Only the phase under test has a short deadline; earlier phases may do disk IO.
+      exitTimeoutMs: 60,
       childScript: async function* (api) {
         yield stateResponse(api.stateCommandId);
         yield promptResponseSuccess(api.promptCommandId);

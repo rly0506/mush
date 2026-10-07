@@ -10,8 +10,9 @@
   },
   "scripts": {
     "start": "node bin/mush board --open",
-    "test": "node --test --test-isolation=none tests/*.test.ts",
-    "test:isolated": "node --test tests/*.test.ts",
+    "docs:reconcile": "node scripts/docs-reconcile.cjs",
+    "test": "node scripts/docs-reconcile.cjs && node --import ./tests/setup.ts --test --test-isolation=none tests/*.test.ts",
+    "test:isolated": "node scripts/docs-reconcile.cjs && node --import ./tests/setup.ts --test tests/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "mush": "node bin/mush",
     "build:desktop": "powershell -NoProfile -File scripts/build-desktop.ps1"

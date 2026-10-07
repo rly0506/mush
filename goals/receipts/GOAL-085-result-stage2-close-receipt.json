@@ -1,0 +1,81 @@
+{
+  "goal_id": "GOAL-085",
+  "phase": "result-stage2-close",
+  "executor": "GLM",
+  "independent_reviewer": "Codex（修复轮四缺口复核通过：8/8 聚焦回归、typecheck、真实 Chromium、对账、diff 检查自跑；969/969 两份全量日志核对未复跑）",
+  "owner_ruling": "第二阶段按本地实现验收收口；不等于 Owner 正式验收或 Goal DONE（Goal §6 末项 owner 验收仍开放）",
+  "reviewer_note": "执行与核验署名为 GLM（ZCode 会话）；Codex 为独立复核方；Goal 保持 PROPOSED",
+  "status": "PROPOSED",
+  "owner_formal_acceptance": "pending",
+  "at": "2026-10-06T18:20:00.000Z",
+  "implementation": "VERIFIED",
+  "scope": "第二阶段收口：生产看板空闲重载 + 历史真实会话只读核对；第三阶段（CLI 薄入口）未开工，待 owner 启动指令",
+  "model_calls": 0,
+  "board_reload": {
+    "precheck_scan_inflight": "clean（无犬窗/工作树/在途派发）",
+    "old_pid": 23072,
+    "new_pid": 11044,
+    "port": 4790,
+    "get_root": 200,
+    "note": "第二阶段代码已上线生产看板"
+  },
+  "historical_sessions_check": {
+    "source": ".test-fixtures/reload-check.json",
+    "sessions_in_board": 20,
+    "d98_codex_agy": {
+      "session_id": "24675150-8055-4794-93a1-bedd28aa93d0",
+      "status": "completed",
+      "call_count": 7,
+      "opinions": 7,
+      "completion_complete": true,
+      "fees_visibility": "UNKNOWN",
+      "total_declared_usd": null,
+      "json_md_export": "200/200",
+      "note": "与该场费用全 UNKNOWN 既有结论一致；UNKNOWN 不当 0"
+    },
+    "d99_codex_claude": {
+      "session_id": "1cafb42c-a97c-497d-a56c-09c2295825b4",
+      "status": "completed",
+      "call_count": 7,
+      "opinions": 7,
+      "completion_complete": true,
+      "fees_visibility": "PARTIAL",
+      "total_declared_usd": 0.157617,
+      "declared_dispatch_count": 3,
+      "unknown_dispatch_count": 4,
+      "json_md_export": "200/200",
+      "note": "claude 3 条 ACTUAL_COST 与 GOAL-085 §6.6 记录逐字一致；codex 无申报=UNKNOWN"
+    },
+    "caller_token_leak_check": "导出 JSON 与 Markdown 均经程序断言不含 caller token"
+  },
+  "profiles_reactivated": {
+    "codex": "8194bb67a14f1eae74b218bf3724d13849cdb641d01dbd16451c1b24bda58936",
+    "agy": "43ae6c28ff26110c014bd162b3323a03b1b092b342e7ceed965c0b4144979c80",
+    "claude": "5b5096e9c3d49f3d3d33a0f61d93d58d4bf30b4cacdf9913106ff056afd7857d",
+    "note": "与 stage1 登记指纹逐字一致，无版本漂移；激活零派发零成本零建卡"
+  },
+  "typecheck_exit_code": 0,
+  "api_contract": "v1.68",
+  "known_unresolved": [
+    "pi-rpc-completion-state-machine 在独立全量模式为可复现间歇失败（跨多轮、用例不同），根因未确认，不因本轮收口视为已解决",
+    "D98 五项隔离缺证保留、版本接受范围不扩大；费用与账号权益仍 UNKNOWN"
+  ],
+  "next_stage": {
+    "cli_thin_entry": "NOT_STARTED",
+    "gate": "复用同一审批门（owner 已划）；待 owner 启动指令"
+  },
+  "artifacts": [
+    { "file": ".test-fixtures/reload-check.json", "sha256": "749a5443d87981f6693bfb66888c4a4c55787a3d3a2018e15e7b86a79fc93ef5" },
+    { "file": ".test-fixtures/history-D98-codex-agy.json", "sha256": "9fc60ace7c8b1678f05e95ccd999935f5d792cb721ce275292932c864551e61a" },
+    { "file": ".test-fixtures/history-D98-codex-agy.md", "sha256": "b48b13e6b671183679ab20b407044f2db5c18b05c150c1b50ce4e735494e25de" },
+    { "file": ".test-fixtures/history-D99-codex-claude.json", "sha256": "b35e11d4d61f517b9948024c3ab140ee96651d8e5c2fa649c8ab2f4cde7e7309" },
+    { "file": ".test-fixtures/history-D99-codex-claude.md", "sha256": "548483c6138bc2fd3911fe66114e454de20dfc5e8a96d535ea766eae6d8cce37" },
+    { "file": ".test-fixtures/stage2-close-reload-check.mjs", "sha256": "e2da2e42cdd3e698df79323aa6f034f337d603f3e5a8674aa85dcc86ee5af5aa" },
+    { "file": ".test-fixtures/stage2-codex-fix-review.json", "sha256": "2df0dc301b9d7bebb603273db9e934bafdb503e7efcbeb12c1da4bbbc64ed14c" },
+    { "file": ".test-fixtures/stage2-codex-browser-x2HC8B/review.json", "sha256": "e5628201ee31b86b5641026765146f013ac7410e144a2d0f3bd7b16be32d4523" },
+    { "file": "src/web/collab-result.ts", "sha256": "f3a36842773b9f1e4e2ffb16c5d4332d334a7209aaa84c6cf8db80ab46e6dcaa" },
+    { "file": "src/web/page.ts", "sha256": "0214af1478e9debb023c8ecc8de324d1bdf077866fa0c1882723db6caeb5bcb6" },
+    { "file": "tests/g085-session-result.test.ts", "sha256": "b746f0e63c992b7f333d0e1515d32961c176e0cb15603a7642b4a720333de055" },
+    { "file": "src/web/api-contract.md", "sha256": "6add59f9d3cee64bcf18345a7eecff38163422c773f057f8b705ae1031add5f4" }
+  ]
+}

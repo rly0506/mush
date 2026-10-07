@@ -17,8 +17,20 @@ import { EventLog } from '../core/event-log.ts';
 import { parseBridgeEventV2 } from '../schema/events.ts';
 import { collectBoardSnapshot } from './sources.ts';
 import { renderBoardPage } from './page.ts';
-import { DispatchPipeline, InputError, CarveoutAuthError } from './dispatch.ts';
+import { DispatchPipeline, InputError, CarveoutAuthError, centralWorkspaceDataDir, type RunAdapterFn } from './dispatch.ts';
+import { CollaborationBlackboard, BlackboardAccessError, type CollabSeat, type CollabParticipantInput, type CollabCapabilityEvidence, type EvidenceStoreLike } from '../orchestration/collaboration-blackboard.ts';
+import { FileCollaborationEvidenceStore } from '../orchestration/collaboration-evidence-store.ts';
+import { loadAdmissionPolicy } from '../orchestration/collaboration-admission-policy.ts';
+import { defaultCollabEffort, parseCollabEffortRequest } from './collab-effort.ts';
+import { buildCollabSessionResult, collabResultFileName, collabResultMarkdown } from './collab-result.ts';
+import { realDiscussionBaseline } from './collaboration-history.ts';
+import { contractPermissionFingerprint, type AdapterContract } from '../adapters/contract.ts';
+import { CollaborationCoordinator, type CollaborationRunOutcome } from '../orchestration/collaboration-coordinator.ts';
 import { BoardPersistence } from './persistence.ts';
+import { prepareSchemaProbe, activateDiscussionProfiles, activateClaudeProfile, withAgyFinishCandidate } from './collaboration-probes.ts';
+import { readCodexDiscussionInputs, type CodexDiscussionInspector } from '../adapters/codex-discussion-profile.ts';
+import { readAgyDiscussionInputs, type AgyDiscussionInspector } from '../adapters/agy-discussion-profile.ts';
+import { readClaudeDiscussionInputs, type ClaudeDiscussionInspector } from '../adapters/claude-discussion-profile.ts';
 import { ChatService } from './chat.ts';
 import { readAttachment } from './attachments.ts';
 import {
@@ -64,6 +76,7 @@ import { certifyUnattendedReadiness, renderReadinessMarkdown } from '../core/rea
 import { createLivenessGate } from '../core/liveness-ladder.ts';
 import { MissionSupervisor } from '../core/mission-supervisor.ts';
 import { getHarnessDoctorReport } from '../adapters/live-probe.ts';
+import { deriveOnboardingStatus } from '../core/onboarding.ts';
 
 export interface BoardServerOptions {
   approvalRoot: string;
@@ -75,6 +88,18 @@ export interface BoardServerOptions {
   eventLog?: EventLog;
   /** 派发管线（G006）；缺省按 workspaceRoot/approvalRoot 自建。 */
   dispatch?: DispatchPipeline;
+  /** Embedded execution backend, retained across workspace changes. */
+  runAdapter?: RunAdapterFn;
+  codexDiscussionInspector?: CodexDiscussionInspector;
+  codexDiscussionInputs?: typeof readCodexDiscussionInputs;
+  agyDiscussionInspector?: AgyDiscussionInspector;
+  agyDiscussionInputs?: typeof readAgyDiscussionInputs;
+  claudeDiscussionInputs?: typeof readClaudeDiscussionInputs;
+  /** Trusted host evidence only; never populated from an HTTP request. */
+  collaborationEvidenceStore?: EvidenceStoreLike;
+  collaborationEvidence?: (participant: CollabParticipantInput, contract: AdapterContract) => CollabCapabilityEvidence[];
+  /** D89 条件化准入政策文件路径（缺省 runtime/collaboration-admission-policy.json；不存在=无例外）。 */
+  admissionPolicyPath?: string;
   workspaceRoot?: string;
   ledgerPath?: string;
   /** GP-03：持久化与锁；缺省 <workspaceRoot>/runtime。 */
@@ -137,6 +162,17 @@ export interface BoardServer {
  */
 function guarded(response: ServerResponse, fn: () => Promise<void>): void {
   fn().catch((error: unknown) => {
+    if (error instanceof InputError) {
+      if (!response.headersSent) sendJson(response, 400, { ok: false, error: error.message });
+      return;
+    }
+    // GOAL-085：准入/黑板业务拒绝（如隔离证据不足、缺口未被政策接受、失败反例）是**已设计的
+    // fail-closed 结果**，不是内部故障。此前一律回 500，既误导使用者（"internal error"），
+    // 也让"设计内拒绝"与真正的服务端缺陷难以区分。改为 409 并回原样原因。
+    if (error instanceof BlackboardAccessError) {
+      if (!response.headersSent) sendJson(response, 409, { ok: false, error: error.message });
+      return;
+    }
     const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
     process.stderr.write(`[mush:server] handler error: ${detail}\n`);
     try {
@@ -225,9 +261,198 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       log.append(line.event);
     }
   }
+  // GOAL-084 §3.5：受控会话看板接入——黑板按工作区数据面惰性创建并常驻；
+  // 会话绑定创建时的黑板与管线（collabSessions 登记表），切换看板工作区不改变
+  // 正在运行会话的绑定（运行中派发继续走创建时的管线实例）。
+  const collabBlackboards = new Map<string, CollaborationBlackboard>();
+  const collabEvidenceStores = new Map<CollaborationBlackboard, FileCollaborationEvidenceStore>();
+  // D89 条件化准入：政策文件由宿主提供（缺省不存在 → 无任何"已知缺口"例外，fail-closed）。
+  const admissionPolicyPath = options.admissionPolicyPath ?? path.join(runtimeRoot, 'collaboration-admission-policy.json');
+  const collabBlackboardFor = (dataRoot: string): CollaborationBlackboard => {
+    const key = path.resolve(dataRoot);
+    let board = collabBlackboards.get(key);
+    if (board === undefined) {
+      const localStore = options.collaborationEvidenceStore === undefined ? new FileCollaborationEvidenceStore(key) : undefined;
+      const admissionPolicy = loadAdmissionPolicy(admissionPolicyPath);
+      board = CollaborationBlackboard.open(key, {
+        evidenceStore: options.collaborationEvidenceStore ?? localStore,
+        ...(admissionPolicy.accepted_gaps.length > 0 ? { admissionPolicy } : {}),
+      });
+      if (localStore !== undefined) collabEvidenceStores.set(board, localStore);
+      collabBlackboards.set(key, board);
+    }
+    return board;
+  };
+  const collabSessions = new Map<string, { blackboard: CollaborationBlackboard; pipeline: DispatchPipeline }>();
+  const collabRuns = new Map<string, {
+    blackboard: CollaborationBlackboard;
+    pipeline: DispatchPipeline;
+    running?: Promise<CollaborationRunOutcome>;
+  }>();
+  const startCollaborationRun = (sessionId: string, blackboard: CollaborationBlackboard, pipelineRef: DispatchPipeline): Promise<CollaborationRunOutcome> => {
+    const existing = collabRuns.get(sessionId);
+    if (existing?.running !== undefined) return existing.running;
+    const coordinator = new CollaborationCoordinator(
+      blackboard,
+      (req, internal) => pipelineRef.dispatch({ ...req, workspace: blackboard.getSession(sessionId).workspace_root }, internal),
+      (event) => broadcast(event),
+    );
+    const running = pipelineRef.preflightDiscussionChannels(blackboard.getAuthorizationSnapshot(sessionId).participants.map(p => p.adapter_id))
+      .then(() => coordinator.run(sessionId))
+      .catch((error: unknown) => {
+        const status = blackboard.getSession(sessionId).status;
+        if (status === 'authorized') blackboard.closeSession(sessionId, 'failed');
+        broadcast({ kind: 'collab', session_id: sessionId, type: 'run_error', error: error instanceof Error ? error.message : String(error) });
+        return { status: 'failed' as const, reason: error instanceof Error ? error.message : String(error), dispatch_ids: [] };
+      })
+      .then(outcome => {
+        blackboard.recordSessionOutcome(sessionId, outcome);
+        return outcome;
+      })
+      .finally(() => {
+        const entry = collabRuns.get(sessionId);
+        if (entry !== undefined) entry.running = undefined;
+        broadcast({ kind: 'collab', session_id: sessionId, type: 'run_settled' });
+      });
+    collabRuns.set(sessionId, { blackboard, pipeline: pipelineRef, running });
+    return running;
+  };
+
+  const registerCollaborationSessions = (pipelineRef: DispatchPipeline): void => {
+    const board = pipelineRef.collabBlackboardRef;
+    if (board === undefined) return;
+    for (const row of board.listSessions()) {
+      if (!collabSessions.has(row.id)) collabSessions.set(row.id, { blackboard: board, pipeline: pipelineRef });
+      if (row.status === 'in_progress' && !board.isRunActive(row.id)) {
+        for (const execution of board.getExecutionLog(row.id)) {
+          if (execution.status === 'started') {
+            board.recordExecutionResult(execution.seq as number, 'interrupted', '服务恢复：此前调用未确认结束，不自动重派');
+          }
+        }
+        board.closeSession(row.id, 'interrupted');
+        board.recordSessionOutcome(row.id, { status: 'interrupted', reason: '服务恢复：此前调用未确认结束，不自动重派', dispatch_ids: [] });
+      }
+    }
+  };
+
+  const collaborationReadiness = (entry: { blackboard: CollaborationBlackboard; pipeline: DispatchPipeline }, sessionId: string): { ready: boolean; reason?: string } => {
+    try {
+      entry.blackboard.assertDualModelSession(sessionId);
+      if (entry.blackboard.getAuthorizationSnapshot(sessionId).isolation_required !== true) {
+        return { ready: false, reason: '此历史会话未冻结隔离要求，请重新创建' };
+      }
+      entry.blackboard.assertCanAuthorizeSession(sessionId);
+      const snapshot = entry.blackboard.getAuthorizationSnapshot(sessionId);
+      for (const participant of snapshot.participants) {
+        const contract = entry.pipeline.collaborationContract(participant.adapter_id, participant.model_id);
+        if (contractPermissionFingerprint(contract) !== participant.config_fingerprint) {
+          return { ready: false, reason: 'approved configuration fingerprint no longer matches seat ' + participant.seat };
+        }
+      }
+      return { ready: true };
+    } catch (error) {
+      return { ready: false, reason: error instanceof Error ? error.message : String(error) };
+    }
+  };
+
+  const sessionChannelReadiness = async (entry: { blackboard: CollaborationBlackboard; pipeline: DispatchPipeline }, sessionId: string, fresh = false) => {
+    const readiness = collaborationReadiness(entry, sessionId);
+    if (!readiness.ready) return readiness;
+    const channels = await entry.pipeline.checkDiscussionChannels(entry.blackboard.getAuthorizationSnapshot(sessionId).participants.map(p => p.adapter_id), fresh);
+    const failed = channels.find(c => !c.ready);
+    return { ready: failed === undefined, ...(failed ? { reason: failed.reason } : {}), channels };
+  };
+
+  const deriveCollabParticipants = (body: Record<string, unknown>, pipeline: DispatchPipeline): CollabParticipantInput[] => {
+    const raw = Array.isArray(body.participants) ? body.participants : [];
+    if (raw.length !== 2 || (body.mode !== undefined && body.mode !== 2)) throw new InputError('协作会话仅支持双模型 2 位（A/B）参与者');
+    return raw.map((value, index) => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) throw new InputError('participant must be an object');
+      const p = value as Record<string, unknown>;
+      if (typeof p.adapter_id !== 'string' || !p.adapter_id.trim()) throw new InputError('participant adapter_id required');
+      const contract = pipeline.collaborationContract(p.adapter_id.trim(), typeof p.model_id === 'string' ? p.model_id.trim() : undefined);
+      let effort: string | undefined;
+      try { effort = parseCollabEffortRequest(contract, index === 0 ? 'A' : 'B', p.effort) ?? defaultCollabEffort(contract); }
+      catch (error) { throw new InputError(error instanceof Error ? error.message : String(error)); }
+      return { seat: index === 0 ? 'A' : 'B', adapter_id: contract.adapter_id, provider_id: contract.expected_provider,
+        model_id: contract.expected_model_id, config_fingerprint: contractPermissionFingerprint(contract),
+        ...(effort ? { effort } : {}), ...(index === 0 ? { is_coordinator: true } : {}) };
+    });
+  };
+
+  const prospectiveEvidence = (bb: CollaborationBlackboard, pipeline: DispatchPipeline, participants: CollabParticipantInput[]) => {
+    const store = collabEvidenceStores.get(bb) ?? (bb.evidenceStoreRef && 'forParticipant' in bb.evidenceStoreRef
+      ? bb.evidenceStoreRef as { forParticipant: (id: string, fingerprint: string) => CollabCapabilityEvidence[] } : undefined);
+    return participants.flatMap(p => options.collaborationEvidence
+      ? options.collaborationEvidence(p, pipeline.collaborationContract(p.adapter_id, p.model_id))
+      : store?.forParticipant(p.adapter_id, p.config_fingerprint!) ?? []);
+  };
+
+  const checkCollabSelection = async (pipeline: DispatchPipeline, bb: CollaborationBlackboard,
+    participants: CollabParticipantInput[], fresh: boolean) => {
+    const channels = await pipeline.checkDiscussionChannels(participants.map(p => p.adapter_id), fresh);
+    let reason = channels.find(c => !c.ready)?.reason;
+    try {
+      for (const p of participants) {
+        const c = pipeline.collaborationContract(p.adapter_id, p.model_id);
+        const bound = c.codex_discussion_profile?.model_id ?? c.claude_discussion_profile?.model_id ?? c.agy_discussion_profile?.model_id;
+        if (bound !== p.model_id) throw new InputError('席位 ' + p.seat + ' 模型不匹配当前讨论档案：' + bound);
+        if (contractPermissionFingerprint(c) !== p.config_fingerprint) throw new InputError('检查期间席位配置发生变化，请重新检查');
+      }
+      bb.assertProspectiveAdmission(participants, prospectiveEvidence(bb, pipeline, participants));
+    } catch (error) { reason ??= error instanceof Error ? error.message : String(error); }
+    return { ready: reason === undefined && channels.every(c => c.ready), ...(reason ? { reason } : {}),
+      checked_at_utc: new Date().toISOString(), channels, participants,
+      real_reproduction: realDiscussionBaseline(startupWorkspaceRoot, participants, channels), account_quota: 'UNKNOWN' as const };
+  };
+
+  const respondCollaborationApproval = async (
+    entry: { blackboard: CollaborationBlackboard; pipeline: DispatchPipeline },
+    sessionId: string,
+    decision: 'APPROVED' | 'REJECTED',
+    note?: string,
+  ): Promise<{ response_path: string; approved: boolean }> => {
+    entry.blackboard.assertDualModelSession(sessionId);
+    const requestPath = entry.pipeline.sessionAuthorizationRequestPath(sessionId);
+    const responsePath = requestPath + '.owner-response.json';
+    if (existsSync(responsePath)) throw new InputError('approval already responded (append-only, no overwrite)');
+    if (!existsSync(requestPath)) throw new InputError('session authorization request not found');
+    const requestCard = JSON.parse(readFileSync(requestPath, 'utf8')) as Record<string, unknown>;
+    if (requestCard.authorization_hash !== entry.blackboard.getSession(sessionId).authorization_hash) {
+      throw new InputError('session authorization snapshot hash mismatch');
+    }
+    if (decision === 'APPROVED') {
+      const readiness = await sessionChannelReadiness(entry, sessionId, true);
+      if (!readiness.ready) throw new InputError(readiness.reason ?? 'session execution requirements are unmet');
+      // Recheck mutable evidence/state after the async native inspection, before writing any response.
+      const current = collaborationReadiness(entry, sessionId);
+      if (!current.ready) throw new InputError(current.reason ?? 'session no longer admissible');
+      if (existsSync(responsePath)) throw new InputError('approval already responded');
+    }
+    else if (entry.blackboard.getSession(sessionId).status !== 'pending_approval') {
+      throw new InputError('only a pending session can be rejected');
+    }
+    writeFileSync(responsePath, JSON.stringify({
+      schema_version: 1,
+      request_file: path.basename(requestPath),
+      authorization_hash: requestCard.authorization_hash,
+      responded_at_utc: new Date().toISOString(),
+      owner_decision: decision,
+      owner_evidence: 'owner response via mush board',
+      ...(note !== undefined ? { note } : {}),
+    }, null, 2) + '\n', { encoding: 'utf8', flag: 'wx' });
+    entry.pipeline.respondSessionApproval(sessionId, decision);
+    broadcast({ kind: 'approval', request_file: path.basename(requestPath), decision, session_id: sessionId });
+    if (decision === 'APPROVED') void startCollaborationRun(sessionId, entry.blackboard, entry.pipeline);
+    return { response_path: responsePath, approved: decision === 'APPROVED' };
+  };
+
   let dispatch =
     options.dispatch ??
     new DispatchPipeline({
+      runAdapter: options.runAdapter,
+      codexDiscussionInspector: options.codexDiscussionInspector,
+      agyDiscussionInspector: options.agyDiscussionInspector,
       workspaceRoot,
       approvalRoot,
       ledgerPath: options.ledgerPath ?? path.join(runtimeRoot, 'budget-ledger.jsonl'),
@@ -237,6 +462,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       observationState,
       unattended: unattendedShared,
       streamLiveOutput: true,
+      collabBlackboard: collabBlackboardFor(path.resolve(workspaceRoot)),
       onEvent: (event) => broadcast(event),
     });
   // GOAL-080：探针阶梯门——L0/L1 零成本预检 + 故障转移排序；合同表惰性取当前管线值
@@ -247,7 +473,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
   });
   // GOAL-080：探针阶梯门只接默认装配的管线——注入式管线（测试自管配置）不启用，
   // fake 适配器不被预检误伤。完成核验门同批接线（G024 自动推进前询问监理）。
-  if (options.dispatch === undefined) {
+  if (options.dispatch === undefined && options.runAdapter === undefined) {
     dispatch.setLivenessGate(livenessGate);
     dispatch.completionGate = (taskId, claim) => missionSupervisor.approveCompletion(taskId, claim);
   }
@@ -300,7 +526,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
   // 都需要同样的 SSE 广播 + 活动时间线转译（活动流落各自 runtime）。
   function wirePipelineEvents(pipeline: DispatchPipeline, wsRuntimeRoot: string): void {
     pipeline.setEventListener((event) => {
-      broadcast(event);
+      broadcast({ ...event, workspace_root: pipeline.workspaceRoot });
       try {
         const record = pipeline.get(event.dispatch_id);
         // GOAL-082：监理观察点——任务回链的派发事件作心跳；失败/超时受阻归因留档
@@ -333,6 +559,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
   }
   // 注入管线也要把生命周期事件推 SSE 并转译活动时间线（GOAL-023）。
   wirePipelineEvents(dispatch, runtimeRoot);
+  registerCollaborationSessions(dispatch);
   // GOAL-068（D2）：缺省管线（含注入式实例）统一共享机器级 Master Cap 门。
   dispatch.setMasterGate(masterGate);
   let directSessions = options.directSessions ?? new DirectSessionManager(runtimeRoot);
@@ -378,15 +605,24 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     if (!existsSync(resolved)) {
       throw new InputError(`workspace does not exist: ${resolved}`);
     }
-    const nextRuntime = path.join(resolved, 'runtime');
-    const nextApproval = path.join(resolved, 'goals', 'receipts', 'approval-requests');
+    // D86：外部工作区数据面集中托管（宿主 runtime/workspaces/<slug>-<hash8>），
+    // 目标文件夹零足迹；宿主根自身保持仓库在库形态。执行 cwd 仍是真实工作区。
+    const central = centralWorkspaceDataDir(startupWorkspaceRoot, resolved);
+    const nextRuntime = path.join(central, 'runtime');
+    const nextApproval = path.join(central, 'goals', 'receipts', 'approval-requests');
     mkdirSync(nextRuntime, { recursive: true });
 
     const nextPersistence = new BoardPersistence(nextRuntime);
     const nextDispatch = new DispatchPipeline({
+      runAdapter: options.runAdapter,
+      codexDiscussionInspector: options.codexDiscussionInspector,
+      agyDiscussionInspector: options.agyDiscussionInspector,
       workspaceRoot: resolved,
       approvalRoot: nextApproval,
       ledgerPath: path.join(nextRuntime, 'budget-ledger.jsonl'),
+      dataRoot: central,
+      registryDir: path.join(startupWorkspaceRoot, '.mush'),
+      collabBlackboard: collabBlackboardFor(central),
       // D82 批次修复：能力注册表与实测探针缓存是机器级事实（通道实证/模型清单），
       // 全上下文共享同一份文件——不随工作区热切换被清零（否则 codex/opencode
       // 切项目后被打回"未实证"）。
@@ -400,9 +636,13 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       onEvent: (event) => broadcast(event),
     });
     wirePipelineEvents(nextDispatch, nextRuntime);
+    registerCollaborationSessions(nextDispatch);
     // GOAL-080：热切换后的新管线同样接探针门（门本身单例，合同表 thunk 已惰性跟随）
-    nextDispatch.setLivenessGate(livenessGate);
-    nextDispatch.completionGate = (taskId, claim) => missionSupervisor.approveCompletion(taskId, claim);
+    if (options.runAdapter === undefined) {
+      nextDispatch.setLivenessGate(livenessGate);
+      nextDispatch.completionGate = (taskId, claim) => missionSupervisor.approveCompletion(taskId, claim);
+    }
+    nextDispatch.selectWorkspace(resolved);
 
     workspaceRoot = resolved;
     approvalRoot = nextApproval;
@@ -495,9 +735,32 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       sendJson(response, 400, { ok: false, error: "decision must be 'APPROVED' or 'REJECTED'" });
       return;
     }
-    const requestPath = path.join(approvalRoot, body.request_file);
+    const sessionMatch = body.request_file.match(/^collab-session-([a-f0-9-]{36})\.json$/i);
+    const boundSession = sessionMatch === null ? undefined : collabSessions.get(sessionMatch[1]);
+    const requestPath = boundSession === undefined
+      ? path.join(approvalRoot, body.request_file)
+      : boundSession.pipeline.sessionAuthorizationRequestPath(sessionMatch![1]);
     if (!existsSync(requestPath)) {
       sendJson(response, 404, { ok: false, error: `approval request not found: ${body.request_file}` });
+      return;
+    }
+    const requestCard = JSON.parse(readFileSync(requestPath, 'utf8')) as Record<string, unknown>;
+    if (requestCard.kind === 'collab-session' && typeof requestCard.session_id === 'string') {
+      const entry = collabSessions.get(requestCard.session_id);
+      if (entry === undefined) {
+        sendJson(response, 404, { ok: false, error: 'unknown collaboration session' });
+        return;
+      }
+      try {
+        const outcome = await respondCollaborationApproval(entry, requestCard.session_id, body.decision as 'APPROVED' | 'REJECTED', typeof body.note === 'string' ? body.note : undefined);
+        sendJson(response, 201, { ok: true, ...outcome, session_id: requestCard.session_id });
+      } catch (error) {
+        sendJson(response, 409, { ok: false, error: error instanceof Error ? error.message : String(error) });
+      }
+      return;
+    }
+    if (requestCard.kind === 'dispatch' && body.decision === 'APPROVED' && unattendedShared.breaker.halted) {
+      sendJson(response, 409, { ok: false, error: 'circuit breaker is halted; owner must reset it before approving real dispatches (熔断未复位)' });
       return;
     }
     const responsePath = requestPath + '.owner-response.json';
@@ -535,8 +798,11 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       if (req.kind === 'dispatch' && typeof req.dispatch_id === 'string' && req.dispatch_id !== '') {
         if (body.decision === 'APPROVED') {
           dispatch.grantApprovalToken(req.dispatch_id);
-          void dispatch
-            .rerun(req.dispatch_id, { real: true, approved_via: req.dispatch_id })
+          const frozen = dispatch.get(req.dispatch_id)?.request;
+          const replay = () => chat.rerun(req.dispatch_id as string, { real: true, approved_via: req.dispatch_id });
+          void (frozen?.probe_id === 'A16'
+            ? withAgyFinishCandidate(dispatch, runtimeRoot, replay, options.agyDiscussionInputs, frozen.contract_fingerprint)
+            : replay())
             .catch((error: unknown) => {
               broadcast({
                 kind: 'dispatch',
@@ -546,7 +812,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
             });
           dispatchOutcome = { rerun: 'STARTED', original: req.dispatch_id };
         } else {
-          const rejected = dispatch.rejectDispatch(req.dispatch_id);
+          const rejected = chat.reject(req.dispatch_id);
           dispatchOutcome = { dispatch_id: rejected.dispatch_id, status: rejected.status };
         }
       }
@@ -659,7 +925,21 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       return;
     }
     if (route === 'GET /api/snapshot') {
-      const snapshot = collectBoardSnapshot({ eventLogs: [log], approvalRoot }) as unknown as Record<string, unknown>;
+      const snapshot = collectBoardSnapshot({
+        eventLogs: [log],
+        approvalRoot,
+        // GOAL-085（owner 2026-10-05 复核）：终态会话的授权卡不得再出现在待批投影里。
+        // 只读查询；卡文件与历史一律不动，也不写应答。
+        collabSessionStatus: (sessionId: string) => {
+          const entry = collabSessions.get(sessionId);
+          if (entry === undefined) return undefined;
+          try {
+            return entry.blackboard.getSession(sessionId).status;
+          } catch {
+            return undefined;
+          }
+        },
+      }) as unknown as Record<string, unknown>;
       // 契约 v1 扩展：dispatches 最近 20 条（G006 管线投影，只读）。
       snapshot.dispatches = dispatch.recent(20).map((record) => ({
         dispatch_id: record.dispatch_id,
@@ -670,7 +950,9 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       }));
       // G009 修复：在册犬只名册（派发合同表）——下拉取数源应为注册名册而非
       // 活动投影（actors 只在有 loop 事件流后才有值，冷启动必然为空）。
-      snapshot.roster = dispatch.roster();
+      const roster = dispatch.roster();
+      snapshot.roster = roster;
+      snapshot.workspace_root = workspaceRoot;
       // GOAL-071：观察模式状态（UI 徽标数据源）。
       if (dispatch.observingWorkspace !== null) snapshot.observing_path = dispatch.observingWorkspace;
       // GOAL-081：第一单零配置引导信号（只读派生，不改任何状态）——
@@ -680,11 +962,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
       // probe_status==='ONLINE'（实测在线 =「用户已配置」的诚实代理，新装全
       // UNKNOWN → 横幅升起，配好任意一犬后自动收起）。
       {
-        const rosterList = snapshot.roster as Array<{ adapter_id?: string; probe_status?: string }>;
-        snapshot.first_task = {
-          zero_config: !rosterList.some((r) => r.probe_status === 'ONLINE'),
-          free_adapter_id: 'opencode',
-        };
+        snapshot.first_task = deriveOnboardingStatus(roster, getHarnessDoctorReport());
       }
       sendJson(response, 200, snapshot);
       return;
@@ -695,6 +973,58 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     }
     if (route === 'POST /api/approvals/respond') {
       guarded(response, () => handleApprovalRespond(request, response));
+      return;
+    }
+    if (route === 'POST /api/collaboration/profiles/activate') {
+      guarded(response, async () => {
+        let parsed: unknown;
+        try { parsed = JSON.parse(await readBody(request)); }
+        catch { throw new InputError('body must be JSON'); }
+        if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) throw new InputError('body must be an object');
+        if (Object.keys(parsed).length !== 0) throw new InputError('activation takes no parameters; discussion configuration is host-owned');
+        const activated = await activateDiscussionProfiles(dispatch, runtimeRoot, options.codexDiscussionInputs, options.agyDiscussionInputs);
+        sendJson(response, 200, {
+          ok: true,
+          ...activated,
+          note: '已按当前原生观测重建讨论档案（仅激活，不派发、不建卡、不占预算、不复位熔断）；旧批准按指纹漂移规则不自动沿用',
+        });
+      });
+      return;
+    }
+    // GOAL-085：Claude 讨论档案的独立零派发激活入口（不动既有 codex/agy 档案与批准）。
+    if (route === 'POST /api/collaboration/profiles/activate-claude') {
+      guarded(response, async () => {
+        let parsed: unknown;
+        try { parsed = JSON.parse(await readBody(request)); }
+        catch { throw new InputError('body must be JSON'); }
+        if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) throw new InputError('body must be an object');
+        if (Object.keys(parsed).length !== 0) throw new InputError('activation takes no parameters; discussion configuration is host-owned');
+        const activated = await activateClaudeProfile(dispatch, runtimeRoot, options.claudeDiscussionInputs);
+        sendJson(response, 200, {
+          ok: true,
+          ...activated,
+          note: '已按当前原生观测重建 Claude 讨论档案（仅激活，不派发、不建卡、不占预算、不复位熔断）；不影响 codex/agy 档案与旧批准',
+        });
+      });
+      return;
+    }
+    if (route === 'POST /api/collaboration/probes/prepare') {
+      guarded(response, async () => {
+        let parsed: unknown;
+        try { parsed = JSON.parse(await readBody(request)); }
+        catch { throw new InputError('body must be JSON'); }
+        if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) throw new InputError('body must be an object');
+        const body = parsed as Record<string, unknown>;
+        if (Object.keys(body).some(key => key !== 'packet_id')) throw new InputError('only packet_id is accepted; execution configuration is host-owned');
+        const prepared = await prepareSchemaProbe(dispatch, runtimeRoot, body.packet_id, options.codexDiscussionInputs, options.agyDiscussionInputs, options.claudeDiscussionInputs);
+        sendJson(response, 201, {
+          ok: true, packet_id: prepared.packet_id, reused: prepared.reused,
+          dispatch_id: prepared.record.dispatch_id, status: prepared.record.status,
+          request_file: 'dispatch-' + prepared.record.dispatch_id + '.json',
+          breaker_halted: unattendedShared.breaker.halted, execution_checks: 'NOT_RUN',
+          fee_status: 'UNKNOWN',
+        });
+      });
       return;
     }
     if (route === 'POST /api/dispatch') {
@@ -819,7 +1149,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         }
         let record;
         try {
-          record = await dispatch.rerun(dispatchRerun[1], body);
+          record = await chat.rerun(dispatchRerun[1], body);
         } catch (error) {
           if (error instanceof InputError) {
             sendJson(response, 400, { ok: false, error: error.message });
@@ -1030,6 +1360,301 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
     }
     // GOAL-067（F1 选 A / 契约 v1.41 兑现）：犬队医生——getHarnessDoctorReport
     // 此前已有完整实现与单测，但从未接线到 HTTP 层。
+    // D84（2026-09-06）：owner 停止运行中的派发（聊天/看板通用）——杀子进程树，终态 INTERRUPTED。
+    if (route === 'POST /api/dispatches/cancel') {
+      guarded(response, async () => {
+        let body: Record<string, unknown>;
+        try {
+          body = JSON.parse(await readBody(request)) as Record<string, unknown>;
+        } catch {
+          sendJson(response, 400, { ok: false, error: 'body must be JSON' });
+          return;
+        }
+        if (typeof body.dispatch_id !== 'string' || body.dispatch_id.trim() === '') {
+          sendJson(response, 400, { ok: false, error: "field 'dispatch_id' is required" });
+          return;
+        }
+        try {
+          const record = dispatch.cancel(body.dispatch_id.trim());
+          sendJson(response, 200, { ok: true, dispatch_id: record.dispatch_id, status: record.status, note: 'interrupt requested; final INTERRUPTED status follows via stream' });
+        } catch (error) {
+          sendJson(response, 409, { ok: false, error: error instanceof Error ? error.message : String(error) });
+        }
+      });
+      return;
+    }
+    // ---- GOAL-084 §3.5：受控会话看板接入（创建/列表/详情/启动/取消/批准·否决）----
+    const readJsonBody = async (): Promise<Record<string, unknown>> => {
+      let parsed: unknown;
+      try { parsed = JSON.parse(await readBody(request)); }
+      catch { throw new InputError('body must be a JSON object'); }
+      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new InputError('body must be a JSON object');
+      }
+      return parsed as Record<string, unknown>;
+    };
+    const collabEntry = (sessionId: string): { blackboard: CollaborationBlackboard; pipeline: DispatchPipeline } => {
+      const entry = collabSessions.get(sessionId);
+      if (entry === undefined) {
+        throw new InputError('unknown collaboration session（本服务实例未登记；服务重启后历史会话须经原工作区黑板访问）');
+      }
+      return entry;
+    };
+    if (route === 'POST /api/collaboration/check') {
+      guarded(response, async () => {
+        const body = await readJsonBody();
+        if (typeof body.workspace_root === 'string' && path.resolve(body.workspace_root) !== path.resolve(workspaceRoot)) {
+          throw new InputError('工作区已变化，请刷新后重新检查');
+        }
+        const bb = dispatch.collabBlackboardRef;
+        if (!bb) { sendJson(response, 200, { ok: true, ready: false, reason: '当前管线未绑定协作黑板', account_quota: 'UNKNOWN' }); return; }
+        const participants = deriveCollabParticipants(body, dispatch);
+        sendJson(response, 200, { ok: true, ...await checkCollabSelection(dispatch, bb, participants, body.refresh === true) });
+      });
+      return;
+    }
+    if (route === 'POST /api/collaboration/sessions') {
+      guarded(response, async () => {
+        const body = await readJsonBody();
+        const bb = dispatch.collabBlackboardRef;
+        if (bb === undefined) {
+          sendJson(response, 409, { ok: false, error: '协作会话需要当前管线绑定黑板（当前装配未启用）' });
+          return;
+        }
+        const topic = typeof body.topic === 'string' ? body.topic.trim() : '';
+        if (topic === '') throw new InputError("field 'topic' is required");
+        if (typeof body.workspace_root === 'string' && path.resolve(body.workspace_root) !== path.resolve(workspaceRoot)) {
+          throw new InputError('工作区已变化，请刷新后重新创建会话');
+        }
+        const participants = deriveCollabParticipants(body, dispatch);
+        // 客户端不得注入执行参数、证据或政策豁免（服务端派生并冻结）。
+        if (body.execution !== undefined || body.policy !== undefined || body.review_relations !== undefined) {
+          throw new InputError('执行参数/证据/政策豁免只能由宿主派生，不接受客户端注入');
+        }
+        const rawMaterials = Array.isArray(body.materials) ? body.materials : [];
+        if (rawMaterials.length > 8) throw new InputError('材料数量上限 8（首版）');
+        const materials = rawMaterials.map((m, index) => {
+          if (m === null || typeof m !== 'object' || Array.isArray(m)) throw new InputError('material must be an object');
+          const rec = m as Record<string, unknown>;
+          const name = typeof rec.name === 'string' ? rec.name.trim() : '';
+          const content = typeof rec.content === 'string' ? rec.content : '';
+          if (name === '' || content.trim() === '') throw new InputError(`材料 ${index + 1} 需要 name 与非空 content`);
+          // GOAL-085：材料 ACL 按本场实际席位校验——三席会话必须能授权给 C，
+          // 且不得授权给本场不存在的席位（默认全部参会席位可见）。
+          const seatIds = participants.map((p) => p.seat);
+          const seats = rec.allowed_seats === undefined ? seatIds : rec.allowed_seats;
+          if (!Array.isArray(seats) || seats.length === 0
+            || seats.some((s) => typeof s !== 'string' || !seatIds.includes(s as CollabSeat))) {
+            throw new InputError(`材料 ${index + 1} 的 allowed_seats 只能包含本场席位（${seatIds.join('/')}）且不能为空`);
+          }
+          return { material_id: `m${index + 1}`, name, source: 'owner', content, allowed_seats: [...new Set(seats)].sort() as CollabSeat[] };
+        });
+        const constraints = typeof body.constraints === 'string' ? body.constraints.trim() : undefined;
+        if (body.isolation_required === false) throw new InputError('受控协作必须启用材料与工具隔离');
+        if (body.capability_evidence !== undefined) throw new InputError('权限证据只能由宿主受控证据库提供');
+        const isolationRequired = true;
+        // 证据来源优先级：宿主显式注入的函数 → 看板自建黑板的本地库 → **该会话黑板自身的证据库**。
+        // 最后一项保证"管线绑定黑板"与"看板黑板"同源；三者皆无 → 空证据（保持未验证，fail-closed）。
+        const evidenceStoreForSession: { forParticipant: (adapterId: string, fingerprint: string) => CollabCapabilityEvidence[] } | undefined =
+          collabEvidenceStores.get(bb) ?? (bb.evidenceStoreRef !== undefined && 'forParticipant' in bb.evidenceStoreRef
+            ? bb.evidenceStoreRef as { forParticipant: (adapterId: string, fingerprint: string) => CollabCapabilityEvidence[] }
+            : undefined);
+        const capabilityEvidence = participants.flatMap(participant => options.collaborationEvidence !== undefined
+          ? options.collaborationEvidence(participant, dispatch.collaborationContract(participant.adapter_id, participant.model_id))
+          : evidenceStoreForSession?.forParticipant(participant.adapter_id, participant.config_fingerprint!) ?? []);
+        const selection = await checkCollabSelection(dispatch, bb, participants, true);
+        if (!selection.ready) { sendJson(response, 409, { ok: false, error: selection.reason, check: selection }); return; }
+        const created = bb.createSession({
+          topic,
+          workspace_root: workspaceRoot,
+          participants,
+          materials,
+          ...(constraints !== undefined && constraints !== '' ? { constraints } : {}),
+          isolation_required: isolationRequired,
+          capability_evidence: capabilityEvidence,
+        });
+        const card = dispatch.createSessionAuthorizationRequest({ session_id: created.session_id });
+        collabSessions.set(created.session_id, { blackboard: bb, pipeline: dispatch });
+        sendJson(response, 201, {
+          ok: true,
+          session_id: created.session_id,
+          status: 'pending_approval',
+          authorization_hash: created.authorization_hash,
+          request_file: card.request_file,
+          authorization_readiness: await sessionChannelReadiness({ blackboard: bb, pipeline: dispatch }, created.session_id),
+          note: '会话已创建为待批准；通过执行检查并批准后才开始讨论',
+        });
+      });
+      return;
+    }
+    if (route === 'GET /api/collaboration/sessions') {
+      guarded(response, async () => {
+        const sessions = [...collabSessions.entries()].map(([sessionId, entry]) => {
+          const row = entry.blackboard.getSession(sessionId);
+          return { session_id: sessionId, topic: row.topic, status: row.status, phase: row.phase, call_count: row.call_count };
+        });
+        sendJson(response, 200, { ok: true, sessions });
+      });
+      return;
+    }
+    if (route === 'POST /api/collaboration/sessions/detail') {
+      guarded(response, async () => {
+        const body = await readJsonBody();
+        const sessionId = typeof body.session_id === 'string' ? body.session_id.trim() : '';
+        const entry = collabEntry(sessionId);
+        const bb = entry.blackboard;
+        const row = bb.getSession(sessionId);
+        const snapshot = { ...bb.getAuthorizationSnapshot(sessionId), authorization_hash: row.authorization_hash };
+        const viewpoints = Object.fromEntries(snapshot.participants.map(participant => [
+          participant.seat, bb.getVisibleContext(sessionId, participant.seat).own,
+        ]));
+        sendJson(response, 200, {
+          ok: true,
+          session_id: sessionId,
+          status: row.status,
+          phase: row.phase,
+          approved: entry.pipeline.sessionOwnerDecision(sessionId) === 'APPROVED',
+          owner_decision: entry.pipeline.sessionOwnerDecision(sessionId) ?? null,
+          authorization_readiness: row.status === 'pending_approval' ? await sessionChannelReadiness(entry, sessionId) : { ready: false },
+          execution: collabRuns.get(sessionId)?.running !== undefined
+            ? 'running'
+            : row.status === 'completed' || row.status === 'failed' || row.status === 'cancelled' || row.status === 'interrupted'
+              ? 'settled'
+              : 'not_started',
+          stop_requested: bb.isStopRequested(sessionId),
+          current_dispatch: bb.getCurrentDispatch(sessionId),
+          call_count: row.call_count,
+          retry_count: row.retry_count,
+          deadline_utc: row.deadline_utc,
+          outcome: bb.getSessionOutcome(sessionId),
+          snapshot,
+          viewpoints,
+          execution_log: bb.getExecutionLog(sessionId),
+        });
+      });
+      return;
+    }
+    // GOAL-085 第二阶段：只读结果导出（JSON / Markdown）。复用黑板与派发台账，
+    // 不另建事实源、不调用模型；导出内容不含 caller token、凭据或完整原生审计流。
+    // 历史会话（失败/中断/三席位）同一路径可读——只读，不影响批准/启动门的既有限制。
+    if (route === 'POST /api/collaboration/sessions/result') {
+      guarded(response, async () => {
+        const body = await readJsonBody();
+        const sessionId = typeof body.session_id === 'string' ? body.session_id.trim() : '';
+        const entry = collabEntry(sessionId);
+        const format = body.format === undefined ? 'json' : body.format;
+        if (format !== 'json' && format !== 'markdown') {
+          throw new InputError("field 'format' must be 'json' or 'markdown'");
+        }
+        const doc = buildCollabSessionResult(entry.blackboard, entry.pipeline, sessionId);
+        if (format === 'markdown') {
+          response.writeHead(200, {
+            'content-type': 'text/markdown; charset=utf-8',
+            'content-disposition': `attachment; filename="${collabResultFileName(doc, 'md')}"`,
+          });
+          response.end(collabResultMarkdown(doc));
+          return;
+        }
+        sendJson(response, 200, {
+          ok: true,
+          session_id: sessionId,
+          format: 'json',
+          file_name: collabResultFileName(doc, 'json'),
+          result: doc,
+        });
+      });
+      return;
+    }
+    if (route === 'POST /api/collaboration/sessions/approve' || route === 'POST /api/collaboration/sessions/reject') {
+      guarded(response, async () => {
+        const body = await readJsonBody();
+        const sessionId = typeof body.session_id === 'string' ? body.session_id.trim() : '';
+        const entry = collabEntry(sessionId);
+        const decision = route.endsWith('/approve') ? 'APPROVED' : 'REJECTED';
+        try {
+          await respondCollaborationApproval(entry, sessionId, decision);
+        } catch (error) {
+          // 隔离准入/重复应答等状态机拒绝 → 409 语义，不静默放行。
+          sendJson(response, 409, { ok: false, error: error instanceof Error ? error.message : String(error) });
+          return;
+        }
+        sendJson(response, 200, {
+          ok: true,
+          session_id: sessionId,
+          decision,
+          approved: decision === 'APPROVED',
+          note: decision === 'APPROVED' ? '已批准并自动获准执行（协调器接管）' : '已否决，会话取消',
+        });
+      });
+      return;
+    }
+    if (route === 'POST /api/collaboration/sessions/start') {
+      guarded(response, async () => {
+        const body = await readJsonBody();
+        const sessionId = typeof body.session_id === 'string' ? body.session_id.trim() : '';
+        const entry = collabEntry(sessionId);
+        const row = entry.blackboard.getSession(sessionId);
+        try { entry.blackboard.assertDualModelSession(sessionId); }
+        catch (error) {
+          sendJson(response, 409, { ok: false, error: error instanceof Error ? error.message : String(error) });
+          return;
+        }
+        if (row.status !== 'authorized' || entry.pipeline.sessionOwnerDecision(sessionId) !== 'APPROVED' || entry.blackboard.getAuthorizationSnapshot(sessionId).isolation_required !== true) {
+          sendJson(response, 409, { ok: false, error: `会话状态为 ${row.status}，仅有已记录批准的 authorized 会话可启动` });
+          return;
+        }
+        void startCollaborationRun(sessionId, entry.blackboard, entry.pipeline);
+        sendJson(response, 202, { ok: true, session_id: sessionId, started: true, note: '协调器已接管，阶段进度经 SSE 与详情接口推送' });
+      });
+      return;
+    }
+    if (route === 'POST /api/collaboration/sessions/cancel') {
+      guarded(response, async () => {
+        const body = await readJsonBody();
+        const sessionId = typeof body.session_id === 'string' ? body.session_id.trim() : '';
+        const entry = collabEntry(sessionId);
+        const bb = entry.blackboard;
+        try { bb.assertDualModelSession(sessionId); }
+        catch (error) {
+          sendJson(response, 409, { ok: false, error: error instanceof Error ? error.message : String(error) });
+          return;
+        }
+        const row = bb.getSession(sessionId);
+        if (row.status === 'pending_approval') {
+          bb.closeSession(sessionId, 'cancelled');
+          sendJson(response, 200, { ok: true, session_id: sessionId, status: 'cancelled', note: '待批准会话已取消' });
+          return;
+        }
+        if (row.status !== 'authorized' && row.status !== 'in_progress') {
+          sendJson(response, 409, { ok: false, error: `会话已是终态（${row.status}），无需取消` });
+          return;
+        }
+        // 整场停止：先阻止后续调用，再取消在途派发；取消请求不等于已经停止。
+        bb.requestStop(sessionId);
+        const current = bb.getCurrentDispatch(sessionId);
+        let cancelRequested = false;
+        let cancelError: string | undefined;
+        if (current !== null) {
+          try {
+            entry.pipeline.cancel(current);
+            cancelRequested = true;
+          } catch (error) {
+            cancelError = error instanceof Error ? error.message : String(error);
+          }
+        }
+        sendJson(response, 202, {
+          ok: true,
+          session_id: sessionId,
+          stop_requested: true,
+          cancel_requested: cancelRequested,
+          current_dispatch: current,
+          cancel_error: cancelError,
+          status: row.status,
+          note: '停止已请求：后续调用被阻止；会话将在在途派发中断后进入中断终态（以详情/SSE 为准，不提前显示为已停止）',
+        });
+      });
+      return;
+    }
     if (route === 'GET /api/harness/doctor') {
       sendJson(response, 200, { ok: true, harnesses: getHarnessDoctorReport() });
       return;
@@ -1601,6 +2226,7 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
             message: typeof body.message === 'string' ? body.message : '',
             resume: typeof body.resume === 'string' ? body.resume : undefined,
             adapter_id: typeof body.adapter_id === 'string' ? body.adapter_id : undefined,
+            model_id: typeof body.model_id === 'string' ? body.model_id : undefined,
             effort: typeof body.effort === 'string' ? body.effort : undefined,
             attachments: Array.isArray(body.attachments) ? body.attachments as any : undefined,
             solo: body.solo === true,
@@ -3250,7 +3876,8 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
             sendJson(response, 403, { ok: false, error: 'Forbidden: file path is outside allowed workspace roots' });
             return;
           }
-          if (fullPath.toLowerCase().includes('意向项目') || fullPath.toLowerCase().includes('.agent-bridge')) {
+          // D85：意向项目作为业务工作区放开文件读取；.agent-bridge 仍冻结。
+          if (fullPath.toLowerCase().includes('.agent-bridge')) {
             content = '// [Security Notice: Access to frozen golden reference zone is restricted]';
           } else {
             try {
@@ -3330,6 +3957,15 @@ export async function startBoardServer(options: BoardServerOptions): Promise<Boa
         for (const client of sseClients) client.end();
         sseClients.clear();
         server.close(() => {
+          // GOAL-084 §3.5：释放协作黑板 SQLite 句柄（否则 Windows 下测试目录清理 EPERM）。
+          for (const board of collabBlackboards.values()) {
+            try {
+              board.close();
+            } catch {
+              // 已关闭则忽略。
+            }
+          }
+          collabBlackboards.clear();
           release();
           resolve();
         });

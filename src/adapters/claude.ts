@@ -11,7 +11,7 @@ import { spawn as nodeSpawn } from 'node:child_process';
 import { StringDecoder } from 'node:string_decoder';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { validateAdapterContract, type AdapterContract } from './contract.ts';
+import { validateAdapterContract, capabilityArgs, type AdapterContract } from './contract.ts';
 import { type ChildProcessLike, type SpawnFn, killProcessTree, resolveWindowsShim } from './t1-runner.ts';
 import { makeNonce, parseNonceResponse, type NonceMaterial } from './deepseek.ts';
 
@@ -36,6 +36,14 @@ export function buildClaudeContract(expectedModelId: string): AdapterContract {
     // GOAL-018 U2/U3：claude 支持 -r/--resume 指定会话；自带自动压缩。
     resume_flag: '--resume',
     context_management: 'auto-compact',
+    // GOAL-084 §3.2（2026-10-01）：协作通道能力声明——本机 `claude --help`
+    //（claude 2.1.281）实录：`--tools ""` 禁用全部内建工具（"Use \"\" to
+    // disable all"）、`--strict-mcp-config` 只用 --mcp-config 声明的 MCP、
+    // `--json-schema <schema>` 结构化输出（schema 为 inline 值而非文件）。
+    // **实弹行为未验证**（真实派发需 owner 获批后逐项核验）。
+    tool_restriction_args: ['--tools', '', '--strict-mcp-config'],
+    output_schema_flag: '--json-schema',
+    output_schema_inline: true,
   });
 }
 
@@ -48,6 +56,9 @@ export interface StreamIdentity {
 export interface ClaudeStream {
   identity: StreamIdentity;
   resultText: string;
+  /** GOAL-084 §3.2：result 事件的 structured_output（--json-schema 生效时的结构化
+   *  回答）；未提供则缺省——mush 侧语义校验不依赖通道能力。 */
+  structuredOutput?: unknown;
   totalCostUsd: number | null;
   ended: boolean;
   messageCount: number;
@@ -58,15 +69,23 @@ function textOf(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
 
-/** 解析 claude stream-json：init 模型身份、assistant/result 消息、成本与结束标志。 */
+/** 解析 claude stream-json：init 模型身份、assistant/result 消息、成本与结束标志。
+ *
+ *  GOAL-085（终局优先级，2026-10-05 独立复核）：同一条 stdout 上可能有多条 `result`
+ *  事件（C11 实测两条：先草稿、后更正）。`resultText`/`structuredOutput`/成本/结束时点
+ *  一律**只由最后一个权威终局**决定：
+ *    - 终局内优先 `structured_output`，无则用结果文本；
+ *    - 终局失败（`subtype≠success` 或 `is_error`）时**不保留任何字段**——否则更早那条
+ *      终局的 `structured_output` 会残留下来，绕过失败终局被当作结果（实测复现）。
+ *  逐行"后行覆盖前行、且带字段才覆盖"的旧写法在下列两种情形都会让早期草稿胜出：
+ *  (a) 最后成功终局只在文本里给答案；(b) 最后终局失败。 */
 export function parseClaudeStreamJson(stdout: string): ClaudeStream {
   let provider = 'UNKNOWN';
   let modelId = 'UNKNOWN';
-  let resultText = '';
-  let totalCostUsd: number | null = null;
   let ended = false;
   let messageCount = 0;
   let sessionId: string | null = null;
+  let terminal: Record<string, unknown> | null = null;
   for (const line of stdout.split(/\r?\n/)) {
     if (line.trim() === '') continue;
     let event: unknown = null;
@@ -89,14 +108,24 @@ export function parseClaudeStreamJson(stdout: string): ClaudeStream {
       messageCount += 1;
     } else if (type === 'result') {
       messageCount += 1;
-      const result = record.result;
-      if (typeof result === 'string') resultText = result;
-      const cost = record.total_cost_usd;
-      if (typeof cost === 'number') totalCostUsd = cost;
-      ended = record.subtype === 'success' || record.subtype === 'error';
-      const sid = record.session_id;
-      if (typeof sid === 'string' && sid.trim() !== '') sessionId = sid.trim();
+      terminal = record; // 只有最后一条生效
     }
+  }
+  let resultText = '';
+  let structuredOutput: unknown = undefined;
+  let totalCostUsd: number | null = null;
+  if (terminal !== null) {
+    const subtype = terminal.subtype;
+    const failed = terminal.is_error === true || (typeof subtype === 'string' && subtype !== 'success');
+    // resultText 忠实描述**最后一条终局**的文本（诊断用，失败终局也如实保留）；
+    // 但结构化字段是"答案"，失败终局自身不可信、更不许沿用更早终局的缓存值。
+    resultText = textOf(terminal.result);
+    if (!failed && terminal.structured_output !== undefined) structuredOutput = terminal.structured_output;
+    const cost = terminal.total_cost_usd;
+    if (typeof cost === 'number') totalCostUsd = cost;
+    ended = subtype === 'success' || subtype === 'error';
+    const sid = terminal.session_id;
+    if (typeof sid === 'string' && sid.trim() !== '') sessionId = sid.trim();
   }
   return {
     identity: {
@@ -105,6 +134,7 @@ export function parseClaudeStreamJson(stdout: string): ClaudeStream {
       proven: modelId !== 'UNKNOWN',
     },
     resultText,
+    ...(structuredOutput !== undefined ? { structuredOutput } : {}),
     totalCostUsd,
     ended,
     messageCount,
@@ -121,6 +151,8 @@ export interface ClaudeStreamRunResult {
   /** result 文本（stream-json result 事件）；空回退原始 stdout。 */
   resultText: string;
   sessionId?: string;
+  /** GOAL-084 §3.2：result 事件的 structured_output（--json-schema 生效时的结构化回答）。 */
+  structuredOutput?: unknown;
   totalCostUsd?: number;
 }
 
@@ -136,6 +168,15 @@ export interface ClaudeStreamRunOptions {
   onStdout?: (chunk: string) => void;
   onStderr?: (chunk: string) => void;
   spawn?: SpawnFn;
+  /** D84/GOAL-084：spawn 成功即向宿主注册树杀句柄（owner 停止按钮与会话级取消共用）；
+   *  对已退出进程 kill 为无害空操作。此前仅 t1 通道支持，claude 分支不可中断。 */
+  registerKill?: (kill: () => void) => void;
+  /** GOAL-084 §3.2：讨论通道工具限制（合同未声明 tool_restriction_args 即抛错，fail-closed）。 */
+  restrictTools?: boolean;
+  /** GOAL-084 §3.2：mush 预写的输出 schema 文件路径（file 运输，如 codex --output-schema）。 */
+  outputSchemaPath?: string;
+  /** GOAL-084 §3.2：输出 schema JSON 文本（inline 运输，如 claude --json-schema）。 */
+  outputSchemaJson?: string;
 }
 
 /** GOAL-072 通道修复：stream-json 协议泛用执行路径——此前泛用管线只支持
@@ -187,10 +228,16 @@ export async function runClaudeStreamRun(options: ClaudeStreamRunOptions): Promi
         kill: () => killProcessTree(child.pid),
       } as ChildProcessLike;
     });
+  // GOAL-084 §3.2：能力注入参数插在合同静态参数之后、运行时 prompt 之前。
+  const capability = capabilityArgs(options.contract, {
+    restrictTools: options.restrictTools,
+    outputSchemaPath: options.outputSchemaPath,
+    outputSchemaJson: options.outputSchemaJson,
+  });
   const args =
     options.contract.prompt_transport === 'argument'
-      ? [...options.contract.arguments, options.prompt]
-      : [...options.contract.arguments];
+      ? [...options.contract.arguments, ...capability, options.prompt]
+      : [...options.contract.arguments, ...capability];
   let stdout = '';
   let stderr = '';
   let timedOut = false;
@@ -224,6 +271,12 @@ export async function runClaudeStreamRun(options: ClaudeStreamRunOptions): Promi
         }
       : {}),
   });
+  // D84/GOAL-084：句柄注册（树杀经 SpawnFn.kill → killProcessTree）；已退出进程无害。
+  options.registerKill?.(() => {
+    try {
+      child.kill();
+    } catch {}
+  });
   child.onStdout((chunk) => {
     stdout += chunk.toString();
     options.onStdout?.(chunk.toString());
@@ -253,11 +306,18 @@ export async function runClaudeStreamRun(options: ClaudeStreamRunOptions): Promi
   const parsed = parseClaudeStreamJson(stdout);
   return {
     exitCode,
-    stdout: parsed.resultText !== '' || parsed.ended ? parsed.resultText : stdout,
+    // GOAL-085（2026-10-05 独立审核发现）：**不得丢弃原始流**。
+    // 此前 `stdout: parsed.resultText !== '' ? parsed.resultText : stdout` 会把 stream-json 压成
+    // 一行 final text，于是原生 `system/init`（模型身份）、`tool_use`/`tool_result`、
+    // `permission_denied`、`task_*` 等**可核验事实全部丢失**，任何"模型到底做了什么"的判断
+    // 都退化成只能相信模型自报。现在 stdout 一律返回累积的原始流；解析结果仍由
+    // `resultText`/`structuredOutput` 单独提供（协调器已能直接读取 structuredOutput）。
+    stdout,
     stderr,
     timedOut,
     childKilled: killed,
     resultText: parsed.resultText,
+    ...(parsed.structuredOutput !== undefined ? { structuredOutput: parsed.structuredOutput } : {}),
     ...(parsed.sessionId !== null ? { sessionId: parsed.sessionId } : {}),
     ...(parsed.totalCostUsd !== null ? { totalCostUsd: parsed.totalCostUsd } : {}),
   };

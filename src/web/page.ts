@@ -336,6 +336,7 @@ ${getCollaborationStyles()}
   .badge.BLOCKED_WAITING_OWNER, .badge.BLOCKED_ENV { color: var(--ember); border-color: var(--ember); }
   /* GOAL-067（P3）：删除重复的 .badge.REJECTED 定义——后块 #e05252 曾静默覆盖
      前块 var(--danger)，现仅保留语义变量版本。 */
+  .badge.SESSION_TERMINAL { color: #8a94a6; border-color: #8a94a6; }
   .badge.SUPERSEDED { color: #8a94a6; border-color: #8a94a6; }
   .badge.FAIL { color: var(--danger); border-color: var(--danger); }
   .badge.ok { color: var(--ok); border-color: var(--ok); }
@@ -348,7 +349,8 @@ ${getCollaborationStyles()}
   /* GOAL-078：SSE 状态默认隐藏，仅断线时显示红条（JS 控制 display）。 */
   #sse-status { font-size: 11px; color: var(--danger); border: 1px solid var(--danger); border-radius: 6px; padding: 2px 8px; }
   /* GOAL-081：第一单零配置引导横幅 */
-  .first-task-banner { margin: 0 18px 10px; padding: 10px 14px; background: var(--panel-hi); border: 1px solid var(--accent-deep); border-radius: 10px; font-size: 13px; color: var(--ink); display: flex; gap: 10px; align-items: center; }
+  .first-task-banner { margin: 0 18px 10px; padding: 10px 14px; background: var(--panel-hi); border: 1px solid var(--accent-deep); border-radius: 8px; font-size: 13px; color: var(--ink); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  #first-task-status { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
   .first-task-banner button { flex: none; }
   form#dispatch-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
   form#dispatch-form label { font-size: 12px; color: var(--ink-dim); display: block; margin-bottom: 4px; }
@@ -614,6 +616,42 @@ ${getCollaborationStyles()}
   .ws-dir-item.selected { background: var(--accent-light); border-color: var(--accent); color: var(--accent); font-weight: 500; }
   .ws-tree-footer { padding: 12px 18px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; background: var(--bg); }
 
+  .collab-form-grid, .collab-seat-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+  /* GOAL-085：三模型结果三列；窄屏（<=700px）纵向排列（见下方 media query）。 */
+  .collab-seat-grid[data-seats="3"] { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .collab-form-grid label { display:flex; flex-direction:column; gap:5px; min-width:0; }
+  /* GOAL-085：label 的 display:flex 会**覆盖** hidden 属性，使 hidden 元素仍然可见
+     （实测：双模型模式下第三席位控件没有被真正隐藏）。这里显式尊重 hidden。 */
+  .collab-form-grid label[hidden] { display:none !important; }
+  #collab-create:disabled { opacity:.45; cursor:not-allowed; }
+  .collab-form-grid input, .collab-form-grid select, .collab-form-grid textarea { width:100%; box-sizing:border-box; border:1px solid var(--line); border-radius:6px; padding:9px 10px; background:var(--bg); color:var(--ink); font:inherit; }
+  .collab-form-grid label { font-size:13px; }
+  .collab-wide { grid-column:1/-1; }
+  .collab-seat, .collab-viewpoint { min-width:0; overflow-wrap:anywhere; }
+  .collab-table-wrap { overflow:auto; }
+  #view-collab .hint { overflow-wrap:anywhere; }
+  @media (max-width:700px) { .collab-form-grid,.collab-seat-grid,.collab-seat-grid[data-seats="3"] { grid-template-columns:minmax(0,1fr); } }
+
+  @media (max-width: 700px) {
+    .app-shell, body.nav-collapsed .app-shell { grid-template-columns: minmax(0, 1fr); }
+    nav { position: static; flex-direction: row; flex-wrap: wrap; height: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 8px; }
+    nav .nav-collapse-btn { display: none; }
+    nav button[data-view] { padding: 6px 8px; }
+    main { padding: 12px; max-width: none; }
+    header { padding: 12px; gap: 8px; }
+    .capsule-pop { position: fixed; left: 12px; right: 12px; top: 150px; width: auto; max-width: calc(100vw - 24px); }
+    #view-chat.active.deck, #view-chat.active.deck.deck-rail-open { grid-template-columns: minmax(0, 1fr); height: auto; min-height: 0; }
+    #view-chat .deck-main #chat-stream { flex: none; height: 52vh; min-height: 240px; padding: 12px; }
+    .chat-toolbar { gap: 8px; }
+    .chat-row { max-width: 100%; }
+    .chat-row > div { min-width: 0; }
+    .chat-action-card { margin-left: 0; max-width: 100%; overflow-wrap: anywhere; }
+    .chat-appr-actions, .collab-mode-bar, .mode-capsules { flex-wrap: wrap; }
+    .mode-capsule { white-space: nowrap; }
+    #chat-input { min-width: 0; }
+    .first-task-banner { margin: 0 0 12px; }
+  }
+
 </style>
 </head>
 <body>
@@ -663,12 +701,14 @@ ${getCollaborationStyles()}
   <button data-view="governance">🛡️ 治理</button>
   <button data-view="insights">📊 洞察</button>
   <button data-view="lab">🧪 实验室</button>
+  <button data-view="collab">🤝 协作</button>
 </nav>
 <main>
   <!-- GOAL-081：第一单零配置引导横幅（默认隐藏；无任何 verified 犬时由 JS 升起） -->
   <div id="first-task-banner" style="display:none" class="first-task-banner">
-    🐶 还没配置任何犬只——可以先走 <b>opencode 免费通道</b>直接发第一单，稍后再配其它犬。
-    <button class="act approve" id="btn-first-task" type="button">发第一单</button>
+    <span id="first-task-status">首单待验收</span>
+    <button class="act" id="btn-first-task-health" type="button">检查本地配置</button>
+    <button class="act approve" id="btn-first-task" type="button">准备首单</button>
     <button class="act cancel" id="btn-first-task-dismiss" type="button" title="关闭引导（不再提示）">知道了</button>
   </div>
   <section id="view-chat" class="view active deck">
@@ -910,6 +950,8 @@ ${getCollaborationStyles()}
   <section id="view-epochs" class="view"></section>
     </div>
   </section>
+  <!-- GOAL-084 §3.5：受控会话协作视图（内容由 JS 渲染，模型文本一律 esc()） -->
+  <section id="view-collab" class="view"></section>
   <section id="view-insights" class="view">
     <div class="console-group">
       <h2 class="console-group-title">🕵️ 任务监理（GOAL-082）</h2>
@@ -1174,6 +1216,10 @@ ${getCollaborationStyles()}
         e.stopPropagation();
         var nav = document.querySelector('button[data-view="governance"]');
         if (nav) nav.click();
+      } else if (btn.hasAttribute('data-chat-stop')) {
+        // D84（2026-09-06）：停止运行中的头犬回合（聊天流思考/生成行）。
+        e.stopPropagation();
+        chatStopInflight();
       } else if (btn.hasAttribute('data-respond') && btn.hasAttribute('data-file')) {
         respondTo(btn.getAttribute('data-file'), btn.getAttribute('data-respond'));
       } else if (btn.hasAttribute('data-toggle-appr')) {
@@ -1660,7 +1706,6 @@ ${getCollaborationStyles()}
   function onWorkspaceSwitched() {
     loadWorkspaces();
     loadTasks(true);
-    chatRefreshHistory();
     refresh();
   }
 
@@ -1671,7 +1716,8 @@ ${getCollaborationStyles()}
         toast('工作区已切换为: ' + normalizeDisplayPath(targetPath), true);
         onWorkspaceSwitched();
       } else {
-        toast('工作区切换失败', false);
+        // 与主下拉分支一致：透传服务端拒绝原因（如冻结区路径），不再笼统报失败。
+        toast('工作区切换失败：' + ((result.body && result.body.error) || result.status), false);
       }
     }).catch(function (e) { toast('工作区切换失败: ' + e, false); });
   }
@@ -1730,12 +1776,18 @@ ${getCollaborationStyles()}
       ];
     }
 
-    var html = options.map(function (o) {
-      return '<option value="' + esc(o.value) + '"' + (o.selected ? ' selected' : '') + '>' + esc(o.label) + '</option>';
-    }).join('');
-
-    if (effortSel) effortSel.innerHTML = html;
-    if (dispatchEffortSel) dispatchEffortSel.innerHTML = html;
+    [[effortSel, 'chat-head-select'], [dispatchEffortSel, 'dispatch-adapter']].forEach(function (pair) {
+      var control = pair[0];
+      var adapter = document.getElementById(pair[1]);
+      if (!control || !adapter) return;
+      var entry = ((snapshot && snapshot.roster) || []).find(function (r) { return r.adapter_id === adapter.value; });
+      var levels = (entry && entry.effort_levels) || ['LOW', 'HIGH'];
+      var selected = levels.indexOf(control.value) >= 0 ? control.value : levels.indexOf('HIGH') >= 0 ? 'HIGH' : levels[0];
+      control.innerHTML = levels.map(function (level) {
+        var option = options.find(function (o) { return String(o.value).toUpperCase() === level; });
+        return '<option value="' + esc(level) + '"' + (level === selected ? ' selected' : '') + '>' + esc(option ? option.label : level) + '</option>';
+      }).join('');
+    });
   }
 
   var currentChildSessionId = null;
@@ -1945,14 +1997,21 @@ ${getCollaborationStyles()}
 
   var currentWsTreePath = '';
   var currentWsTreeSelected = '';
+  var wsTreeRequestVersion = 0;
   var targetWsInputId = 'workspace-register-path';
 
   function loadWorkspaceTreePath(targetPath) {
     var container = document.getElementById('ws-dir-list-container');
     if (!container) return;
+    var version = ++wsTreeRequestVersion;
+    var pathInput = document.getElementById('ws-tree-path-input');
+    var originalInput = pathInput ? pathInput.value : '';
+    currentWsTreeSelected = '';
+    currentWsTreePath = '';
     container.innerHTML = '<div class="empty" style="padding:20px 0">正在加载本地目录…</div>';
     var url = '/api/workspaces/fs-tree' + (targetPath ? '?path=' + encodeURIComponent(targetPath) : '');
     getJson(url).then(function (data) {
+      if (version !== wsTreeRequestVersion) return;
       if (!data || !data.ok) {
         container.innerHTML = '<div class="empty" style="color:var(--danger)">加载失败: ' + esc((data && data.error) || '未知错误') + '</div>';
         return;
@@ -1973,8 +2032,7 @@ ${getCollaborationStyles()}
 
       currentWsTreePath = data.currentPath || '';
       currentWsTreeSelected = currentWsTreePath;
-      var pathInput = document.getElementById('ws-tree-path-input');
-      if (pathInput) pathInput.value = currentWsTreePath;
+      if (pathInput && pathInput.value === originalInput) pathInput.value = currentWsTreePath;
       var label = document.getElementById('ws-tree-selected-label');
       if (label) label.textContent = '当前所在: ' + (currentWsTreePath || '根目录');
 
@@ -2004,6 +2062,7 @@ ${getCollaborationStyles()}
         });
       });
     }).catch(function (err) {
+      if (version !== wsTreeRequestVersion) return;
       container.innerHTML = '<div class="empty" style="color:var(--danger)">网络请求异常: ' + esc(String(err)) + '</div>';
     });
   }
@@ -2102,6 +2161,8 @@ ${getCollaborationStyles()}
     TIMEOUT: '超时', INTERRUPTED: '已中断', REJECTED: '已否决',
     SUPERSEDED: '已被新单替代', ADMITTED: '已受理', WAITING: '待批准',
     APPROVED: '已批准', PENDING: '排队中',
+    // GOAL-085：会话已终态 → 授权卡不再是"待批"（原卡与历史保留，未写应答）
+    SESSION_TERMINAL: '会话已终态·非待批',
   };
   function statusLabel(code) {
     var c = String(code || '');
@@ -2316,8 +2377,8 @@ ${getCollaborationStyles()}
       }
       var rows = data.harnesses.map(function (h) {
         var statusBadge = h.status === 'READY'
-          ? '<span class="badge" style="background:rgba(16,185,129,0.15);color:#047857">🟢 已就绪</span>'
-          : (h.status === 'CONFIG_MISSING' ? '<span class="badge" style="background:rgba(217,119,6,0.15);color:#b45309">🟡 未配Key</span>' : '<span class="badge" style="background:rgba(107,114,128,0.15);color:#4b5563">⚪ 未安装</span>');
+          ? '<span class="badge" style="background:rgba(16,185,129,0.15);color:#047857">🟢 本地已配置</span>'
+          : (h.status === 'CONFIG_MISSING' ? '<span class="badge" style="background:rgba(217,119,6,0.15);color:#b45309">🟡 配置未发现</span>' : '<span class="badge" style="background:rgba(107,114,128,0.15);color:#4b5563">⚪ 未安装</span>');
         var provDisplay = h.activeProvider ? '<span class="badge" style="background:rgba(59,130,246,0.15);color:#2563eb">★ ' + esc(h.activeProvider) + '</span>' : '<span style="color:var(--ink-dim)">默认/未配置</span>';
         var pathDisplay = h.cliPath ? '<span class="mono" style="font-size:11px;color:var(--ink-dim)">' + esc(h.cliPath) + '</span>' : '<span style="color:var(--ink-dim)">未发现可执行文件</span>';
         return '<tr>' +
@@ -2459,7 +2520,7 @@ ${getCollaborationStyles()}
             : '<span class="provider-tag-backup">备用渠道</span>';
 
           var modelsHtml = (p.models || []).map(function (m) {
-            var isLive = (r.live_models || []).includes(m);
+            var isLive = r.probe_provider_id === p.id && (r.live_models || []).includes(m);
             var badgeCls = isLive ? 'model-tree-badge verified' : 'model-tree-badge';
             var liveIcon = isLive ? '🟢' : '⚪';
             // Thinking spec hint
@@ -2482,6 +2543,7 @@ ${getCollaborationStyles()}
               '<div style="display:flex;align-items:center;gap:8px"><span>🏢 ' + esc(maskAccount(p.name)) + '</span> ' + pTag + '</div>' +
               '<button class="act" data-probe-prov="' + esc(r.adapter_id) + '" data-prov-id="' + esc(p.id) + '" type="button" style="font-size:11px;padding:2px 8px" title="定向探测该 Provider">⚡ 探测 Provider</button>' +
             '</div>' +
+            '<div class="meta">通道待核验 · 供应商额度未确认 · API 权益未确认</div>' +
             '<div class="model-tree-list">' + modelsHtml + '</div>' +
           '</div>';
         }).join('');
@@ -2719,13 +2781,73 @@ ${getCollaborationStyles()}
   // D33 附加条件：报备信息（犬只×强度/超时/工作区/预算已花与 cap/完整 prompt 预览）
   // 内联可展开保留；目标行（goal_id）显著显示。弹窗废除但信息不得缩水。
   var openRailApprovals = {};
+  /** GOAL-085：各卡片的审批备注草稿（key = request_file）。 */
+  var openRailApprovalNotes = {};
+
+  /** GOAL-084 D89：受控会话审批的公共展示行（侧栏常用卡与历史详情抽屉共用同一份渲染，
+   *  避免"改了一处、另一处看不到"——owner 2026-10-04 二次复核）。 */
+  function collabApprovalRows(cs) {
+    if (!cs) return '';
+    var EVAL_LABEL = { live_verified: '行为级通过', declared: '声明/自报', fixture_verified: 'fixture 通过', unmet: '未达成' };
+    var evidence = cs.capability_evidence || [];
+    var gaps = cs.accepted_gaps || [];
+    var failures = cs.failure_counterexamples || [];
+    var html = '';
+    if (evidence.length > 0) {
+      html += '<div class="rail-appr-row"><span class="rail-appr-label">隔离维度证据</span><span class="mono">' + esc(evidence.map(function (e) {
+        return e.adapter_id + '/' + e.dimension + '=' + (EVAL_LABEL[e.status] || e.status || '?') +
+          (e.verification ? '（' + e.verification + '）' : '');
+      }).join('、')) + '</span></div>';
+    }
+    if (failures.length > 0) {
+      html += '<div class="rail-appr-row"><span class="rail-appr-label" style="color:#b3261e">失败反例（禁止批准）</span>' +
+        '<span class="mono" style="color:#b3261e">' + esc(failures.map(function (f) {
+          return f.adapter_id + '/' + f.dimension + '=' + f.result;
+        }).join('、')) + '</span></div>';
+    }
+    if (cs.policy_decision_ref) {
+      html += '<div class="rail-appr-row"><span class="rail-appr-label">准入政策</span><span class="mono">' + esc(cs.policy_decision_ref) + '</span></div>';
+    }
+    if (gaps.length > 0) {
+      html += '<div class="rail-appr-row"><span class="rail-appr-label" style="color:#8a5a00">已接受的已知缺口</span><span style="color:#8a5a00">' +
+        gaps.map(function (g) {
+          var eq = g.equivalence || {};
+          return '<div style="margin:2px 0;border-left:3px solid #d9a441;padding-left:6px">' +
+            '<span class="mono">' + esc(g.adapter_id + ' / ' + g.dimension) + '</span>' +
+            '<div style="font-size:12px;opacity:.85">依据：' + esc(g.reason || '') + '</div>' +
+            '<div style="font-size:12px;opacity:.85">等价依据：' + esc(eq.differing || '') +
+            ' · gate ' + esc(String(eq.gate_sha256 || '').slice(0, 12)) + '… · 归档 ' + esc(eq.reference || '') + '</div>' +
+            '<div style="font-size:12px;opacity:.85">决策来源：' + esc(g.decided_by || '') + '</div></div>';
+        }).join('') + '</span></div>';
+    }
+    return html;
+  }
 
   function approvalReportHtml(a) {
     var d = a.dispatch || {};
+    var cs = a.session || null;
+    // GOAL-085：参会者数量、评审关系与计划调用数进入侧栏常用卡（不只历史详情节点）。
+    var collabSummary = '';
+    if (cs) {
+      var seats = (cs.participants || []).map(function (p) { return (p.seat || '?') + '=' + (p.adapter_id || '?') + (p.effort ? '×' + p.effort : ''); });
+      var relations = (cs.review_relations || []).map(function (r) { return r.author + '→' + r.target; }).join('、');
+      collabSummary =
+        '<div class="rail-appr-row"><span class="rail-appr-label">参会者</span><span class="mono">' + esc(String(seats.length) + ' 位：' + seats.join('、')) + '</span></div>' +
+        (relations ? '<div class="rail-appr-row"><span class="rail-appr-label">评审关系</span><span class="mono">' + esc(relations) + '</span></div>' : '') +
+        '<div class="rail-appr-row"><span class="rail-appr-label">额度 / 时限</span><span class="mono">' + esc(String(cs.call_limit) + '+' + String(cs.retry_limit) + ' 次 · 单次 ' + String(cs.single_call_timeout_s) + 's · 整场 ' + String(cs.session_timeout_min) + 'min') + '</span></div>';
+    }
     var rows =
       '<div class="rail-appr-row"><span class="rail-appr-label">goal 行</span><span class="rail-appr-goal">' + esc(d.goal_id || a.goal_id || '（未关联 Goal）') + '</span></div>' +
       '<div class="rail-appr-row"><span class="rail-appr-label">门</span>' + esc(a.gate) + '</div>' +
       '<div class="rail-appr-row"><span class="rail-appr-label">犬只 × 强度</span><span class="mono">' + esc((d.adapter_id || a.actor_id || '') + (d.effort ? ' × ' + d.effort : '')) + '</span></div>' +
+      // GOAL-084（owner 复核缺口，2026-10-03）：执行配置上卡——审批所见＝执行所跑。
+      (d.model_id !== undefined && d.model_id !== null
+        ? '<div class="rail-appr-row"><span class="rail-appr-label">生效模型</span><span class="mono">' + esc(d.model_id) + '</span></div>' : '') +
+      (d.restrict_tools === true
+        ? '<div class="rail-appr-row"><span class="rail-appr-label">工具限制</span><span class="mono">' + esc('受限：' + (d.tool_restriction_args && d.tool_restriction_args.length ? d.tool_restriction_args.join(' ') : '（合同未声明参数，服务端将拒绝）')) + '</span></div>' : '') +
+      (d.output_schema ? '<div class="rail-appr-row"><span class="rail-appr-label">输出 schema</span><pre class="mono rail-appr-prompt">' + esc(JSON.stringify(d.output_schema)) + '</pre></div>' +
+        (d.output_schema_sha256 ? '<div class="rail-appr-row"><span class="rail-appr-label">schema 哈希</span><span class="mono">' + esc(d.output_schema_sha256) + '</span></div>' : '') : '') +
+      (d.contract_fingerprint ? '<div class="rail-appr-row"><span class="rail-appr-label">批准时合同指纹</span><span class="mono">' + esc(String(d.contract_fingerprint).slice(0, 16)) + '…（漂移则重跑被拒）</span></div>' : '') +
       (d.timeout_s !== undefined || d.workspace !== undefined
         ? '<div class="rail-appr-row"><span class="rail-appr-label">超时 / 工作区</span><span class="mono">' + esc((d.timeout_s || 0) + 's / ' + (d.workspace || '')) + '</span></div>' : '') +
       (d.actor_spent_usd !== undefined || d.cap_usd !== undefined
@@ -2733,7 +2855,9 @@ ${getCollaborationStyles()}
       '<div class="rail-appr-row"><span class="rail-appr-label">事由</span>' + esc(a.reason || '') + '</div>' +
       (d.prompt_preview !== undefined
         ? '<div class="rail-appr-row"><span class="rail-appr-label">Prompt 预览</span><pre class="mono rail-appr-prompt">' + esc(d.prompt_preview || '(空)') + '</pre></div>' : '') +
-      '<div class="rail-appr-row"><span class="rail-appr-label">请求时间</span><span class="mono">' + escTime(a.requested_at_utc) + '</span></div>';
+      '<div class="rail-appr-row"><span class="rail-appr-label">请求时间</span><span class="mono">' + escTime(a.requested_at_utc) + '</span></div>' +
+      // D89：受控会话审批的逐项展示（与历史详情抽屉同一份渲染）。
+      collabSummary + collabApprovalRows(a.session);
     return rows;
   }
 
@@ -2750,7 +2874,12 @@ ${getCollaborationStyles()}
         '<div class="rail-appr-head">' +
         '<span class="badge ember-badge">⛔ 审批 ' + (i + 1) + '/' + waiting.length + '</span>' +
         '<span class="rail-appr-goal-inline">' + esc((a.dispatch && a.dispatch.goal_id) || a.goal_id || a.gate) + '</span></div>' +
-        '<div class="rail-appr-body" style="display:' + (open ? 'block' : 'none') + '">' + approvalReportHtml(a) + '</div>' +
+        '<div class="rail-appr-body" style="display:' + (open ? 'block' : 'none') + '">' + approvalReportHtml(a) +
+        // GOAL-085：审批 note 可编辑——委托审批必须能写明"谁受谁委托"，
+        // 不能只靠服务端默认值（owner 要求 note 写"DeepSeek 受 Owner 委托"）。
+        '<label class="rail-appr-note" style="display:block;margin-top:8px">审批备注（写入 append-only owner response）' +
+        '<input type="text" data-appr-note="' + esc(key) + '" placeholder="例如：DeepSeek 受 Owner 委托" style="width:100%;box-sizing:border-box;margin-top:4px" value="' + esc(openRailApprovalNotes[key] || '') + '"></label>' +
+        '</div>' +
         '<div class="rail-appr-actions">' +
         '<button class="act approve" data-respond="APPROVED" data-file="' + esc(key) + '" type="button">批准</button>' +
         '<button class="act reject" data-respond="REJECTED" data-file="' + esc(key) + '" type="button">否决</button>' +
@@ -2762,8 +2891,19 @@ ${getCollaborationStyles()}
     // GOAL-081：批准/否决/详情全部由 g081DelegateClicks 文档级委托承接。
   }
 
+  /** GOAL-085：读取并保存该卡的备注草稿（输入即存，重渲染不丢）。 */
+  function railApprovalNote(requestFile) {
+    var input = document.querySelector('[data-appr-note="' + requestFile.replace(/"/g, '\\"') + '"]');
+    if (input && typeof input.value === 'string') openRailApprovalNotes[requestFile] = input.value;
+    return openRailApprovalNotes[requestFile] || '';
+  }
+
   function respondTo(requestFile, decision) {
-    postJson('/api/approvals/respond', { request_file: requestFile, decision: decision })
+    var note = railApprovalNote(requestFile);
+    postJson('/api/approvals/respond', {
+      request_file: requestFile, decision: decision,
+      ...(note.trim() !== '' ? { note: note.trim() } : {}),
+    })
       .then(function (result) {
         if (result.status === 201) {
           toast('已' + (decision === 'APPROVED' ? '批准' : '否决') + '：' + requestFile, true);
@@ -2785,7 +2925,10 @@ ${getCollaborationStyles()}
     var rows = snapshot.approvals.map(function (a, index) {
       var action = a.status === 'WAITING'
         ? '<button class="act approve" data-approval="' + index + '">处理</button>'
-        : escTime(a.response ? a.response.responded_at_utc : '');
+        : a.status === 'SESSION_TERMINAL'
+          // 会话已终态：不可应答，只如实说明（不伪造应答、不删卡）
+          ? '<span class="mono">' + esc(a.stale_reason || '会话已终态，无需应答') + '</span>'
+          : escTime(a.response ? a.response.responded_at_utc : '');
       return '<tr><td class="mono">' + esc(a.request_file) + '</td><td>' + esc(a.gate) + '</td>' +
         '<td class="mono">' + esc(a.actor_id) + '</td><td>' + esc(a.reason || '') + '</td>' +
         '<td><span class="badge ' + a.status + '" title="' + a.status + '">' + esc(statusLabel(a.status)) + '</span></td><td>' + action + '</td></tr>';
@@ -2816,10 +2959,30 @@ ${getCollaborationStyles()}
       html += '<dt>派发号</dt><dd class="mono">' + esc(String(d.dispatch_id || '').slice(0, 8)) + '</dd>' +
         '<dt>目标</dt><dd class="mono">' + esc(d.goal_id || '（未关联 Goal）') + '</dd>' +
         '<dt>犬只 × 强度</dt><dd class="mono">' + esc(d.adapter_id + ' × ' + d.effort) + '</dd>' +
+        // GOAL-084（owner 复核缺口，2026-10-03）：执行配置上卡——审批所见＝执行所跑。
+        '<dt>生效模型</dt><dd class="mono">' + esc(d.model_id || '（通道默认，未声明）') + '</dd>' +
+        '<dt>工具限制</dt><dd class="mono">' + esc(d.restrict_tools ? ('受限：' + (d.tool_restriction_args && d.tool_restriction_args.length ? d.tool_restriction_args.join(' ') : '（合同未声明参数，服务端将拒绝）')) : '未请求限制') + '</dd>' +
+        (d.output_schema ? '<dt>输出 schema</dt><dd class="mono" style="white-space:pre-wrap;word-break:break-all;max-height:140px;overflow:auto;border:1px solid var(--line);padding:6px;border-radius:4px">' + esc(JSON.stringify(d.output_schema)) + '</dd>' : '') +
+        (d.output_schema_sha256 ? '<dt>schema 哈希</dt><dd class="mono">' + esc(d.output_schema_sha256) + '</dd>' : '') +
+        (d.contract_fingerprint ? '<dt>批准时合同指纹</dt><dd class="mono">' + esc(String(d.contract_fingerprint).slice(0, 16)) + '…（漂移则重跑被拒）</dd>' : '') +
         '<dt>超时 / 工作区</dt><dd class="mono">' + esc((d.timeout_s || 0) + 's / ' + (d.workspace || '')) + '</dd>' +
         '<dt>预算</dt><dd class="mono">已花 ' + (d.actor_spent_usd == null ? '?' : fmtUsd(d.actor_spent_usd)) +
         ' / 上限 ' + (d.cap_usd == null ? '?' : fmtUsd(d.cap_usd, 2)) + '</dd>' +
         '<dt>Prompt 预览</dt><dd class="mono" style="white-space:pre-wrap;word-break:break-all;max-height:220px;overflow:auto;border:1px solid var(--line);padding:6px;border-radius:4px">' + esc(d.prompt_preview || '(空)') + '</dd>';
+    }
+    // GOAL-084 §3.5：受控会话授权卡——冻结快照所见即所批。
+    if (approval.session) {
+      var cs = approval.session;
+      html += '<dt>会话议题</dt><dd>' + esc(cs.topic) + '</dd>' +
+        '<dt>参与者</dt><dd class="mono">' + esc((cs.participants || []).map(function (p) {
+          return p.seat + '=' + p.adapter_id + (p.model_id ? '@' + p.model_id : '') + (p.effort ? ' × ' + p.effort : '') + (p.is_coordinator ? '（协调）' : '');
+        }).join('、')) + '</dd>' +
+        '<dt>材料</dt><dd class="mono">' + esc((cs.materials || []).map(function (m) { return '[' + m.material_id + '] ' + m.name; }).join('、') || '（无）') + '</dd>' +
+        '<dt>边界</dt><dd class="mono">调用 ' + esc(String(cs.call_limit)) + ' + 重试 ' + esc(String(cs.retry_limit)) +
+        ' · 单次 ' + esc(String(cs.single_call_timeout_s)) + 's · 整场 ' + esc(String(cs.session_timeout_min)) + 'min · 隔离 ' + (cs.isolation_required ? '要求' : '不要求') + '</dd>' +
+        '<dt>快照哈希</dt><dd class="mono" style="word-break:break-all">' + esc(cs.authorization_hash) + '</dd>' +
+        // 证据等级 / 失败反例 / 已接受缺口：与侧栏常用卡共用同一份渲染。
+        collabApprovalRows(cs);
     }
     dl.innerHTML = html; // 兼容：drawer 详情视图仍写该 dl（DOM 保留作历史查看）
   }
@@ -2829,9 +2992,370 @@ ${getCollaborationStyles()}
     respondTo(currentApproval.request_file, decision);
   }
 
+  // ---- GOAL-084: collaboration board ----
+  var collabSelected = null, collabTimer = null, collabListVersion = 0, collabDetailVersion = 0;
+  var collabRoster = [], collabFormWorkspace = '', collabActionPending = false;
+  var collabDetailRenderedSession = null; // 当前详情 DOM 属于哪个会话（展开状态只在本会话轮询间保留）
+  var collabCheckKey = '', collabCheckAt = 0, collabCheckReady = false, collabCheckVersion = 0;
+  var collabCheckPending = false, collabCreating = false;
+  var COLLAB_STATUS_LABEL = { pending_approval: '待批准', authorized: '已批准，尚未启动', in_progress: '讨论中', completed: '讨论完成', failed: '讨论失败', cancelled: '已取消', interrupted: '已中断' };
+  var COLLAB_PHASE_LABEL = { assignment: '分配建议', coordination: '分配建议', proposal: '独立提案', review: '交叉评审', revision: '修订方案' };
+  function collabStatusBadge(status) { return '<span class="badge ' + esc(status) + '">' + esc(COLLAB_STATUS_LABEL[status] || status) + '</span>'; }
+  function ensureCollabView() {
+    var el = document.getElementById('view-collab');
+    if (!el || document.getElementById('collab-form')) return;
+    el.innerHTML = '<div class="card" id="collab-form"><h3>一起想方案</h3>' +
+      '<p class="hint">创建后先核对材料和执行范围。通过权限检查并批准后，参会者才开始讨论。</p>' +
+      '<div class="hint" id="collab-form-workspace"></div><div class="collab-form-grid">' +
+      '<label class="collab-wide">议题<input id="collab-topic" placeholder="你希望共同解决什么问题？"></label>' +
+      '<div class="hint">双模型互评（正常 7 次＋全场共享重试 1 次）</div>' +
+      '<label>参与者 A（负责分配建议）<select id="collab-adapter-a"></select></label>' +
+      '<label>参与者 B<select id="collab-adapter-b"></select></label>' +
+      '<label>A 的模型<select id="collab-model-a"></select></label><label>B 的模型<select id="collab-model-b"></select></label>' +
+      '<label>A 的强度<select id="collab-effort-a"></select></label><label>B 的强度<select id="collab-effort-b"></select></label>' +
+      '<label>材料 1 名称<input id="collab-mat1-name" placeholder="如：需求说明"></label>' +
+      '<label>材料 1 可见范围<span id="collab-mat1-seats"></span></label>' +
+      '<label class="collab-wide">材料 1 正文<textarea id="collab-mat1-content" rows="3"></textarea></label>' +
+      '<label>材料 2 名称<input id="collab-mat2-name" placeholder="如：已有方案"></label>' +
+      '<label>材料 2 可见范围<span id="collab-mat2-seats"></span></label>' +
+      '<label class="collab-wide">材料 2 正文<textarea id="collab-mat2-content" rows="3"></textarea></label>' +
+      '<label class="collab-wide">约束<textarea id="collab-constraints" rows="2" placeholder="如：预算、范围、必须保留的条件"></textarea></label></div>' +
+      '<p class="hint" id="collab-flow-hint"></p>' +
+      '<div id="collab-channel-check" role="status" aria-live="polite">正在检查所选通道…</div>' +
+      '<button class="act" id="collab-check-refresh" type="button">刷新通道检查</button> ' +
+      '<button class="act approve" id="collab-create" type="button" disabled>创建待批准会话</button></div>' +
+      '<div class="card" id="collab-session-list"><div class="empty">正在读取会话…</div></div><div class="card" id="collab-detail" hidden></div>';
+    document.getElementById('collab-create').addEventListener('click', createCollabSession);
+    document.getElementById('collab-check-refresh').addEventListener('click', function () { checkCollabChannels(true); });
+    ['a', 'b'].forEach(function (seat) {
+      var control = document.getElementById('collab-adapter-' + seat);
+      if (control) control.addEventListener('change', function () { updateCollabModels(seat); checkCollabChannels(false); });
+      ['model','effort'].forEach(function (field) {
+        document.getElementById('collab-' + field + '-' + seat).addEventListener('change', function () { checkCollabChannels(false); });
+      });
+    });
+    applyCollabMode();
+  }
+
+  /** D97: creation has two seats; historical detail renders its frozen participants. */
+  function collabSeats() {
+    return ['A', 'B'];
+  }
+  function collabSeatKeys() { return collabSeats().map(function (s) { return s.toLowerCase(); }); }
+  function applyCollabMode() {
+    var seats = collabSeats();
+    ['collab-mat1-seats', 'collab-mat2-seats'].forEach(function (id) {
+      var host = document.getElementById(id);
+      var previous = [].slice.call(host.querySelectorAll('input:checked')).map(function (i) { return i.value; });
+      host.innerHTML = seats.map(function (seat) {
+        var checked = previous.length === 0 ? true : previous.indexOf(seat) >= 0;
+        return '<label style="display:inline-block;margin-right:8px"><input type="checkbox" value="' + seat + '"' +
+          (checked ? ' checked' : '') + '> ' + seat + '</label>';
+      }).join('');
+    });
+    document.getElementById('collab-flow-hint').textContent = '固定流程：分配建议 → 双方独立提案 → 双方互评 → 双方修订。正常 7 次调用，最多共享重试 1 次，整场 20 分钟。模型选项来自本机登记，账户权益仍需核验。';
+    seats.map(function (s) { return s.toLowerCase(); }).forEach(function (seat) { updateCollabModels(seat); });
+  }
+  function updateCollabModels(seat) {
+    var adapter = document.getElementById('collab-adapter-' + seat), model = document.getElementById('collab-model-' + seat);
+    var entry = collabRoster.find(function (r) { return r.adapter_id === adapter.value; });
+    var models = entry && entry.variants ? entry.variants.slice() : [];
+    if (entry && entry.grouped_models) Object.keys(entry.grouped_models).forEach(function (group) { models = models.concat(entry.grouped_models[group]); });
+    if (entry && entry.live_models) models = models.concat(entry.live_models);
+    var defaultModel = entry && (entry.default_model_id || entry.expected_model_id);
+    if (defaultModel && defaultModel !== 'UNKNOWN') models.unshift(defaultModel);
+    models = models.filter(function (m, i) { return m && m !== 'UNKNOWN' && models.indexOf(m) === i; });
+    var current = model.value;
+    model.innerHTML = models.map(function (m) { return '<option value="' + esc(m) + '">' + esc(m) +
+      (entry && entry.collab_default_model_id && m !== entry.collab_default_model_id ? '（未验证模型）' : '') + '</option>'; }).join('');
+    // GOAL-085：初值优先取**讨论档案绑定的模型**（证据/批准按它登记）——名册默认模型可能
+    // 未经验证，用它创建会撞上隔离准入门。用户显式选过的模型优先保留（换犬时才回到默认）。
+    var collabDefault = entry && entry.collab_default_model_id;
+    if (models.indexOf(current) >= 0) model.value = current;
+    else if (collabDefault && models.indexOf(collabDefault) >= 0) model.value = collabDefault;
+    updateCollabEffort(seat, entry);
+  }
+  /** GOAL-085：逐席位强度下拉——档位取自该通道声明（effort_levels），
+   *  初值取服务端同名默认（collab_default_effort，两端口径同源），
+   *  已选值在档位内保留（换犬后不静默改档）。 */
+  function updateCollabEffort(seat, entry) {
+    var select = document.getElementById('collab-effort-' + seat);
+    if (!select) return;
+    var levels = (entry && entry.effort_levels ? entry.effort_levels : ['LOW', 'HIGH']).map(function (level) { return String(level).toUpperCase(); });
+    var fallback = (entry && entry.collab_default_effort) ? String(entry.collab_default_effort).toUpperCase() : null;
+    if (fallback && levels.indexOf(fallback) < 0) fallback = null;
+    var previous = select.value;
+    select.innerHTML = levels.map(function (level) { return '<option value="' + esc(level) + '">' + esc(level) + '</option>'; }).join('');
+    if (previous && levels.indexOf(previous) >= 0) select.value = previous;
+    else if (fallback) select.value = fallback;
+  }
+  function updateCollabRoster(roster, workspace) {
+    var changedWorkspace = collabFormWorkspace && collabFormWorkspace !== workspace;
+    if (changedWorkspace) ['collab-topic','collab-mat1-name','collab-mat1-content','collab-mat2-name','collab-mat2-content','collab-constraints'].forEach(function (id) { document.getElementById(id).value = ''; });
+    collabFormWorkspace = workspace || '';
+    document.getElementById('collab-form-workspace').textContent = '新会话工作区：' + normalizeDisplayPath(collabFormWorkspace);
+    // GOAL-085：只有已装配讨论档案的通道可作为协作席位（codex / agy / claude-code）。
+    var COLLAB_ADAPTERS = ['codex', 'agy', 'claude-code'];
+    collabRoster = (roster || []).filter(function (r) { return COLLAB_ADAPTERS.indexOf(r.adapter_id) >= 0; });
+    ['a','b','c'].forEach(function (seat, index) {
+      var control = document.getElementById('collab-adapter-' + seat);
+      if (!control) return;
+      var previous = control.value;
+      control.innerHTML = collabRoster.map(function (r) { return '<option value="' + esc(r.adapter_id) + '">' + esc(r.adapter_id) + '</option>'; }).join('');
+      if (collabRoster.some(function (r) { return r.adapter_id === previous; })) control.value = previous;
+      else if (collabRoster[index]) control.value = collabRoster[index].adapter_id;
+      else if (collabRoster[collabRoster.length - 1]) control.value = collabRoster[collabRoster.length - 1].adapter_id;
+      updateCollabModels(seat);
+    });
+  }
+  function loadCollab() {
+    ensureCollabView();
+    if (collabTimer === null) collabTimer = setInterval(function () {
+      var view = document.getElementById('view-collab');
+      if (view && view.classList.contains('active')) loadCollab();
+    }, 2000);
+    var version = ++collabListVersion;
+    Promise.all([getJson('/api/collaboration/sessions'),getJson('/api/snapshot')]).then(function (data) {
+      if (version !== collabListVersion) return;
+      updateCollabRoster(data[1].roster || [], data[1].workspace_root || '');
+      checkCollabChannels(false);
+      renderCollabList(data[0].sessions || []);
+      if (collabSelected) loadCollabDetail(collabSelected);
+    }).catch(function () {});
+  }
+  function renderCollabList(sessions) {
+    var el = document.getElementById('collab-session-list'); if (!el) return;
+    el.innerHTML = sessions.length ? '<div class="collab-table-wrap"><table><thead><tr><th>议题</th><th>状态</th><th>阶段</th><th>调用</th></tr></thead><tbody>' +
+      sessions.map(function (s) { return '<tr data-collab="' + esc(s.session_id) + '" style="cursor:pointer"><td><button class="act" type="button">' + esc(s.topic) + '</button></td><td>' + collabStatusBadge(s.status) + '</td><td>' + esc(COLLAB_PHASE_LABEL[s.phase] || s.phase) + '</td><td>' + esc(String(s.call_count)) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '<div class="empty">暂无会话。先创建一个议题。</div>';
+    el.querySelectorAll('tr[data-collab]').forEach(function (tr) { tr.addEventListener('click', function () { collabSelected = tr.getAttribute('data-collab'); loadCollabDetail(collabSelected); }); });
+  }
+  function collabSelection() {
+    return { workspace_root:collabFormWorkspace, participants:collabSeats().map(function (seat) {
+      var key = seat.toLowerCase();
+      return {adapter_id:document.getElementById('collab-adapter-' + key).value,
+        model_id:document.getElementById('collab-model-' + key).value, effort:document.getElementById('collab-effort-' + key).value};
+    }) };
+  }
+  function checkCollabChannels(refresh) {
+    var selection = collabSelection(), key = JSON.stringify(selection);
+    if (!refresh && key === collabCheckKey && (collabCheckPending || Date.now() - collabCheckAt < 30000)) return;
+    collabCheckKey = key; collabCheckReady = false; collabCheckPending = true;
+    document.getElementById('collab-create').disabled = true;
+    var el = document.getElementById('collab-channel-check'), version = ++collabCheckVersion;
+    el.textContent = '正在检查所选通道…';
+    postJson('/api/collaboration/check', Object.assign({},selection,{refresh:!!refresh})).then(function (res) {
+      if (version !== collabCheckVersion || key !== JSON.stringify(collabSelection())) return;
+      if (!res.body || !res.body.ok) throw new Error(res.body && res.body.error || '检查失败');
+      var c = res.body;
+      collabCheckReady = c.ready === true;
+      el.innerHTML = '<p><strong>当前准入：' + (c.ready ? '满足（仍需会话批准）' : '不可创建') + '</strong>' +
+        (c.reason ? ' · ' + esc(c.reason) : '') + '</p>' +
+        '<p>本组合真实复现：' + (c.real_reproduction && c.real_reproduction.status === 'VERIFIED' ? '有已核实记录' : '未实测') +
+        ' · 账号额度：UNKNOWN</p>' +
+        (c.channels || []).map(function (ch) { return '<p>' + esc(ch.adapter_id) + ' · 当前版本 ' + esc(ch.observed_version || 'UNKNOWN') +
+          ' · 冻结版本 ' + esc(ch.frozen_version || 'UNKNOWN') + ' · 检查于 ' + esc(ch.checked_at_utc) + '</p>'; }).join('') +
+        (!c.ready ? '<p class="hint">先检查档案激活与版本接受范围；升级后先做免费兼容检查，真实复现另行审批。不会自动换模型或接受新版本。</p>' : '');
+    }).catch(function (error) {
+      if (version !== collabCheckVersion) return;
+      collabCheckReady = false; el.textContent = '检查失败：' + error.message + '；账号额度 UNKNOWN';
+    }).finally(function () {
+      if (version !== collabCheckVersion) return;
+      collabCheckPending = false; collabCheckAt = Date.now();
+      document.getElementById('collab-create').disabled = !collabCheckReady || collabCreating;
+    });
+  }
+  function createCollabSession() {
+    if (!collabCheckReady || collabCheckKey !== JSON.stringify(collabSelection())) { checkCollabChannels(true); return; }
+    collabCreating = true;
+    var materials = [], button = document.getElementById('collab-create'); button.disabled = true;
+    [1,2].forEach(function (n) {
+      var name = document.getElementById('collab-mat' + n + '-name').value.trim(), content = document.getElementById('collab-mat' + n + '-content').value;
+      var picked = [].slice.call(document.querySelectorAll('#collab-mat' + n + '-seats input:checked')).map(function (i) { return i.value; });
+      if (name || content.trim()) materials.push({name:name || '材料 ' + n, content:content, allowed_seats:picked});
+    });
+    var seats = collabSeats();
+    postJson('/api/collaboration/sessions', {
+      topic:document.getElementById('collab-topic').value.trim(), workspace_root:collabFormWorkspace,
+      participants:seats.map(function (seat) { var key = seat.toLowerCase(); return {adapter_id:document.getElementById('collab-adapter-' + key).value,model_id:document.getElementById('collab-model-' + key).value || undefined,effort:document.getElementById('collab-effort-' + key).value || undefined}; }),
+      materials:materials, constraints:document.getElementById('collab-constraints').value.trim() || undefined, isolation_required:true,
+      mode:seats.length
+    }).then(function (res) {
+      if (!res.body || !res.body.ok) throw new Error((res.body && res.body.error) || '创建失败');
+      collabSelected = res.body.session_id; loadCollab();
+    }).catch(function (e) { alert('创建失败：' + e.message); checkCollabChannels(true); }).finally(function () { collabCreating = false; button.disabled = !collabCheckReady; });
+  }
+  function loadCollabDetail(sessionId) {
+    var version = ++collabDetailVersion;
+    postJson('/api/collaboration/sessions/detail', {session_id:sessionId}).then(function (res) {
+      if (version !== collabDetailVersion || sessionId !== collabSelected) return;
+      if (res.body && res.body.ok) renderCollabDetail(res.body);
+    }).catch(function () {});
+  }
+  function renderCollabDetail(d) {
+    var el = document.getElementById('collab-detail'); if (!el || d.session_id !== collabSelected) return; el.hidden = false;
+    // Codex 复核缺口 4：详情区每 2 秒轮询重建，展开状态（过程视图/原始观点 JSON/发送记录）必须跨重渲染保留；
+    // 仅当当前 DOM 属于同一会话时才继承（切会话不携带旧展开状态）。
+    var reopenStates = collabDetailRenderedSession === d.session_id ? captureOpenDetails(el) : null;
+    var s = d.snapshot, readiness = d.authorization_readiness || {}, actions = '';
+    if (d.status === 'pending_approval') actions = '<button class="act approve" id="collab-approve" type="button"' + (readiness.ready ? '' : ' disabled') + '>批准并开始讨论</button> <button class="act cancel" id="collab-reject" type="button">否决</button>' +
+      (!readiness.ready ? '<p class="hint" id="collab-admission">执行条件未满足：' + esc(readiness.reason || '权限证据尚未核验') + '</p>' : '');
+    else if (d.status === 'authorized' && d.approved) actions = '<button class="act approve" id="collab-start" type="button">开始讨论</button> <button class="act cancel" id="collab-cancel" type="button">取消</button>';
+    else if (d.status === 'in_progress') actions = '<button class="act cancel" id="collab-stop" type="button"' + (d.stop_requested ? ' disabled' : '') + '>' + (d.stop_requested ? '正在停止…' : '停止整场讨论') + '</button>';
+    if ((s.participants || []).length !== 2) actions = '<p class="hint">历史三席位会话只读，不能批准或启动；记录与回执保留。</p>';
+    // GOAL-085 第二阶段：互评中的缺陷/建议只是模型观点，界面上不得宣称为已核实事实。
+    var labels = {body:'正文',stance:'立场',responds_to:'回应对象',evidence:'证据引用',flaws:'指出的缺陷（模型观点，未经核实）',suggestions:'修改建议（模型观点，未经核实）',changes:'修订说明',reserved_disagreements:'保留分歧',a_focus:'A 关注点',b_focus:'B 关注点',material_plan:'材料分配',notes:'说明'};
+    function participantOf(seat) { var list = s.participants || []; for (var i = 0; i < list.length; i++) if (list[i].seat === seat) return list[i]; return {}; }
+    function seatTitle(seat) { var p = participantOf(seat); return '参与者 ' + seat + (p.adapter_id ? ' · ' + p.adapter_id : '') + (p.model_id ? ' · ' + p.model_id : '') + (p.effort ? ' · 强度 ' + p.effort : ''); }
+    function rawJsonDetails(v) { return '<details><summary>原始观点 JSON</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">' + esc(v.body) + '</pre></details>'; }
+    function card(v) {
+      var data; try { data = JSON.parse(v.body); } catch(e) { data = {body:v.body}; }
+      var fields = Object.keys(labels).filter(function (key) { return data[key] !== undefined && data[key] !== '' && !(Array.isArray(data[key]) && data[key].length === 0); }).map(function (key) {
+        var value = data[key], text = Array.isArray(value) ? value.join('\\n') : typeof value === 'object' ? JSON.stringify(value) : String(value);
+        return '<dt>' + labels[key] + '</dt><dd style="white-space:pre-wrap;overflow-wrap:anywhere">' + esc(text) + '</dd>';
+      }).join('');
+      return '<div class="card collab-viewpoint" data-vp="' + esc(v.id) + '"><h4>' + esc(COLLAB_PHASE_LABEL[v.kind] || v.kind) + '</h4><dl>' + fields + '</dl>' +
+        '<details><summary>来源与发送记录</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">' + esc(JSON.stringify(v.material_manifest || [],null,2)) + '</pre></details>' +
+        rawJsonDetails(v) + '</div>';
+    }
+    // ---- 第二阶段：默认结果视图（最终修订优先）与可展开过程视图 ----
+    var seats = (s.participants || []).map(function (p) { return p.seat; });
+    var PHASES = ['coordination','proposal','review','revision'];
+    function ownOf(seat) { return d.viewpoints[seat] || []; }
+    function revOf(seat) { var own = ownOf(seat); for (var i = own.length - 1; i >= 0; i--) if (own[i].kind === 'revision') return own[i]; return null; }
+    function lastValidPhase() {
+      for (var i = PHASES.length - 1; i >= 0; i--) { var ph = PHASES[i];
+        for (var seat in d.viewpoints) { if (ownOf(seat).some(function (v) { return v.phase === ph; })) return ph; } }
+      return null;
+    }
+    var statusText = esc(COLLAB_STATUS_LABEL[d.status] || d.status);
+    var lastPhase = lastValidPhase();
+    var anyOpinion = seats.some(function (seat) { return ownOf(seat).length > 0; });
+    var allRevised = seats.length > 0 && seats.every(function (seat) { return revOf(seat) !== null; });
+    // Codex 复核缺口 1（页面同口径）：修订齐备 ≠ 流程完成——完成还需 completed 终态 + 恰 2 席。
+    var flowComplete = allRevised && d.status === 'completed' && seats.length === 2;
+    var completionNote = flowComplete
+      ? '全体席位均已提交最终修订，会话以 completed 终态结束（当前双模型流程完成）。'
+      : (allRevised
+        ? '修订已齐备，但会话终态为「' + statusText + '」' + (seats.length !== 2 ? '（' + esc(String(seats.length)) + ' 席位，不属当前双模型流程口径）' : '') + '；不构成当前双模型流程完成，以下内容按原样呈现。'
+        : (anyOpinion
+          ? '会话未产出全体席位的最终修订（当前状态「' + statusText + '」，最后有效阶段「' + esc(COLLAB_PHASE_LABEL[lastPhase] || lastPhase || '无') + '」）；结果区按席位显示各自最后有效阶段的内容，不代表已完成共识。'
+          : '会话尚无落板观点（当前状态「' + statusText + '」）；讨论未开始或未走到落板步骤。'));
+    function resultBlock() {
+      // Codex 复核缺口 3：无修订席位按**该席位自己**的最后有效阶段回退显示，
+      // 不再按全场最新阶段过滤（A 已修订、B 只有提案时，B 的提案必须可见）。
+      function seatLastPhase(seat) {
+        var own = ownOf(seat);
+        for (var i = PHASES.length - 1; i >= 0; i--) {
+          var ph = PHASES[i];
+          if (own.some(function (v) { return v.phase === ph; })) return ph;
+        }
+        return null;
+      }
+      return '<h4>最终结果</h4><p class="hint" id="collab-completion">' + completionNote + '</p>' +
+        '<div class="collab-seat-grid" data-seats="' + esc(String(seats.length)) + '">' + seats.map(function (seat) {
+          var rev = revOf(seat);
+          var seatPhase = seatLastPhase(seat);
+          var inner = rev !== null ? card(rev)
+            : '<div class="empty">该席位没有最终修订</div>' +
+              ownOf(seat).filter(function (v) { return seatPhase !== null && v.phase === seatPhase; }).map(card).join('');
+          return '<div class="collab-seat"><h4>' + esc(seatTitle(seat)) + '</h4>' + inner + '</div>';
+        }).join('') + '</div>' +
+        '<p class="hint">以上只逐席位呈现观点原文；mush 不合成“共同结论”，互评中的缺陷/建议为模型观点，未经核实。</p>';
+    }
+    function processBlock() {
+      var items = [], count = 0;
+      seats.forEach(function (seat) {
+        var own = ownOf(seat).filter(function (v) { return v.kind !== 'revision'; });
+        count += own.length;
+        if (own.length === 0) return;
+        items.push('<h5>' + esc(seatTitle(seat)) + '</h5>' + own.map(card).join(''));
+      });
+      return '<details class="collab-process" id="collab-process-view"><summary>过程视图：提案与互评（' + count + ' 条，含回应对象/材料引用/原始 JSON）</summary>' +
+        (items.join('') || '<div class="empty">暂无过程观点</div>') + '</details>';
+    }
+    var decision = d.owner_decision === 'APPROVED' ? '已批准' : d.owner_decision === 'REJECTED' ? '已否决' : '尚未批准';
+    // GOAL-085：参会者数量、评审关系与计划调用数随详情展示（三模型用三列，窄屏由 CSS 纵向排列）。
+    var relations = (s.review_relations || []).map(function (r) { return r.author + '→' + r.target; }).join('、');
+    el.innerHTML = '<h3>' + esc(s.topic) + ' ' + collabStatusBadge(d.status) + '</h3><p>授权：' + decision + ' · 执行：' + esc(d.execution === 'running' ? '运行中' : d.execution === 'settled' ? '已结束' : '尚未启动') + '</p>' +
+      '<div class="hint">会话工作区：' + esc(normalizeDisplayPath(s.workspace_root)) + '</div>' +
+      '<p>参会者 ' + esc(String(seats.length)) + ' 位（' + esc(seats.map(function (seat) {
+        var p = participantOf(seat); return seat + '=' + (p.adapter_id || '?') + (p.model_id ? '·' + p.model_id : '') + (p.effort ? '·' + p.effort : '');
+      }).join('、')) + '）' +
+      (relations ? ' · 评审关系 ' + esc(relations) : '') +
+      ' · 计划调用 ' + esc(String(s.call_limit)) + '+' + esc(String(s.retry_limit)) + '</p>' +
+      '<p>总调用 ' + esc(String(d.call_count)) + '/' + esc(String(s.call_limit + s.retry_limit)) +
+      '（正常 ' + esc(String(d.call_count - d.retry_count)) + '/' + esc(String(s.call_limit)) + '，重试 ' + esc(String(d.retry_count)) + '/' + esc(String(s.retry_limit)) + '）</p>' +
+      '<details><summary>批准范围与快照</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">' + esc(JSON.stringify(s,null,2)) + '</pre></details>' +
+      '<div style="margin:12px 0">' + actions + '</div>' + (d.stop_requested ? '<p class="hint">停止请求已发送，等待在途调用结算。</p>' : '') +
+      '<div style="margin:8px 0">' +
+      '<button class="act" id="collab-export-json" type="button">导出结果 JSON</button> ' +
+      '<button class="act" id="collab-export-md" type="button">导出结果 Markdown</button></div>' +
+      (d.outcome && d.outcome.reason ? '<p id="collab-outcome-reason" style="white-space:pre-wrap;overflow-wrap:anywhere">结束原因：' + esc(d.outcome.reason) + '</p>' : '') +
+      resultBlock() + processBlock();
+    [['collab-approve','approve'],['collab-reject','reject'],['collab-start','start'],['collab-stop','cancel'],['collab-cancel','cancel']].forEach(function (pair) {
+      var button = document.getElementById(pair[0]); if (button) button.addEventListener('click',function () {collabAct(pair[1]);});
+    });
+    var exportJson = document.getElementById('collab-export-json');
+    if (exportJson) exportJson.addEventListener('click', function () { collabDownload(d.session_id, 'json'); });
+    var exportMd = document.getElementById('collab-export-md');
+    if (exportMd) exportMd.addEventListener('click', function () { collabDownload(d.session_id, 'markdown'); });
+    restoreOpenDetails(el, reopenStates);
+    collabDetailRenderedSession = d.session_id;
+  }
+  /** Codex 复核缺口 4：details 展开状态跨轮询重渲染保留。
+   *  key = details 自身 id（过程视图等固定块）或「所属观点卡 data-vp + summary 文本」
+   *  （卡内"来源与发送记录"/"原始观点 JSON"）；数据不变时 key 稳定，观点新增只会
+   *  让新卡片默认收起，不折回已展开的旧卡。 */
+  function detailKey(d) {
+    if (d.id) return 'id:' + d.id;
+    var card = d.closest ? d.closest('.collab-viewpoint') : null;
+    var vp = card ? (card.getAttribute('data-vp') || '') : '';
+    var summary = d.querySelector('summary');
+    return 'vp:' + vp + '|' + ((summary && summary.textContent) || '');
+  }
+  function captureOpenDetails(root) {
+    var states = {};
+    if (!root) return states;
+    root.querySelectorAll('details').forEach(function (d) { if (d.open) states[detailKey(d)] = true; });
+    return states;
+  }
+  function restoreOpenDetails(root, states) {
+    if (!root || !states) return;
+    root.querySelectorAll('details').forEach(function (d) { if (states[detailKey(d)]) d.open = true; });
+  }
+  /** GOAL-085 第二阶段：本地下载只读结果导出（JSON / Markdown），零模型调用。 */
+  function collabDownload(sessionId, format) {
+    var headers = { 'content-type': 'application/json' };
+    var authVal = getCallerAuth(); if (authVal) headers['x-mush-caller-auth'] = authVal;
+    fetch('/api/collaboration/sessions/result', { method: 'POST', headers: headers, body: JSON.stringify({ session_id: sessionId, format: format }) })
+      .then(function (res) { return res.text().then(function (text) { return { status: res.status, text: text }; }); })
+      .then(function (r) {
+        if (r.status !== 200) throw new Error('HTTP ' + r.status + ' ' + String(r.text).slice(0, 200));
+        var isMd = format === 'markdown';
+        var payload = isMd ? r.text : JSON.stringify(JSON.parse(r.text).result, null, 2);
+        var name = 'collab-result-' + sessionId.slice(0, 8) + (isMd ? '.md' : '.json');
+        var url = URL.createObjectURL(new Blob([payload], { type: isMd ? 'text/markdown;charset=utf-8' : 'application/json;charset=utf-8' }));
+        var a = document.createElement('a');
+        a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      })
+      .catch(function (e) { alert('导出失败：' + e.message); });
+  }
+  function collabAct(action) {
+    if (!collabSelected || collabActionPending) return;
+    var selected = collabSelected; collabActionPending = true;
+    postJson('/api/collaboration/sessions/' + action,{session_id:selected}).then(function (res) {
+      if (!res.body || !res.body.ok) throw new Error((res.body && res.body.error) || '操作失败');
+    }).catch(function (e) {alert('操作失败：' + e.message);}).finally(function () {
+      collabActionPending = false; if (selected === collabSelected) loadCollab();
+    });
+  }
+
   /* ---------- GOAL-012 + GOAL-018B #3：聊天面板（v1.3 契约）与会话恢复 ---------- */
   // GOAL-018B：localStorage 持久化当前 session_id——刷新页面不丢对话显示。
   var chatSessionId = null;
+  var chatWorkspace = '';
+  function chatStorageKey(name) { return 'mush.chat.' + name + (chatWorkspace ? ':' + chatWorkspace : ''); }
   try {
     var savedSession = localStorage.getItem('mush.chat.session');
     if (savedSession && savedSession.trim() !== '') chatSessionId = savedSession.trim();
@@ -2843,9 +3367,24 @@ ${getCollaborationStyles()}
 
   function saveChatSession() {
     try {
-      if (chatSessionId) localStorage.setItem('mush.chat.session', chatSessionId);
-      else localStorage.removeItem('mush.chat.session');
+      if (chatSessionId) localStorage.setItem(chatStorageKey('session'), chatSessionId);
+      else localStorage.removeItem(chatStorageKey('session'));
     } catch (e) { /* 隐私模式忽略 */ }
+  }
+
+  function applyChatWorkspace(root) {
+    if (!root || chatWorkspace === root) return;
+    var legacySession = chatWorkspace ? null : chatSessionId;
+    chatWorkspace = root;
+    trackedDispatches = [];
+    detailCache = {};
+    chatLastMessage = '';
+    document.getElementById('chat-input').value = '';
+    pendingAttachments = [];
+    renderAttachmentPreviews();
+    var session = null;
+    try { session = localStorage.getItem(chatStorageKey('session')); } catch (e) {}
+    switchChatSession(session || legacySession);
   }
 
   function chatStreamEl() { return document.getElementById('chat-stream'); }
@@ -2949,10 +3488,14 @@ ${getCollaborationStyles()}
     var row = document.createElement('div');
     row.className = 'chat-row ' + role;
     var isUser = role === 'user';
-    var who = (isUser ? '你' : '头犬') + (atUtc ? ' · ' + fmtTime(atUtc) : '');
+    if (isUser) chatLastMessage = text;
+    var who = (isUser ? '你' : '头犬') + (turn && turn.status ? ' · ' + statusLabel(turn.status) : '') + (atUtc ? ' · ' + fmtTime(atUtc) : '');
+    // 2026-09-06 实机反馈修复：头像此前写死 'head-dog kimi moon' 恒为 kimi 图标——
+    // 改为跟随聊天头犬级联选择（chat-head-select）；无 DOM（测试桩）时回退 head-dog 品牌映射。
+    var chatHeadSel = typeof document !== 'undefined' && document.getElementById ? document.getElementById('chat-head-select') : null;
     var avatar = isUser
       ? '<span class="avatar">' + dogLogo('paw', false) + '</span>'
-      : '<span class="avatar">' + dogLogo('head-dog kimi moon', chatPending) + '</span>';
+      : '<span class="avatar">' + dogLogo(chatHeadSel && chatHeadSel.value ? chatHeadSel.value : 'head-dog', chatPending) + '</span>';
     var bubbleHtml = role === 'head'
       ? (turn ? renderChatBubbleFromTurn(turn) : renderChatBubbleContent(text))
       : esc(text);
@@ -2961,6 +3504,10 @@ ${getCollaborationStyles()}
       (dispatchId ? '<div class="hint mono">派发 ' + esc(String(dispatchId).slice(0, 12)) + '…</div>' : '') +
       '</div>';
     chatStreamEl().appendChild(row);
+    if (!isUser && turn && /^(FAIL|TIMEOUT|INTERRUPTED|BLOCKED_ENV)$/.test(turn.status || '')) {
+      row.classList.add('chat-failed');
+      attachRetry(row, dispatchId);
+    }
     chatTurnCount += 1;
     chatScrollBottom();
   }
@@ -2986,7 +3533,7 @@ ${getCollaborationStyles()}
   function chatPromptApprovals() {
     if (!snapshot || !snapshot.approvals) return;
     snapshot.approvals.forEach(function (a) {
-      if (a.status !== 'WAITING' || chatPromptedApprovals[a.request_file]) return;
+      if (a.status !== 'WAITING' || (chatPromptedApprovals[a.request_file] && chatStreamEl().querySelector('[data-appr-file="' + a.request_file + '"]'))) return;
       chatPromptedApprovals[a.request_file] = true;
       chatClearEmpty();
       var card = document.createElement('div');
@@ -3000,6 +3547,16 @@ ${getCollaborationStyles()}
         ? '<div class="chat-appr-meta mono">派发 ' + esc(String(d.dispatch_id || '').slice(0, 12)) + '… → ' +
           esc(d.adapter_id || '') + ' × ' + esc(d.effort || '') + ' · 预算上限 ' +
           (d.cap_usd == null ? '?' : fmtUsd(d.cap_usd, 2)) + '</div>' +
+          // GOAL-084（owner 复核缺口，2026-10-03）：执行配置上内联卡——审批所见＝执行所跑。
+          (d.model_id != null ? '<div class="chat-appr-meta mono">生效模型 ' + esc(d.model_id) + '</div>' : '') +
+          (d.restrict_tools === true
+            ? '<div class="chat-appr-meta mono">工具限制 受限：' + esc(d.tool_restriction_args && d.tool_restriction_args.length ? d.tool_restriction_args.join(' ') : '（合同未声明参数，服务端将拒绝）') + '</div>'
+            : '') +
+          (d.output_schema
+            ? '<details class="chat-appr-detail"><summary>输出 schema</summary><pre class="mono">' + esc(JSON.stringify(d.output_schema)) + '</pre></details>' +
+              (d.output_schema_sha256 ? '<div class="chat-appr-meta mono">schema 哈希 ' + esc(d.output_schema_sha256) + '</div>' : '')
+            : '') +
+          (d.contract_fingerprint ? '<div class="chat-appr-meta mono">批准时合同指纹 ' + esc(String(d.contract_fingerprint).slice(0, 16)) + '…（漂移则重跑被拒）</div>' : '') +
           (d.prompt_preview !== undefined
             ? '<details class="chat-appr-detail"><summary>Prompt 预览</summary><pre class="mono">' + esc(d.prompt_preview || '(空)') + '</pre></details>'
             : '')
@@ -3049,6 +3606,18 @@ ${getCollaborationStyles()}
       });
   }
 
+  // D84（2026-09-06）：停止运行中的头犬回合——杀子进程树，终态 INTERRUPTED，失败行可点重试。
+  function chatStopInflight() {
+    if (!chatInflightId) { toast('当前没有正在生成的回合', false); return; }
+    var dispatchId = chatInflightId;
+    postJson('/api/dispatches/cancel', { dispatch_id: dispatchId }).then(function (result) {
+      if (result.status === 200) toast('已请求停止：' + String(dispatchId).slice(0, 8), true);
+      else toast('停止失败：' + ((result.body && result.body.error) || result.status), false);
+    }).catch(function (error) {
+      toast('停止失败：' + String(error), false);
+    });
+  }
+
   function setChatPending(pending) {
     chatPending = pending;
     // D2（GOAL-012B）：发送期间输入框保持可编辑（排队下一条），仅按钮态变化。
@@ -3065,8 +3634,10 @@ ${getCollaborationStyles()}
     chatClearEmpty();
     var row = document.createElement('div');
     row.className = 'chat-row head chat-thinking';
-    row.innerHTML = '<span class="avatar">' + dogLogo('head-dog kimi moon', true) + '</span>' +
-      '<div><div class="who">头犬 · <span class="chat-stage">思考中</span> <span class="mono thinking-elapsed">0s</span></div>' +
+    var chatHeadSel = typeof document !== 'undefined' && document.getElementById ? document.getElementById('chat-head-select') : null;
+    row.innerHTML = '<span class="avatar">' + dogLogo(chatHeadSel && chatHeadSel.value ? chatHeadSel.value : 'head-dog', true) + '</span>' +
+      '<div><div class="who">头犬 · <span class="chat-stage">思考中</span> <span class="mono thinking-elapsed">0s</span> ' +
+      '<button class="act cancel" data-chat-stop type="button">停止</button></div>' +
       '<div class="bubble thinking-bubble"><span class="thinking-dots"><i></i><i></i><i></i></span></div></div>';
     chatStreamEl().appendChild(row);
     chatScrollBottom();
@@ -3178,8 +3749,10 @@ ${getCollaborationStyles()}
       // 占位已被移除的边界（如早到 EXECUTE）：直接建行。
       row = document.createElement('div');
       row.className = 'chat-row head chat-thinking';
-      row.innerHTML = '<span class="avatar">' + dogLogo('head-dog kimi moon', true) + '</span>' +
-        '<div><div class="who">头犬 · <span class="chat-stage">生成中</span> <span class="mono thinking-elapsed">0s</span></div>' +
+      var chatHeadSel = typeof document !== 'undefined' && document.getElementById ? document.getElementById('chat-head-select') : null;
+      row.innerHTML = '<span class="avatar">' + dogLogo(chatHeadSel && chatHeadSel.value ? chatHeadSel.value : 'head-dog', true) + '</span>' +
+        '<div><div class="who">头犬 · <span class="chat-stage">生成中</span> <span class="mono thinking-elapsed">0s</span> ' +
+        '<button class="act cancel" data-chat-stop type="button">停止</button></div>' +
         '<div class="bubble thinking-bubble"></div></div>';
       chatStreamEl().appendChild(row);
     }
@@ -3195,12 +3768,21 @@ ${getCollaborationStyles()}
     chatScrollBottom();
   }
 
-  function attachRetry(row) {
+  function attachRetry(row, dispatchId) {
     var retry = document.createElement('button');
     retry.className = 'act reject chat-retry';
     retry.type = 'button';
     retry.textContent = '重试';
-    retry.addEventListener('click', retryChat);
+    retry.addEventListener('click', function () {
+      if (!dispatchId) { retryChat(); return; }
+      if (chatPending) return;
+      retry.disabled = true;
+      postJson('/api/dispatch/' + encodeURIComponent(dispatchId) + '/rerun', {}).then(function (result) {
+        if (!result.body || !result.body.ok) toast('重试失败：' + ((result.body && result.body.error) || result.status), false);
+        chatRefreshHistory(true);
+        refresh();
+      }).catch(function (error) { toast('重试失败：' + error, false); }).finally(function () { retry.disabled = false; });
+    });
     row.querySelector('.bubble').parentNode.appendChild(retry);
   }
 
@@ -3216,7 +3798,8 @@ ${getCollaborationStyles()}
     chatStreamFinal = null;
     disarmChatWatchdog();
     if (chatStreamRaf !== null) { cancelAnimationFrame(chatStreamRaf); chatStreamRaf = null; }
-    var failed = p.error !== undefined || (p.status !== 'PASS' && p.status !== 'DRY_RUN');
+    var waiting = p.status === 'BLOCKED_WAITING_OWNER';
+    var failed = p.error !== undefined || (!waiting && p.status !== 'PASS' && p.status !== 'DRY_RUN' && p.status !== 'REJECTED');
     var fullReply = typeof p.reply === 'string' && p.reply !== '' ? p.reply : chatStreamBuf;
     var elapsedTxt = typeof p.elapsed_ms === 'number' ? Math.round(p.elapsed_ms / 1000) + 's' : '';
     var row = chatStreamRow;
@@ -3228,9 +3811,11 @@ ${getCollaborationStyles()}
         row.classList.add('chat-failed');
         chatSetStage(row, '失败' + (elapsedTxt ? ' · ' + elapsedTxt : ''));
         if (bubble) bubble.innerHTML = esc(p.error !== undefined ? '头犬回复失败：' + p.error : (fullReply !== '' ? fullReply : '（无回复）'));
-        attachRetry(row);
+        attachRetry(row, chatInflightId);
       } else {
-        chatSetStage(row, '完成' + (elapsedTxt ? ' · ' + elapsedTxt : ''));
+        if (waiting) chatSetStage(row, '等待你批准');
+        else if (p.status === 'REJECTED') chatSetStage(row, '已否决');
+        else chatSetStage(row, '完成' + (elapsedTxt ? ' · ' + elapsedTxt : ''));
         if (bubble) bubble.innerHTML = renderChatBubbleContent(fullReply !== '' ? fullReply : '（空回复）');
       }
       chatTurnCount += 1;
@@ -3280,7 +3865,8 @@ ${getCollaborationStyles()}
     chatClearEmpty();
     var row = document.createElement('div');
     row.className = 'chat-row head chat-failed';
-    row.innerHTML = '<span class="avatar">' + dogLogo('head-dog kimi moon', false) + '</span>' +
+    var chatHeadSel = typeof document !== 'undefined' && document.getElementById ? document.getElementById('chat-head-select') : null;
+    row.innerHTML = '<span class="avatar">' + dogLogo(chatHeadSel && chatHeadSel.value ? chatHeadSel.value : 'head-dog', false) + '</span>' +
       '<div><div class="who">头犬 · <span class="chat-stage">失败</span> · ' + esc(fmtTime(new Date().toISOString())) + '</div>' +
       '<div class="bubble">' + esc(text) + '</div></div>';
     attachRetry(row);
@@ -3292,12 +3878,24 @@ ${getCollaborationStyles()}
   // SSE chat 帧入口（kind=chat，契约 v1.9：ADMITTED → EXECUTE(增量) → HEARTBEAT(耗时) → REPORT）。
   function chatHandleFrame(frame) {
     if (!frame || frame.kind !== 'chat') return;
+    if (frame.workspace_root && frame.workspace_root !== chatWorkspace) return;
+    if (frame.session_id !== chatSessionId && chatSessionId !== null) return;
+    var p = frame.payload || {};
+    if (frame.phase === 'ADMITTED' && p.rerun_of && p.rerun_of === chatInflightId) {
+      chatStreamFinal = chatStreamFinal || { status: 'BLOCKED_WAITING_OWNER', reply: '等待你批准本次任务。' };
+      chatFinalizeReport();
+    }
     if (chatInflightId !== null && frame.dispatch_id !== chatInflightId) return; // 只消费在途帧
     if (chatInflightId === null) {
-      if (!chatPending || frame.session_id !== chatSessionId) return; // 非本会话迟到帧忽略
+      if (frame.session_id !== chatSessionId) return;
+      if (!chatPending) {
+        if (frame.phase === 'REPORT') { chatRefreshHistory(true); return; }
+        if (frame.phase !== 'ADMITTED') return;
+        setChatPending(true);
+        showThinking();
+      }
       chatInflightId = frame.dispatch_id; // ack 前早到帧认领
     }
-    var p = frame.payload || {};
     if (frame.phase === 'ADMITTED') {
       chatSetStage(thinkingRow || chatStreamRow, '思考中');
       return;
@@ -3318,7 +3916,7 @@ ${getCollaborationStyles()}
       chatStreamFinal = p;
       if (typeof p.reply === 'string' && p.reply !== '') chatStreamBuf = p.reply; // 权威全文
       if (chatStreamBuf !== '' && chatStreamRow === null && p.error === undefined) ensureStreamRow();
-      if (chatReducedMotion || chatStreamRow === null || chatStreamShown >= chatStreamBuf.length) {
+      if (p.status === 'BLOCKED_WAITING_OWNER' || chatReducedMotion || chatStreamRow === null || chatStreamShown >= chatStreamBuf.length) {
         chatFinalizeReport();
       } else {
         chatTypewriterKick(); // 渐显播完后由 tick 内 chatFinalizeReport 定版
@@ -3422,13 +4020,14 @@ ${getCollaborationStyles()}
       if (result.status === 202 && data.ok) {
         // v1.9 异步受理：202 即返 ack；阶段推进由 SSE kind=chat 帧驱动（不再同步等 reply）。
         chatSessionId = data.session_id || chatSessionId;
-        chatInflightId = data.dispatch_id || chatInflightId;
+        if (chatPending) chatInflightId = data.dispatch_id || chatInflightId;
         registerSessionId(chatSessionId); // GOAL-018B #3：会话注册表（选择器数据源）
         saveChatSession();
         renderSessionSelector();
         document.getElementById('chat-session-label').textContent = chatSessionId ? 'session ' + String(chatSessionId).slice(0, 8) : '';
         if (data.dispatch_id) trackDispatch(data.dispatch_id, payload.adapter_id || 'head-dog', data.status || 'ADMITTED');
         armChatWatchdog();
+        chatRefreshHistory();
         refresh();
       } else {
         chatFinishFailure('（消息未受理：' + (data.error || result.status) + '）');
@@ -3439,17 +4038,28 @@ ${getCollaborationStyles()}
   }
 
   // 头犬 dispatch 到达 REPORT/REVIEW 后，拉取会话历史补齐头犬回复（权威源 = runtime/chat/*.jsonl）。
-  function chatRefreshHistory() {
+  function chatRefreshHistory(force) {
     if (!chatSessionId) return;
+    var session = chatSessionId;
+    var workspace = chatWorkspace;
     getJson('/api/chat/history?session=' + encodeURIComponent(chatSessionId) + '&limit=50').then(function (data) {
+      if (session !== chatSessionId || workspace !== chatWorkspace) return;
       if (!data || !data.ok || !Array.isArray(data.turns)) return;
-      if (data.turns.length <= chatTurnCount) return;
+      var last = data.turns[data.turns.length - 1];
+      if (chatPending) {
+        if (last && last.role === 'head' && last.dispatch_id === chatInflightId && last.status && TERMINAL_STATUSES[last.status]) {
+          chatHandleFrame({ kind: 'chat', phase: 'REPORT', session_id: session, dispatch_id: last.dispatch_id, payload: { status: last.status, reply: last.text } });
+        }
+        return;
+      }
+      if (!force && data.turns.length <= chatTurnCount) return;
       var el = chatStreamEl();
       el.innerHTML = '';
       chatTurnCount = 0;
       var keepActions = Object.keys(chatActionSeen);
       data.turns.forEach(function (turn) { appendChatRow(turn.role === 'user' ? 'user' : 'head', turn.text, turn.at_utc, turn.dispatch_id, turn); });
       void keepActions;
+      chatPromptApprovals();
       updateContextGauge();
     }).catch(function () { /* 静默：下一帧 SSE 再试 */ });
   }
@@ -3537,7 +4147,7 @@ ${getCollaborationStyles()}
   // 后端枚举 API 属 p18a v1.6 面，落盘后联调批可换数据源）。
   function knownSessionIds() {
     try {
-      var raw = JSON.parse(localStorage.getItem('mush.chat.sessions') || '[]');
+      var raw = JSON.parse(localStorage.getItem(chatStorageKey('sessions')) || '[]');
       return Array.isArray(raw) ? raw.filter(function (s) { return typeof s === 'string' && s !== ''; }) : [];
     } catch (e) { return []; }
   }
@@ -3547,7 +4157,7 @@ ${getCollaborationStyles()}
     var ids = knownSessionIds();
     if (ids.indexOf(id) < 0) {
       ids.unshift(id);
-      try { localStorage.setItem('mush.chat.sessions', JSON.stringify(ids.slice(0, 20))); } catch (e) { /* ignore */ }
+      try { localStorage.setItem(chatStorageKey('sessions'), JSON.stringify(ids.slice(0, 20))); } catch (e) { /* ignore */ }
     }
   }
 
@@ -3562,6 +4172,16 @@ ${getCollaborationStyles()}
   }
 
   function switchChatSession(sessionId) {
+    disarmChatWatchdog();
+    if (chatStreamRaf !== null) cancelAnimationFrame(chatStreamRaf);
+    chatStreamRaf = null;
+    chatStreamRow = null;
+    chatStreamFinal = null;
+    chatStreamBuf = '';
+    chatStreamShown = 0;
+    chatInflightId = null;
+    setChatPending(false);
+    removeThinking();
     chatSessionId = sessionId || null;
     chatTurnCount = 0;
     chatActionSeen = {};
@@ -3573,8 +4193,11 @@ ${getCollaborationStyles()}
       return;
     }
     chatStreamEl().innerHTML = '<div class="empty">恢复会话中…</div>';
+    var session = chatSessionId;
+    var workspace = chatWorkspace;
     // 完整历史重渲染（不限于增量）：刷新/切换都走这条权威路径。
     getJson('/api/chat/history?session=' + encodeURIComponent(chatSessionId) + '&limit=50').then(function (data) {
+      if (session !== chatSessionId || workspace !== chatWorkspace) return;
       var el = chatStreamEl();
       if (!data || !data.ok || !Array.isArray(data.turns) || data.turns.length === 0) {
         el.innerHTML = '<div class="empty">该会话暂无记录（或 M1 前会话文件缺失）。</div>';
@@ -3584,7 +4207,9 @@ ${getCollaborationStyles()}
         data.turns.forEach(function (turn) { appendChatRow(turn.role === 'user' ? 'user' : 'head', turn.text, turn.at_utc, turn.dispatch_id, turn); });
       }
       renderSessionSelector();
+      chatPromptApprovals();
     }).catch(function () {
+      if (session !== chatSessionId || workspace !== chatWorkspace) return;
       chatStreamEl().innerHTML = '<div class="empty">会话历史暂不可达。</div>';
       renderSessionSelector();
     });
@@ -4659,6 +5284,7 @@ ${getCollaborationStyles()}
   function refresh() {
     return getJson('/api/snapshot').then(function (data) {
       snapshot = data;
+      applyChatWorkspace(data.workspace_root);
       renderAll();
     });
   }
@@ -4751,10 +5377,23 @@ ${getCollaborationStyles()}
     try { dismissed = window.localStorage.getItem('mush.first-task.dismissed') === '1'; } catch (e) {}
     var show = snapshot.first_task.zero_config === true && !dismissed;
     banner.style.display = show ? 'flex' : 'none';
+    var ready = snapshot.first_task.local_ready || [];
+    document.getElementById('first-task-status').textContent = (ready.length ? '本地已配置：' + ready.join('、') : '本地配置待补齐') + '。通道待核验；供应商额度与 API 权益未确认。';
+    document.getElementById('btn-first-task').disabled = ready.length === 0;
   }
+  document.getElementById('btn-first-task-health').addEventListener('click', function () {
+    var nav = document.querySelector('button[data-view="team"]');
+    if (nav) nav.click();
+    var box = document.getElementById('harness-doctor-box');
+    if (box) box.style.display = 'none';
+    toggleHarnessDoctor();
+  });
   var btnFirstTask = document.getElementById('btn-first-task');
   if (btnFirstTask) btnFirstTask.addEventListener('click', function () {
-    var freeId = (snapshot && snapshot.first_task && snapshot.first_task.free_adapter_id) || 'opencode';
+    var ready = (snapshot && snapshot.first_task && snapshot.first_task.local_ready) || [];
+    if (!ready.length) return;
+    var selected = document.getElementById('chat-head-select').value;
+    var freeId = ready.indexOf(selected) >= 0 ? selected : ready[0];
     var navBtn = document.querySelector('button[data-view="workbench"]');
     if (navBtn) navBtn.click();
     openDispatchDrawer();
@@ -4762,9 +5401,9 @@ ${getCollaborationStyles()}
     renderDispatchProviderOptions();
     var promptEl = document.getElementById('dispatch-prompt');
     if (promptEl && promptEl.value.trim() === '') {
-      promptEl.value = '自我介绍：用三句话说明你能为这个工作区做什么。';
+      promptEl.value = '请只回复 MUSH-FIRST-TASK-OK，不读写文件，不执行命令，不派发子任务。';
     }
-    toast('已预填免费通道首单——确认参数后提交（仍过 D30 审批卡）', true);
+    toast('首单已预填，待确认执行参数与逐单审批', true);
   });
   var btnFirstTaskDismiss = document.getElementById('btn-first-task-dismiss');
   if (btnFirstTaskDismiss) btnFirstTaskDismiss.addEventListener('click', function () {
@@ -4831,6 +5470,9 @@ ${getCollaborationStyles()}
       }
       if (viewName === 'insights') {
         loadMissionPanel(); // GOAL-082：监理面板随视图懒刷新
+      }
+      if (viewName === 'collab') {
+        loadCollab(); // GOAL-084 §3.5：协作视图懒刷新（列表 + 选中详情轮询）
       }
     });
   });
@@ -5516,7 +6158,7 @@ ${getCollaborationStyles()}
     if (chatSessionId) switchChatSession(chatSessionId); else renderSessionSelector();
     var status = document.getElementById('sse-status');
     var source = new EventSource('/api/stream');
-    source.onopen = function () { status.textContent = ''; status.style.display = 'none'; };
+    source.onopen = function () { status.textContent = ''; status.style.display = 'none'; chatRefreshHistory(); refresh(); };
     source.onerror = function () { status.textContent = '⚠ 实时通道断开，重连中…'; status.style.display = ''; };
     source.onmessage = function (msg) {
       var payload = null;
@@ -5525,7 +6167,16 @@ ${getCollaborationStyles()}
         chatHandleFrame(payload); // GOAL-021B：聊天流式阶段机（事件驱动，不做全量 refresh）
         return;
       }
+      if (payload && payload.kind === 'collab') {
+        // GOAL-084 §3.5：协作会话进度帧——选中会话或终态时刷新详情（SSE 沿用看板通道）。
+        if (payload.session_id && (payload.session_id === collabSelected || payload.type === 'completed' || payload.type === 'failed' || payload.type === 'interrupted')) {
+          var collabView = document.getElementById('view-collab');
+          if (collabView && collabView.classList.contains('active')) loadCollabDetail(payload.session_id);
+        }
+        return;
+      }
       if (payload && payload.kind === 'dispatch') {
+        if (payload.workspace_root && payload.workspace_root !== chatWorkspace) return;
         trackDispatch(payload.dispatch_id, payload.adapter_id, payload.status);
         // D82 批次：直连抽屉实时输出——直播单的 EXECUTE 增量帧滚动上屏。
         if (drawerOpenDog !== null && payload.dispatch_id === drawerWatchId) {

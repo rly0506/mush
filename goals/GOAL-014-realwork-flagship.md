@@ -1,6 +1,6 @@
 ---
 goal_id: MUSH-GOAL-014 / M1
-status: QUEUED（待 owner 切片定义旗舰任务范围；2026-08-18 owner 授权）
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；旗舰真实任务闭环由 GOAL-031（RM-004 M1 agy 实战）承接交付，专测 tests/g031-*.test.ts 在库；目标池 GP-06 已记完成；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 mode: LIGHT
 rm: RM-004 / M1 实战运营
 executor_model_profile: deepseek-dsh（旗舰执行）+ 头犬 zcode（diff 级审核 + 编排）

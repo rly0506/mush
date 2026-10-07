@@ -1,6 +1,6 @@
 ---
 goal_id: MUSH-GOAL-014
-status: QUEUED（RM-004 / M0 安全前置；owner 2026-08-18 授权开始）
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；M0 carve-out 机制在库（runtime/carveouts.jsonl + owner 授权通道），专测 tests/g014a-*.test.ts 当前全量通过；目标池 GP-13/GP-14 已记完成；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 mode: LIGHT
 rm: RM-004 / M0
 executor_model_profile: deepseek-dsh（后端写面校验）+ kimi-code（前端登记 UX，可选同步批）

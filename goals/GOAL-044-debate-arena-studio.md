@@ -1,6 +1,6 @@
 # GOAL-044: 圆桌辩论对席排版与自动仲裁工作台 (Debate Arena Studio)
 
-- 状态：`PROPOSED`（RM-005 M1 核心规划，2026-08-19 立项）
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；圆桌辩论对席在库（debate-engine.ts + debate-view），专测 tests/g044-*.test.ts 通过；目标池 RM-005 表已记完成；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 - 来源：2026-08-19 owner `/grill-me` 深度访谈裁决 + RM-005 路线图
 - 优先级：最高（首发 M1 核心）
 - 依赖：GOAL-043 (协作底栏与总线), GOAL-036 (Trace 步骤流), GOAL-042 (P2P 消息总线)

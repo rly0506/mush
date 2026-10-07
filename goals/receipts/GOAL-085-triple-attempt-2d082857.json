@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "goal_id": "GOAL-085",
+  "goal_status": "PROPOSED",
+  "attempt_status": "failed",
+  "formal_owner_acceptance": false,
+  "executed_by": "Codex, delegated by Owner",
+  "owner_authorization": "Explicit authorization in the current chat; bounded triple card; $4 visible CLI cost threshold; unknown Codex/agy costs accepted",
+  "session_id": "2d082857-7367-4a6e-9d01-1796f49080c4",
+  "authorization_hash": "66760e0ff65b0404051cf76d2beeac4cc5d8ab6d395067f1eb7d3e7377a6b523",
+  "call_count": 4,
+  "normal_calls": 3,
+  "retry_calls": 1,
+  "execution_log": [
+    {
+      "seq": 27,
+      "session_id": "2d082857-7367-4a6e-9d01-1796f49080c4",
+      "call_index": 1,
+      "kind": "normal",
+      "seat": "A",
+      "status": "pass",
+      "started_at_utc": "2026-10-05T14:11:15.991Z",
+      "ended_at_utc": "2026-10-05T14:11:50.501Z",
+      "error": null
+    },
+    {
+      "seq": 28,
+      "session_id": "2d082857-7367-4a6e-9d01-1796f49080c4",
+      "call_index": 2,
+      "kind": "normal",
+      "seat": "A",
+      "status": "pass",
+      "started_at_utc": "2026-10-05T14:12:04.545Z",
+      "ended_at_utc": "2026-10-05T14:12:50.385Z",
+      "error": null
+    },
+    {
+      "seq": 29,
+      "session_id": "2d082857-7367-4a6e-9d01-1796f49080c4",
+      "call_index": 3,
+      "kind": "normal",
+      "seat": "B",
+      "status": "pass",
+      "started_at_utc": "2026-10-05T14:13:02.088Z",
+      "ended_at_utc": "2026-10-05T14:14:38.068Z",
+      "error": null
+    },
+    {
+      "seq": 30,
+      "session_id": "2d082857-7367-4a6e-9d01-1796f49080c4",
+      "call_index": 4,
+      "kind": "retry",
+      "seat": "B",
+      "status": "pass",
+      "started_at_utc": "2026-10-05T14:14:45.688Z",
+      "ended_at_utc": "2026-10-05T14:16:45.858Z",
+      "error": null
+    }
+  ],
+  "participants": [
+    {
+      "seat": "A",
+      "adapter_id": "codex",
+      "provider_id": "openai",
+      "model_id": "gpt-5.5",
+      "effort": "LOW",
+      "config_fingerprint": "8194bb67a14f1eae74b218bf3724d13849cdb641d01dbd16451c1b24bda58936",
+      "is_coordinator": true
+    },
+    {
+      "seat": "B",
+      "adapter_id": "agy",
+      "provider_id": "google",
+      "model_id": "gemini-3.7-flash-high",
+      "effort": "HIGH",
+      "config_fingerprint": "05c2a65b342ce52a7be4855eaebcd92b4512ff45d6f2a69fda4dec0c0d31d286"
+    },
+    {
+      "seat": "C",
+      "adapter_id": "claude-code",
+      "provider_id": "anthropic",
+      "model_id": "claude-sonnet-5",
+      "effort": "LOW",
+      "config_fingerprint": "5b5096e9c3d49f3d3d33a0f61d93d58d4bf30b4cacdf9913106ff056afd7857d"
+    }
+  ],
+  "runner_success_calls": 4,
+  "accepted_viewpoints": {
+    "A": 2,
+    "B": 0,
+    "C": 0
+  },
+  "actual_cost_usd": "UNKNOWN",
+  "claude_calls": 0,
+  "actual_review_relations": [],
+  "revisions": 0,
+  "outcome": {
+    "status": "failed",
+    "reason": "阶段 proposal 席位 B 输出无效且共享重试已用尽：输出不是单个 JSON 对象",
+    "dispatch_ids": [
+      "a19382b88a944dea9645e2331fc2fe29",
+      "f51790e4bcc7413aac130dd5923281aa",
+      "38498225a9fa484bbaf0a0401115dc32",
+      "73b2e6ef52e7452794b47dfe8350c4c6"
+    ]
+  },
+  "checks": [
+    {
+      "file": ".test-fixtures/g085-real-triple-codex-2026-10-05/full-default-host.log",
+      "tests": 953,
+      "pass": 953,
+      "fail": 0,
+      "exit_code": 0,
+      "sha256": "6f933ffc1b8262ede378ec85b3e38f1bf863b14695426d017ef2d456ed573a25",
+      "scope": "host process; tests/setup.ts isolation; process-only PSExecutionPolicyPreference=Bypass"
+    },
+    {
+      "file": ".test-fixtures/g085-real-triple-codex-2026-10-05/full-isolated-host.log",
+      "tests": 953,
+      "pass": 953,
+      "fail": 0,
+      "exit_code": 0,
+      "sha256": "cb995860a371e54407a5f56f0134fa11eb91349876bcd3d97dd882e4200a9f04",
+      "scope": "host process; tests/setup.ts isolation; process-only PSExecutionPolicyPreference=Bypass"
+    }
+  ],
+  "focused_tests": {
+    "pass": 9,
+    "fail": 0
+  },
+  "typecheck_exit_code": 0,
+  "source_files": [
+    {
+      "file": "src/web/server.ts",
+      "sha256": "97c8301885479c3b6e8c3201d9d4e2115c18199d386bfe0e3798e98e5dfe8ec3"
+    },
+    {
+      "file": "tests/g085-api-sessions.test.ts",
+      "sha256": "40b10a69c56054d883366c4ca0a2ba58f5f28f5b7d623c5cb01063b099dcea8b"
+    }
+  ],
+  "artifacts": [
+    {
+      "file": ".test-fixtures/g085-real-triple-codex-2026-10-05/final-detail.json",
+      "sha256": "469efdca7172909cf043641eee8e6971c80e42a4e2db4861adaf3c7f22f9b68f"
+    },
+    {
+      "file": ".test-fixtures/g085-real-triple-codex-2026-10-05/post-reload-detail.json",
+      "sha256": "7034f9e4382e33805e09fb7d95fcef0937d259d0cce5eadf21d902b3beee7570"
+    },
+    {
+      "file": ".test-fixtures/g085-real-triple-codex-2026-10-05/native-shapes.json",
+      "sha256": "752e7d6e3da9454fc523c37fbd7812db9d416c681612ce42f6aeacf6d5ac96f5"
+    },
+    {
+      "file": ".test-fixtures/g085-real-triple-codex-2026-10-05/receipt-index.json",
+      "sha256": "9c28c4f0aaca9e627b8c1962fbc4762f1ad4cc55df051f0643ce3a877aae7414"
+    },
+    {
+      "file": ".test-fixtures/g085-real-triple-codex-2026-10-05/monitor.jsonl",
+      "sha256": "a99036bb4d9a4a4b6b529fcd2f5872f91d9f8635fb0b9efc82cb32e08659d632"
+    },
+    {
+      "file": ".test-fixtures/g085-real-triple-codex-2026-10-05/real-session-failed.png",
+      "sha256": "e29391351916c081e708519478891f9b6796b06bf179b829ea21330db0c6489f"
+    }
+  ],
+  "report": {
+    "file": "docs/operations/goal085-real-triple-attempt-2026-10-05.md",
+    "sha256": "c97a825d3b6c2ff1f6c34ac6f3efad9ec561cd06225114d78d314a0a785f3641"
+  },
+  "limitations": [
+    "Triple discussion did not pass; Claude never reached execution",
+    "agy final SUCCESS response contains four JSON lines; authoritative single-answer extraction refuses it",
+    "No permission/schema/D92 changes or extra paid retry",
+    "No native D95 persistence verification from this attempt because Claude was not called",
+    "Unknown costs are not zero; $4 is not an invoice guarantee",
+    "Owner has not accepted Goal as DONE"
+  ]
+}

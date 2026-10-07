@@ -1,0 +1,66 @@
+{
+  "goal_id": "GOAL-085",
+  "phase": "stage3b-mcp-fix3",
+  "executor": "GLM",
+  "independent_reviewer": "Codex（官方 SDK 1.29.0 独立客户端验收 + 四轮复现握手绕过，未安装依赖、未改配置、未调用工具或模型；证据 stage3b-independent-sdk-client.json 与 stage3b-fix2-stdio-review-7CrlTU/review.json）",
+  "reviewer_note": "执行与核验署名为 GLM（ZCode 会话）；独立客户端验收与复核为 Codex；非 Owner 正式验收，Goal 保持 PROPOSED",
+  "status": "PROPOSED",
+  "owner_formal_acceptance": "pending",
+  "at": "2026-10-06T21:30:00.000Z",
+  "implementation": "VERIFIED",
+  "scope": "MCP 片修复轮三：独立 SDK 验收 + 最后一个握手绕过闭合；skill 暂缓；此前回执（stage3b / stage3b-fix / stage3b-fix2）保留不改写",
+  "independent_sdk_acceptance": {
+    "file": ".test-fixtures/stage3b-independent-sdk-client.json",
+    "client": "@modelcontextprotocol/sdk 1.29.0",
+    "steps": ["握手", "ping", "五项工具发现"],
+    "tool_schemas_without_filesystem_and_board_url": true,
+    "dependencies_installed": 0,
+    "global_configuration_changed": false,
+    "model_calls": 0,
+    "tools_call_count": 0
+  },
+  "fix": "initializeResponded 只在合法的 initialize 请求（有可响应 id、实际产生响应）时置位；无 id 的 initialize 通知按 JSON-RPC 语义不回响应、也不推进握手状态——『无 id initialize 通知 + notifications/initialized』绕过路径闭合",
+  "focused_regressions": {
+    "file": "tests/g085-mcp-collab.test.ts",
+    "passed": 11,
+    "failed": 0,
+    "new_case": "无 id 的 initialize 通知 + notifications/initialized → tools/call 仍 -32600 not initialized、board 零会话；随后有 id 的 initialize 请求 + 通知恢复正常可用",
+    "prior_rounds_maintained": "三轮确认的其余修复（path/out 拒绝、严格类型、握手状态、id 校验、stderr 纯净）全部维持通过"
+  },
+  "default": {
+    "file": ".test-fixtures/stage3b-fix4-full-default.log",
+    "total": 996,
+    "passed": 996,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "f1e93be4aaf02edf596dfc1305f5c8c32182a1e972c1fa739dfe8e1d39bbd31e"
+  },
+  "isolated": {
+    "file": ".test-fixtures/stage3b-fix4-full-isolated.log",
+    "total": 996,
+    "passed": 996,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "fd2cc830c01fb752ab1fc23e70d95a7f750f0826a422cfce13bd66e8a683772f"
+  },
+  "typecheck_exit_code": 0,
+  "docs_reconcile": "PASS（契约 v1.70 修复轮修订三同节，67 个版本节）",
+  "git_diff_check_exit_code": 0,
+  "api_contract": "v1.70",
+  "production_operations": "零模型调用、未重跑付费讨论、零生产会话操作；未重载看板（无需重载）",
+  "artifacts": [
+    { "file": "src/mcp-collab.ts", "sha256": "3f4b18450ae745f0c672bd43527896d239211074584a567f7b53b3063bce2869" },
+    { "file": "tests/g085-mcp-collab.test.ts", "sha256": "84c25e84f7f433bd445210f597093115ad684fa9bad9a0e03be05223a4fe998d" },
+    { "file": "src/web/api-contract.md", "sha256": "7ce4784feefd565990e312a529e8a5be8547c7cc6d7b290ab1e91f90da310710" },
+    { "file": "goals/GOAL-085-claude-and-triple-model-discussion.md", "sha256": "823795908068335889fc425d4b23182a3dc2044a4a8011abcc018e0405b2f579" },
+    { "file": "docs/goal-pool.md", "sha256": "2ce4630c284efbc1958cd3a729567717fe5c5572be339db9043b9648edd89cf8" },
+    { "file": ".test-fixtures/stage3b-fix4-full-default.log", "sha256": "f1e93be4aaf02edf596dfc1305f5c8c32182a1e972c1fa739dfe8e1d39bbd31e" },
+    { "file": ".test-fixtures/stage3b-fix4-full-isolated.log", "sha256": "fd2cc830c01fb752ab1fc23e70d95a7f750f0826a422cfce13bd66e8a683772f" },
+    { "file": ".test-fixtures/stage3b-independent-sdk-client.json", "sha256": "7bd38ceb694bfb0f6f3173565475bb06c1494e4062fe9d0671aa9d97effd5239" }
+  ],
+  "limitations": [
+    "费用与账号权益仍 UNKNOWN；pi-rpc 独立全量间歇失败根因未确认（本轮 996/996，不视为已解决）",
+    "skill 暂缓（owner 指示）；本轮零模型调用、未提交未推送；Goal 保持 PROPOSED",
+    "MCP 片收口由 owner 复核本修复后决定"
+  ]
+}

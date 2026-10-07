@@ -22,7 +22,15 @@ export function buildCodexContract(): AdapterContract {
     expected_model_id: 'UNKNOWN',
     variants: ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.2'],
     effort_levels: ['MINIMAL', 'LOW', 'MEDIUM', 'HIGH', 'XHIGH', 'MAX', 'ULTRA'],
-    effort_injection: { kind: 'flag', name: '--config' },
+    effort_injection: { kind: 'flag', name: '--config', config_key: 'model_reasoning_effort' },
+    // GOAL-084 §3.2（2026-10-01）：协作通道能力声明——以下旗标均为本机
+    // `codex exec --help`（codex 0.156.1）实录：-m/--model、-s/--sandbox
+    //（possible values 含 read-only）、--output-schema <FILE>。**实弹行为未验证**
+    //（真实派发与旗标生效需 owner 获批后逐项核验）；applyModelVariant 的补位
+    // 追加路径据此使 codex 首次可绑定模型变体。
+    model_flag: '-m',
+    tool_restriction_args: ['--sandbox', 'read-only'],
+    output_schema_flag: '--output-schema',
     // GOAL-018 U2/U3：F-50 未解锁，resume 跳过；上下文管理暂按 none。
     context_management: 'none',
   });

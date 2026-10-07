@@ -52,7 +52,8 @@ test('任务3 会话恢复：localStorage 持久化 + 加载重渲 + 会话选�
   assert.match(html, /saveChatSession/, '会话持久化函数');
   assert.match(html, /id="chat-session-select"/, '会话选择器');
   assert.match(html, /switchChatSession/, '切换/恢复函数');
-  assert.match(html, /mush\.chat\.sessions/, '会话注册表（选择器数据源）');
+  assert.match(html, /chatStorageKey\('sessions'\)/, '会话注册表按工作区隔离');
+  assert.match(html, /chatStorageKey\('session'\)/, '当前会话按工作区隔离');
   assert.match(html, /if \(chatSessionId\) switchChatSession\(chatSessionId\)/, '页面加载即恢复上次会话');
   assert.match(html, /恢复会话中…/, '恢复占位文案');
 });

@@ -1,0 +1,115 @@
+{
+  "goal_id": "GOAL-085",
+  "phase": "stability-stage1",
+  "executor": "Codex",
+  "status": "PROPOSED",
+  "owner_formal_acceptance": "pending",
+  "at": "2026-10-06T08:43:37.559Z",
+  "implementation": "VERIFIED",
+  "next_stages": {
+    "results": "NOT_IMPLEMENTED",
+    "cli_mcp_skill": "NOT_IMPLEMENTED"
+  },
+  "model_calls": 0,
+  "default": {
+    "file": ".test-fixtures/stage1-v2-default.log",
+    "total": 961,
+    "passed": 961,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "83e86f046d22629cc5577139898f64d8d4ac6942e79fdedb023c893df5287a3d"
+  },
+  "isolated": {
+    "file": ".test-fixtures/stage1-v2-isolated.log",
+    "total": 961,
+    "passed": 961,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "6f37851967ba9e1a3594f1f5bd2c81beb360dfd590926c4e18e4d87f1e54c602"
+  },
+  "typecheck_exit_code": 0,
+  "api_contract": "v1.67",
+  "production_checks": [
+    {
+      "name": "codex-agy",
+      "ready": true,
+      "real_reproduction": {
+        "status": "VERIFIED",
+        "session_id": "24675150-8055-4794-93a1-bedd28aa93d0",
+        "receipt": "GOAL-085-d98-dual-review-receipt.json"
+      }
+    },
+    {
+      "name": "codex-claude",
+      "ready": true,
+      "real_reproduction": {
+        "status": "VERIFIED",
+        "session_id": "1cafb42c-a97c-497d-a56c-09c2295825b4",
+        "receipt": "GOAL-085-d99-claude-dual-receipt.json"
+      }
+    }
+  ],
+  "browser_steps": [
+    "untested_model_retained_and_blocked",
+    "valid_untested_effort_allowed",
+    "refresh_detects_version_drift",
+    "restored_create_pending_approval_and_narrow_visible"
+  ],
+  "board_pid": 23072,
+  "limitations": [
+    "Account quota and complete cost remain UNKNOWN",
+    "D98 missing isolation proof remains accepted, not resolved",
+    "Exact approved historical combinations only; future models/versions require separate validation",
+    "No new real replay; fixture/browser checks do not prove new model behavior"
+  ],
+  "artifacts": [
+    {
+      "file": "src/web/dispatch.ts",
+      "sha256": "16d656cebe1bf56f6af495f275ba47aee2cdc55dbb7c59cc7a67aee4b5decb9c"
+    },
+    {
+      "file": "src/web/server.ts",
+      "sha256": "a3696f6e9e4ca7ba673059d67261279fc24cd6935e37f71b5cdcce04dc97921b"
+    },
+    {
+      "file": "src/web/page.ts",
+      "sha256": "65e4ae6335773baf5e595a72d6fc2521f284be39e2238480a1c57165078ed4d8"
+    },
+    {
+      "file": "src/web/collaboration-history.ts",
+      "sha256": "740897cf43bef62c6cd6f1cf3a98af16fdd55a469960e79a71d78bb6aac24a49"
+    },
+    {
+      "file": "src/orchestration/collaboration-blackboard.ts",
+      "sha256": "fdfd23e3f2fc1f3015324497f8c3d5938e91496ac5a0f40b929560875d9327be"
+    },
+    {
+      "file": "tests/g085-channel-readiness.test.ts",
+      "sha256": "0c06fab8370f39439f3b6f62f7ce28e3e2866c0a561bc9168ca44db5527982ae"
+    },
+    {
+      "file": "src/web/api-contract.md",
+      "sha256": "5ba0b00db0a152b94ff4b5e01c308d53edf73aac69e55bb461fbaf2b2f4edde6"
+    },
+    {
+      "file": ".test-fixtures/stage1-browser-8tAwt0/verified.json",
+      "sha256": "349fa4b84b8aa0893196cb805c577a806c2fcfb0f142de254f1d29ccce51dd80"
+    },
+    {
+      "file": ".test-fixtures/stage1-browser-8tAwt0/version-blocked.png",
+      "sha256": "e83424a65278454fbee30d52e0183209db2dcd373f5aed1d1f5b6e89b7dd5b91"
+    },
+    {
+      "file": ".test-fixtures/stage1-browser-8tAwt0/narrow-check.png",
+      "sha256": "e7b3a38d550fb70848b17f039c840b1c86754edf51b8d48c6b7c78f5c3852233"
+    },
+    {
+      "file": ".test-fixtures/stage1-live-check.json",
+      "sha256": "e02fcea15add2f54c6c398b8d7b4216ce6d0ff8bc4f1729976285543f6d63daf"
+    },
+    {
+      "file": "docs/operations/collaboration-stability-stage1-2026-10-06.md",
+      "sha256": "393d7025aa2782d3ef46a8723bfe80e6b16317f3a61d67c071166dbcb2426e19"
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 # GOAL-024 任务自动完成探测与可视化路径导图（Task Auto-Completion & Visual DAG Mindmap）
 
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；任务状态机自动推进与 DAG 导图在库，专测 tests/g024-*.test.ts 通过；目标池 GP-36 已记完成（2026-08-18）；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
+
 ## 目标与背景
 
 用户提出两项核心交互与自动化诉求：

@@ -389,3 +389,39 @@ test('GOAL-075 切片2：ndjson-events 通道归一化——stdout 人类可读 
   });
   assert.match(raw2.stdout, /"type":"step_start"/, 'without declared format stdout must stay raw');
 });
+
+test('GOAL-084：prompt_flag 通道——能力注入参数落在收尾值参旗标之前，prompt 恒紧随旗标', async () => {
+  // agy 形态：`-p <prompt>` 为收尾值参；若把旗标插在 `-p` 与 prompt 之间，
+  // agy 会把旗标当 prompt（2026-09-06 实弹教训）。runner 必须拼成
+  // [...args, ...capability, '-p', prompt]。
+  const captured: string[][] = [];
+  const spawn: SpawnFn = (_exe, args) => {
+    captured.push([...args]);
+    return makeFakeChild({ stdout: 'ok', exitCode: 0 });
+  };
+  const contract = makeContract({
+    prompt_transport: 'argument',
+    prompt_flag: '-p',
+    tool_restriction_args: ['--sandbox'],
+  });
+  await runT1({
+    contract,
+    prompt: 'discuss the design',
+    workspaceRoot: WORKSPACE,
+    receiptPath: RECEIPT,
+    timeoutMs: 1000,
+    spawn,
+    restrictTools: true,
+  });
+  assert.deepEqual(captured[0], ['--headless', '--sandbox', '-p', 'discuss the design']);
+  // 未声明 prompt_flag 的通道保持原样（prompt 直接收尾）
+  await runT1({
+    contract: makeContract({ prompt_transport: 'argument' }),
+    prompt: 'plain prompt',
+    workspaceRoot: WORKSPACE,
+    receiptPath: RECEIPT,
+    timeoutMs: 1000,
+    spawn,
+  });
+  assert.deepEqual(captured[1], ['--headless', 'plain prompt']);
+});

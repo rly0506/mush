@@ -1,0 +1,113 @@
+{
+  "goal_id": "GOAL-085",
+  "status": "PROPOSED",
+  "executor": "Codex",
+  "owner_formal_acceptance": "pending",
+  "decision": "D99",
+  "session_id": "1cafb42c-a97c-497d-a56c-09c2295825b4",
+  "at": "2026-10-06T07:51:11.468Z",
+  "verdict": "REAL_CODEX_CLAUDE_REVIEW_VERIFIED",
+  "calls": 7,
+  "retries": 0,
+  "review_relations": [
+    "A->B",
+    "B->A"
+  ],
+  "revisions": [
+    "A",
+    "B"
+  ],
+  "claude_cli_reported_usd": 0.1576171,
+  "codex_cost": "UNKNOWN",
+  "provider_invoice": "UNKNOWN",
+  "fee_stop_threshold_triggered": false,
+  "evidence": [
+    {
+      "file": "D:/mush/.test-fixtures/g085-claude-compat-2026-10-06/real-1cafb42c-a97c-497d-a56c-09c2295825b4/verified.json",
+      "sha256": "2222640ff2395385851052dbff95b3ba0fefe32d1d872bc3b80c19057fd8d3c0"
+    },
+    {
+      "file": "D:/mush/.test-fixtures/g085-claude-compat-2026-10-06/real-1cafb42c-a97c-497d-a56c-09c2295825b4/final-detail.json",
+      "sha256": "4e7708b19bfe09be510bea86cb9996e0a7ed052cf274e499f3698a91fd6612ed"
+    },
+    {
+      "file": "D:/mush/.test-fixtures/g085-claude-compat-2026-10-06/real-1cafb42c-a97c-497d-a56c-09c2295825b4/ledger-reconciliation.json",
+      "sha256": "fee3ac78e6b6c1679c7c3e07c14fc7e595b2279a753fa40902279adc0fcef5b4"
+    },
+    {
+      "file": "D:/mush/docs/operations/goal085-codex-claude-dual-result-2026-10-06.md",
+      "sha256": "89d54a7401d58a171658c5a8eff94aa15ef9b0dfa10655ce6ba4c85ebeb27c8f"
+    },
+    {
+      "file": "D:/mush/runtime/dispatches/6be512ee07b84e50b7f3d8744308ab5a.jsonl",
+      "sha256": "d5e41430b810471087166ec8c0aa4f83b3300f60c13ad139ed5d70167db98e17"
+    },
+    {
+      "file": "D:\\mush\\.mush-receipts\\dispatch-6be512ee07b84e50b7f3d8744308ab5a.json",
+      "sha256": "3965526e2c6fb40897f4bc95e59d5534fc5f9bdb25f66acefe771e1fecc1378b"
+    },
+    {
+      "file": "D:/mush/runtime/dispatches/a63fd034e37e4823bd260697965130c0.jsonl",
+      "sha256": "7a250145847d9ff8c11a5f145da1c10cd23eca814060d505480cb03a7d5b02dc"
+    },
+    {
+      "file": "D:\\mush\\.mush-receipts\\dispatch-a63fd034e37e4823bd260697965130c0.json",
+      "sha256": "54879d5a337f0c0eb65d21f8e02853e0c6058dcd6a6ab48fbacbef41d16fd609"
+    },
+    {
+      "file": "D:/mush/runtime/dispatches/2d4fa5cddd23438b82aa79d41c4aeb3f.jsonl",
+      "sha256": "a351fe960e50443fe15c023a3d3487ff0afc6fc26cc79e6bbffd351e1b8c6044"
+    },
+    {
+      "file": "D:\\mush\\.mush-receipts\\dispatch-2d4fa5cddd23438b82aa79d41c4aeb3f.json",
+      "sha256": "674c0629dd9b1ca9cd8bf864217bc2bfa0d204b28bcf0d156e68fa938d226f14"
+    },
+    {
+      "file": "D:/mush/runtime/dispatches/e67da7903b4b4a92aae862163edb5d86.jsonl",
+      "sha256": "d047457bfe5530eaa1a872b52b53867a97c64b370f7f98f360cf5fdf004e490f"
+    },
+    {
+      "file": "D:\\mush\\.mush-receipts\\dispatch-e67da7903b4b4a92aae862163edb5d86.json",
+      "sha256": "1d59242d94a6e10ef962b5c509976d480d1cc19fc6a9de4bbfaac3ba6bdd6639"
+    },
+    {
+      "file": "D:/mush/runtime/dispatches/490d8f79566a42adbbc63b8d6420b7f9.jsonl",
+      "sha256": "27b30e36cdcba13d9bfa8f4a3fa31a2fac89395469459be75fb1b3c24e0f771e"
+    },
+    {
+      "file": "D:\\mush\\.mush-receipts\\dispatch-490d8f79566a42adbbc63b8d6420b7f9.json",
+      "sha256": "f8c5ac149de08612c21b8da912ab841e1b8e137e9bedc8adc5d2ae5118c9a0a2"
+    },
+    {
+      "file": "D:/mush/runtime/dispatches/a3062552d696439a8edaf46b8fd168b7.jsonl",
+      "sha256": "2094b09ab4583925148f872721364c2c0212ced4559ffb43131ef278c8d9196f"
+    },
+    {
+      "file": "D:\\mush\\.mush-receipts\\dispatch-a3062552d696439a8edaf46b8fd168b7.json",
+      "sha256": "fde2f946b6252a73e58e407a7d21577b98bb7de49cfeae5437189a4a50dd3c22"
+    },
+    {
+      "file": "D:/mush/runtime/dispatches/e0d9da2cd4564890af6d97969f57903b.jsonl",
+      "sha256": "7b9c025b8648636ed0328643011c3d64c7b19fc5903b55a7c909ed7d3ae9945d"
+    },
+    {
+      "file": "D:\\mush\\.mush-receipts\\dispatch-e0d9da2cd4564890af6d97969f57903b.json",
+      "sha256": "d045f4e40963c6bc4d617be8f04ebdd54d7766be5ed360dcb92f217de1f16400"
+    }
+  ],
+  "verification": {
+    "focused_pass": 26,
+    "focused_log_sha256": "2059d147fc9e07d0312db8de3d85b0dd86334696cbf8f14a7f18d15f33f63a8d",
+    "source_changed": false,
+    "full_baseline": "current TS source still the previously verified 955/955 both modes; not rerun this turn",
+    "compatibility_report_sha256": "e7e0aa3e335bb3b077e2651d42e11e964529340d586fbe461b6688fe7be74b49"
+  },
+  "coverage": "this exact approved pair/model/effort/config/version and five frozen excerpts only",
+  "limitations": [
+    "D99 is exact version acceptance, not new full isolation evidence",
+    "agy accepted gaps in D98 remain unmet",
+    "No arbitrary model/effort/version or every harness guaranteed",
+    "No whole GOAL-084 code audit",
+    "No auto next scene or Goal DONE; skill/plugin remains deferred"
+  ]
+}

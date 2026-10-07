@@ -1,6 +1,6 @@
 ---
 goal_id: MUSH-GOAL-022
-status: QUEUED（RM-004 / 体验线；D36 人话原则首批落地；kimi 重启载荷）
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；任务池人因 UX（D36 人话原则首批）在库，专测 tests/g022-*.test.ts 通过；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 mode: LIGHT
 rm: RM-004 / 体验线（任务池人因 UX 批）
 executor_model_profile: kimi-code（前端，owner 窗口直启）

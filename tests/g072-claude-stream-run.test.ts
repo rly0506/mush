@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+﻿import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -14,7 +14,7 @@ const FIXTURE = [
   '{"type":"result","subtype":"success","result":"42","total_cost_usd":0.0123,"session_id":"sess_fix_1"}',
 ].join('\n');
 
-test('G072：runClaudeStreamRun 提取 result/会话/成本，stdout 归一为结果文本', async () => {
+test('G072：runClaudeStreamRun 提取 result/会话/成本，且保留原始流', async () => {
   const root = mkdtempSync(path.join(tmpdir(), 'g072-claude-'));
   try {
     let sawPrompt: string | null = null;
@@ -36,7 +36,12 @@ test('G072：runClaudeStreamRun 提取 result/会话/成本，stdout 归一为�
       },
     });
     assert.equal(res.exitCode, 0);
-    assert.equal(res.stdout, '42', 'stdout must be normalized to result text');
+    // GOAL-085（2026-10-05，独立审核发现的归因缺陷）：stdout 不再被压成 final text——
+    // 原始 stream-json 必须保留，否则原生 system/init（模型身份）、tool_use/tool_result、
+    // permission_denied、task_* 这些**可核验事实**全部丢失，判断只能退化为相信模型自报。
+    // 解析结果仍以 resultText / structuredOutput 提供（协调器直接读后者）。
+    assert.ok(res.stdout.includes('"type"') || res.stdout.includes('"result"'),
+      'stdout 必须保留原始流：' + JSON.stringify(res.stdout.slice(0, 200)));
     assert.equal(res.resultText, '42');
     assert.equal(res.sessionId, 'sess_fix_1');
     assert.equal(res.totalCostUsd, 0.0123);

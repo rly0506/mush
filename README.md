@@ -32,3 +32,20 @@ Node/TS 重写与产品化续篇。
 1. **证据链是内核能力**，不是流程税：默认轻量、自动留痕、不阻断。
 2. **用户显式接受才 DONE**：模型不自行宣布完成。
 3. **默认不无人值守**：按需拉起，常驻开关默认关闭。
+
+## 开发验证
+
+在仓库根目录运行，要求 Node.js >=24。Windows 使用 `npm.cmd` 避开 PowerShell 脚本执行策略：
+
+```powershell
+npm.cmd run typecheck
+npm.cmd test
+npm.cmd run test:isolated
+```
+
+两个测试入口均通过 `tests/setup.ts` 隔离用户配置和主预算账本，产物保留在 `.test-fixtures/test-env/`。单文件测试也应携带预加载参数，避免写入真实用户账本：
+
+```powershell
+node --import ./tests/setup.ts --test --test-isolation=none D:\mush\tests\persistence.test.ts
+node --import ./tests/setup.ts D:\mush\scripts\g076-board-regression-baseline.cjs
+```

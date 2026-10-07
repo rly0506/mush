@@ -1,6 +1,6 @@
 # GOAL-027: 本地会话用量与花费监控 (Local Token & Cost Monitor)
 
-- 状态：`ACTIVE`（2026-08-19 立项，基于 GP-33 与 owner 授权）
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；本地用量与花费监控（契约 v1.13）在库，专测 tests/g027-*.test.ts 通过；目标池 GP-33 已记完成（2026-08-19）；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 - 依据：`GP-33`、`D32` 与 `CONSTITUTION.md §1`（花钱与证据纪律）。
 
 ---

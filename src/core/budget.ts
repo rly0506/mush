@@ -175,11 +175,10 @@ export class UsdBudgetLedger {
     const entries = this.ledgers.get(opts.actorId) ?? [];
     // GOAL-068（A1）：门禁与 spentUsd() 同源同口径——同一 dispatch 的预估行被
     // ACTUAL_COST 覆盖（去重），不再把预留+实付双算进 spentBefore 导致提前拒单。
-    const spentBefore = roundMicroUsd(
-      entries
-        .filter((entry) => entry.decision === 'ADMITTED' && !isActualCostCoveredReserve(entries, entry))
-        .reduce((sum, entry) => sum + entry.amountUsd, 0)
-    );
+    // GOAL-085 修复：门禁的 spentBefore 直接复用 computeSpentUsd（含**全部实付**，
+    // 也含此前因超 cap 被拒的那几笔实付），否则一次超支之后账本会"忘记"这笔钱，
+    // 后续请求继续被放行。
+    const spentBefore = computeSpentUsd(entries);
     const allowed = roundMicroUsd(spentBefore + amountUsd) <= capUsd;
     const decision = allowed ? 'ADMITTED' : 'DENIED';
     const previous = entries[entries.length - 1]?.sha256 ?? null;
@@ -263,7 +262,10 @@ function entryDispatchId(entry: UsdAdmissionEntry): string | null {
   return entry.meta && typeof entry.meta.dispatch_id === 'string' ? entry.meta.dispatch_id : null;
 }
 
-/** 预估行已被同 dispatch 的 ACTUAL_COST 覆盖（后者在账序上更晚）→ 不再计入花费。 */
+/** 预估行已被同 dispatch 的 ACTUAL_COST 覆盖（后者在账序上更晚）→ 不再计入花费。
+ *  GOAL-085 第二轮边界修复（独立复核发现）：覆盖判定**不得要求实付行是 ADMITTED**。
+ *  实付行本身可能因"已超 cap"被标 DENIED（它是在登记已花掉的钱，不是在申请额度），
+ *  此时预估若仍计入就会重复计费——实测：预估 0.05 + 实付 0.34339 被错记为 0.39339。 */
 function isActualCostCoveredReserve(entries: readonly UsdAdmissionEntry[], target: UsdAdmissionEntry): boolean {
   if (target.meta && target.meta.kind === 'ACTUAL_COST') return false;
   const did = entryDispatchId(target);
@@ -272,17 +274,30 @@ function isActualCostCoveredReserve(entries: readonly UsdAdmissionEntry[], targe
   return entries.some(
     (e, i) =>
       i > idx &&
-      e.decision === 'ADMITTED' &&
       entryDispatchId(e) === did &&
       e.meta !== undefined &&
       e.meta.kind === 'ACTUAL_COST',
   );
 }
 
-/** 花费口径（admit 门禁与 spentUsd 共用，GOAL-068 A1）：ADMITTED 且未被实付覆盖的预估 + 全部实付。 */
+/** 花费口径（admit 门禁与 spentUsd 共用，GOAL-068 A1）：ADMITTED 且未被实付覆盖的预估 + 全部实付。
+ *  GOAL-085 修复（独立审核发现）：**实付条目无论 decision 一律计入**。
+ *  此前 `decision !== 'ADMITTED' ? continue` 会把"实付本身已超 cap 因而被拒"的那笔钱
+ *  当成没花掉（实测 `actualCostUsd=0.343390, cap=0.1` → `DENIED` 且 `spentUsd=0`，
+ *  下一次零预估请求仍 `ADMITTED`）。已经发生的消耗不能因为"拒绝"就不计支出。
+ *  预估（RESERVE/PREDICTED）仍按准入语义：被拒的预估不占额、不阻塞后续。 */
+function isActualCostEntry(entry: UsdAdmissionEntry): boolean {
+  return entry.meta !== undefined && entry.meta.kind === 'ACTUAL_COST';
+}
+
 function computeSpentUsd(entries: readonly UsdAdmissionEntry[]): number {
   let total = 0;
   for (const entry of entries) {
+    if (isActualCostEntry(entry)) {
+      // 实付：已花掉的钱，按实际金额全额计入支出。
+      total += entry.amountUsd;
+      continue;
+    }
     if (entry.decision !== 'ADMITTED') continue;
     if (isActualCostCoveredReserve(entries, entry)) continue;
     total += entry.amountUsd;

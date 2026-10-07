@@ -1,0 +1,38 @@
+{
+  "goal_id": "GOAL-085",
+  "phase": "stage3a-cli-close",
+  "executor": "GLM",
+  "independent_reviewer": "Codex（四边界复核通过 + 实际执行 node bin/mush collab status/result 只读读取历史真实会话）",
+  "ruling_wording": "按 §7.5 纪律：Codex 独立复核通过，Owner 转呈；CLI 薄入口片按本地技术验收收口——这不是 Owner 正式验收，Goal 仍未 DONE",
+  "status": "PROPOSED",
+  "owner_formal_acceptance": "pending",
+  "at": "2026-10-06T20:25:00.000Z",
+  "implementation": "VERIFIED",
+  "scope": "CLI 薄入口片收口；下一片=本地 stdio MCP（owner 启动，复用同一客户端与审批门）；skill 随后",
+  "model_calls": 0,
+  "production_operations": "Codex 只读验证（status/result）零模型调用、未创建/批准/停止生产会话；本轮未重载看板（无需重载）",
+  "reviewer_confirmation": {
+    "race_preserved": true,
+    "check_stop_reject_non_protocol": true,
+    "body_timeout_exit_3": true,
+    "ipv6_loopback_pass": true,
+    "reviewer_own_runs": "16/16 回归、typecheck、对账、diff 检查",
+    "full_suite": "985/985 两份日志核对，未复跑",
+    "live_cli_read": {
+      "file": ".test-fixtures/stage3a-codex-live-read.json",
+      "session_id": "1cafb42c-a97c-497d-a56c-09c2295825b4",
+      "result": "completed、7 调用、complete=true、费用 PARTIAL（$0.157617 已知小计 + 4 次 UNKNOWN）",
+      "conclusion": "CLI 无需重载看板即可使用（实测印证 §7.7 更正）"
+    }
+  },
+  "artifacts": [
+    { "file": ".test-fixtures/stage3a-fix2-final-review-wWajZ4/review.json", "sha256": "a7742234e600d377cee2acfbeaf81efcee44250f52515dfafc2b8ad48cdb08eb" },
+    { "file": ".test-fixtures/stage3a-codex-live-read.json", "sha256": "0110dc4d9d6b7553353e203b174c7724c342c6a0c6191922ee01d412af0f32fa" },
+    { "file": ".test-fixtures/stage3a-fix2-full-default.log", "sha256": "e78cbd9dbf7bbeefaceface8e4481ea3c1730443880605b4c1c09101743b847a" },
+    { "file": ".test-fixtures/stage3a-fix2-full-isolated.log", "sha256": "0f8a1477ab0aeacb6d794785495cab2381d9f8eb471fff5759b7844853e713a4" }
+  ],
+  "limitations": [
+    "费用与账号权益仍 UNKNOWN；pi-rpc 独立全量间歇失败根因未确认",
+    "Owner 正式验收（Goal §6 末项）未发生；未提交未推送"
+  ]
+}

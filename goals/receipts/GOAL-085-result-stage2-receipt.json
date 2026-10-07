@@ -1,0 +1,95 @@
+{
+  "goal_id": "GOAL-085",
+  "phase": "result-stage2",
+  "executor": "GLM",
+  "reviewer_note": "执行与核验署名均为 GLM（ZCode 会话）；非 Owner 正式验收，Goal 保持 PROPOSED",
+  "status": "PROPOSED",
+  "owner_formal_acceptance": "pending",
+  "at": "2026-10-06T17:30:00.000Z",
+  "implementation": "VERIFIED",
+  "scope": "讨论结果整理与本地导出（第二阶段）；CLI/MCP/skill 第三阶段未实施",
+  "model_calls": 0,
+  "production_sessions": "本轮零生产建卡/批准/启动；未改预算、版本接受名单、指纹、隔离政策、凭据或全局配置",
+  "default": {
+    "file": ".test-fixtures/stage2-full-default.log",
+    "total": 966,
+    "passed": 966,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "632bdb18d8b77f2752d1de26ccd21c8010ba3ca86814cd13df4b72888dc8596b"
+  },
+  "isolated": {
+    "file": ".test-fixtures/stage2-full-isolated.log",
+    "total": 966,
+    "passed": 965,
+    "failed": 1,
+    "exit_code": 1,
+    "sha256": "0e7b7f4785cafaf1a91fd2a2fbbb5c73d7de322cf1386b3a8aaf8eaa6bfd6580",
+    "failing_test": "pi-rpc-completion-state-machine.test.ts: stdout audit file is write-only and never read as input (PS L499-L504) — assert exitCode 0, actual 63",
+    "root_cause": "根因未确认，本轮改动影响尚未排除；该文件本轮未触碰。定向对照：单文件隔离连跑 3 轮均 32/32（stage2-pi-rpc-single-{1,2,3}.log），不构成与本轮改动无关的结论；失败日志保留，未复跑掩盖"
+  },
+  "typecheck_exit_code": 0,
+  "docs_reconcile": "PASS（契约 v1.68，65 个版本节）",
+  "git_diff_check_exit_code": 0,
+  "api_contract": "v1.68",
+  "focused_regressions": {
+    "file": "tests/g085-session-result.test.ts",
+    "passed": 5,
+    "failed": 0,
+    "first_round_failure_log": ".test-fixtures/stage2-first-round/focused-first-round-fail.log",
+    "coverage": [
+      "完整双模型结果（结构/观点/费用部分申报 4 DECLARED + 3 UNKNOWN/敏感字段排除/JSON-Markdown 一致）",
+      "缺少修订（中途 failed：last_phase=proposal、未完成说明、费用 UNKNOWN 不当 0）",
+      "中断会话可读可导出",
+      "历史三席位只读（批准/启动/取消 409，可导出，不冒充双模型验收）",
+      "待批准会话导出（end=null、费用空集 UNKNOWN）与未知会话 400"
+    ]
+  },
+  "browser_acceptance": {
+    "root": ".test-fixtures/g085-result-browser-2026-10-06",
+    "engine": "真实 Chromium（.venv-pw Playwright）+ 独立 fixture 数据根 + fake runner",
+    "real_models": false,
+    "page_errors": 0,
+    "steps": [
+      "desktop_result_view_default_revision",
+      "process_view_expand_5_cards_with_raw_json",
+      "json_and_markdown_local_download_verified_against_blackboard",
+      "narrow_390_single_column",
+      "historical_three_seat_readonly_and_exportable",
+      "stop_in_flight_interrupted_with_honest_incomplete_note"
+    ],
+    "completed_session_calls": 7,
+    "stopped_session_status": "interrupted"
+  },
+  "artifacts": [
+    { "file": "src/web/collab-result.ts", "sha256": "83dcce3c4afcd17679fdae8f47650399a3b86fe19e58033326602c1006e25ff0" },
+    { "file": "src/web/server.ts", "sha256": "3876928858d669e8db0527ff810167e9365b2b6d60008a58b79d1bfa064ce994" },
+    { "file": "src/web/page.ts", "sha256": "9f95f41745c57563994d9685104c14aa0e9c1991718fd6444ee0436cc5df5f41" },
+    { "file": "src/web/api-contract.md", "sha256": "9b53fae0d754a803cc73cb0b39dedefdb87bc10022e3425b64fad0657dc0d1c8" },
+    { "file": "tests/g085-session-result.test.ts", "sha256": "8bb0b3480398d207ec0901fd07c1225033c7d3c5f4f688814ca5676c72e40bc9" },
+    { "file": "goals/GOAL-085-claude-and-triple-model-discussion.md", "sha256": "9b7644fbd3a632d1cb39e879013dd20d68f63f1d72225d1aa8a069dca4e1d574" },
+    { "file": "docs/goal-pool.md", "sha256": "7c535e0bd70b0b61f257fc816b06f5e7d5fa653e4fd2e7e1082e908f6515ce35" },
+    { "file": ".test-fixtures/stage2-full-default.log", "sha256": "632bdb18d8b77f2752d1de26ccd21c8010ba3ca86814cd13df4b72888dc8596b" },
+    { "file": ".test-fixtures/stage2-full-isolated.log", "sha256": "0e7b7f4785cafaf1a91fd2a2fbbb5c73d7de322cf1386b3a8aaf8eaa6bfd6580" },
+    { "file": ".test-fixtures/stage2-pi-rpc-single-1.log", "sha256": "6512ef8eae3082afc7833bcd3e6db0e4c6870f8664fb59264db8f5659bb8034b" },
+    { "file": ".test-fixtures/g085-result-browser-2026-10-06/verified.json", "sha256": "874da1a631fe6f244b4a95df8f1c285a530288fb8ba0edeca3588c3d7f86171e" },
+    { "file": ".test-fixtures/g085-result-browser-2026-10-06/browser.json", "sha256": "9e1edb4c98ce1037daafd9bfa5f27f15ceb8935f8797d380590c0d7e835d40f8" },
+    { "file": ".test-fixtures/g085-result-browser-2026-10-06/exported-result.json", "sha256": "34e2e0d64a38fda9e1b721f3a3d8d5df8c38f9ae40c2e536097908d0a6db8855" },
+    { "file": ".test-fixtures/g085-result-browser-2026-10-06/exported-result.md", "sha256": "f929c231a4cbaf5dab72477afc201f58705d19ff54b66e06a9bdc187bb39495f" },
+    { "file": ".test-fixtures/g085-result-browser-2026-10-06/historical-export.json", "sha256": "dbdf95074bdeed055c276814187262942eecd9863ee7406bf6b78cf15e2aa026" },
+    { "file": ".test-fixtures/g085-result-browser-2026-10-06/result-desktop.png", "sha256": "c0733f4c7e88e41acdb124aaf313b7451a8424d2a500c8b31acf44a9e8a7fdd6" },
+    { "file": ".test-fixtures/g085-result-browser-2026-10-06/process-expanded.png", "sha256": "ccd6e36eb6d0c7d33c7acb70ffa0c22a1fed156aa02fe9cc535f90761e12e1be" },
+    { "file": ".test-fixtures/g085-result-browser-2026-10-06/narrow-results.png", "sha256": "165d1b2ff0c112791d91e98a0b92d6467a0ab5c7d8b36f78aabc17762dd66533" },
+    { "file": ".test-fixtures/g085-result-browser-2026-10-06/historical-three-readonly.png", "sha256": "72794fb1cc2a56cd3992ab444bee33962840c9df744a8e61745fb4c1d5c9bac0" },
+    { "file": ".test-fixtures/g085-result-browser-2026-10-06/stopped.png", "sha256": "0f06223095f893aed4b7961a563483c0a50e24290331601260df2ec3f86dd634" },
+    { "file": ".test-fixtures/g085-result-browser-2026-10-06/run-browser.mjs", "sha256": "6d42453391c8eca37dba324ace43c0ce2d93293fa4c2666079175acf3e1cbae4" },
+    { "file": ".test-fixtures/g085-result-browser-2026-10-06/browser-check.py", "sha256": "0b2dc0e69c548457d94af3c7fef724926a197be58a29cb57c4f937859eeb5ffa" }
+  ],
+  "limitations": [
+    "费用与账号权益仍 UNKNOWN；台账申报不等于账单硬上限",
+    "独立全量 1 例 pi-rpc 失败根因未确认，本轮改动影响尚未排除",
+    "历史三席位只读导出不构成对三模型流程的验收，也不冒充当前双模型验收通过",
+    "导出为快照性质：重新导出的 generated_at_utc 会变化，内容字段与黑板同源",
+    "本轮未提交、未推送；生产看板重载前需 owner 先行复核验证结果与在途状态"
+  ]
+}

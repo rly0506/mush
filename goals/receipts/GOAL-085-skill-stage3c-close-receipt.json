@@ -1,0 +1,26 @@
+{
+  "goal_id": "GOAL-085",
+  "phase": "stage3c-skill-close",
+  "executor": "GLM",
+  "independent_reviewer": "Codex（typecheck 真实退出码 0、skill 7/7、对账与 diff 检查独立确认；fix2 回执 4 项哈希一致；两份 1003/1003 日志核对未复跑）",
+  "ruling_wording": "按 §7.5 纪律：Codex 独立复核通过，Owner 转呈；薄 skill 按本地技术验收收口——这不是 Owner 正式验收，Goal 仍为 PROPOSED",
+  "status": "PROPOSED",
+  "owner_formal_acceptance": "pending",
+  "at": "2026-10-07T10:00:00.000Z",
+  "implementation": "VERIFIED",
+  "scope": "skill 片收口；CLI、stdio MCP、薄 skill 三片均完成本轮技术交付；下一片=选一个 harness 做项目内加载及零模型调用的只读验证（§7.19），无需重跑付费讨论",
+  "model_calls": 0,
+  "retained_limitations": [
+    "skill 尚未在具体 harness 加载验收（§7.19 处理）",
+    "历史 pi-rpc 间歇失败根因未解决"
+  ],
+  "artifacts": [
+    { "file": ".test-fixtures/stage3c-codex-fix-review.json", "sha256": "9b126e7031521d92f15889977d029b3c2728636d5e91bb1fe98bd73a84ef6de3" },
+    { "file": ".test-fixtures/stage3c-fix2-typecheck.log", "sha256": "76e242f2a8428dd7b0f0ebd221e4c2b6263943c16aa40f375c4fa31ec2d88e1a" },
+    { "file": ".test-fixtures/stage3c-fix2-full-default.log", "sha256": "fd3c9a463759e164d475661b6ced832054e937e75f48f4d4bba2dbf06f90f8b2" },
+    { "file": ".test-fixtures/stage3c-fix2-full-isolated.log", "sha256": "14b19bf491049dc11e8535593072053b7499976bb4fe9ce5f9c524beef42ed4d" }
+  ],
+  "limitations": [
+    "费用与账号权益仍 UNKNOWN；Goal 整体验收待 Owner；未提交未推送"
+  ]
+}

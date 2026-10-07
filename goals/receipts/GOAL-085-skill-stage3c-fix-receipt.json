@@ -1,0 +1,64 @@
+{
+  "goal_id": "GOAL-085",
+  "phase": "stage3c-skill-doc-fix",
+  "executor": "GLM",
+  "independent_reviewer": "Codex（四处文档修正需求独立复核 + 示例解析与哈希核对；证据 .test-fixtures/stage3c-codex-review.json）",
+  "reviewer_note": "执行与核验署名为 GLM（ZCode 会话）；Codex 为独立复核方；非 Owner 正式验收，Goal 保持 PROPOSED",
+  "status": "PROPOSED",
+  "owner_formal_acceptance": "pending",
+  "at": "2026-10-07T09:40:00.000Z",
+  "implementation": "VERIFIED",
+  "scope": "skill 片文档修正轮：SKILL.md 四处修正 + 防漂移回归升级 + 示例逐条实跑验证；讨论引擎、CLI/MCP 行为、契约均未变；此前回执保留不改写",
+  "fixes": [
+    "① 等待设上限：create 后交还审批卡路径与会话号给用户（除用户明确要求外不自行等待）；status 轮询设上限（≤10 次、间隔 ≥30s 或用户给定）；审批以 owner_decision 字段为准（authorized 是短暂中间态）",
+    "② Windows 示例单行：全部 Bash 续行符移除（PowerShell 兼容，静态断言无行尾 '\\\\'）；board 启动备选命令补 --port 4790（board 默认随机端口）",
+    "③ 模型与强度选择：『不换模型』限定为『不在失败后自动换道、不修改已批准配置』；初始模型与强度遵从用户输入；补 --effort-a/--effort-b 示例",
+    "④ 费用三态完整：删除『费用恒 UNKNOWN』，改为 DECLARED（申报合计）/PARTIAL（已知申报小计，整场不完整）/UNKNOWN（无申报记录，不是 0），并区分台账申报口径、账号额度（account_quota，当前恒 UNKNOWN）、真实账单硬上限"
+  ],
+  "focused_regressions": {
+    "file": "tests/g085-skill-collab.test.ts",
+    "passed": 7,
+    "failed": 0,
+    "dev_round_failures": "开发轮 2 例失败均为测试自身问题（argvOf 参数个数、markdown 落盘断言误用 JSON schema 字符串），修正后全绿",
+    "new_cases": [
+      "静态断言：无 Bash 续行符行（PowerShell 单行兼容）",
+      "静态断言：--port 4790、--effort-a/--effort-b、owner_decision、交还给用户、轮询必须设上限",
+      "静态断言：费用三态 DECLARED/PARTIAL/UNKNOWN + 不是 0 + 真实账单区分",
+      "静态断言：不在失败后自动换道 + 不修改已批准配置 + 遵从用户",
+      "示例逐条实跑：从 SKILL.md 原样抽取五条 collab 示例命令，占位符替换后在 fixture 看板经 runCli 执行——check/create/status/result/stop 全部 exit 0，create 得 PENDING_OWNER_APPROVAL 且零调用，result --out 落盘 Markdown，stop 取消待批会话"
+    ]
+  },
+  "default": {
+    "file": ".test-fixtures/stage3c-fix-full-default.log",
+    "total": 1003,
+    "passed": 1003,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "7af98bffd5a3c1815045beec95990c6bcbd618c2a4f565ca508f202f7ac391cf"
+  },
+  "isolated": {
+    "file": ".test-fixtures/stage3c-fix-full-isolated.log",
+    "total": 1003,
+    "passed": 1003,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "81d000f22bd8ad10391bfb2155caad73ada75cbcffb2de0729252400bc00e4ac"
+  },
+  "typecheck_exit_code": 0,
+  "docs_reconcile": "PASS（契约 v1.70，67 个版本节）",
+  "git_diff_check_exit_code": 0,
+  "api_contract": "v1.70",
+  "production_operations": "零模型调用、零生产会话操作、未重载看板（无需重载）；讨论引擎未动",
+  "artifacts": [
+    { "file": "skills/collab/SKILL.md", "sha256": "51d2303227a6dfbd3643b9ee8455025a4e31370cf88f028dd676cbb39ce55d3a" },
+    { "file": "tests/g085-skill-collab.test.ts", "sha256": "9bf51fd05e2f7c26d3e778a5951b103c8f42ba766ae85ca19db124225c198949" },
+    { "file": "src/cli.ts", "sha256": "67f92f43ba4f33eb9c6adaac85bf89511c63e19614eebdb12bfbe8de0b3fd198" },
+    { "file": ".test-fixtures/stage3c-fix-full-default.log", "sha256": "7af98bffd5a3c1815045beec95990c6bcbd618c2a4f565ca508f202f7ac391cf" },
+    { "file": ".test-fixtures/stage3c-fix-full-isolated.log", "sha256": "81d000f22bd8ad10391bfb2155caad73ada75cbcffb2de0729252400bc00e4ac" }
+  ],
+  "limitations": [
+    "费用与账号权益仍 UNKNOWN；pi-rpc 独立全量间歇失败根因未确认（本轮 1003/1003，不视为已解决）",
+    "skill 未在具体 harness 装载机制做人工验收、未全局安装（符合当前范围）；内容面由防漂移回归与示例实跑覆盖",
+    "本轮零模型调用、未提交未推送；Goal 保持 PROPOSED"
+  ]
+}

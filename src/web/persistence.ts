@@ -6,7 +6,8 @@
  * 4) 单实例锁 runtime/board.lock（F-42；陈锁接管；释放写 released_at 不删文件）
  */
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import type { DispatchLifecycleEvent, DispatchRecord } from './dispatch.ts';
 import type { EventLogEntry } from '../core/event-log.ts';
@@ -37,13 +38,39 @@ function parseJsonLineSafe(line: string, source: string): Record<string, unknown
   }
 }
 
+/** D95 漂移依据读回守卫：四字段全为字符串才认，坏形态按缺失处理（不编造、不炸）。 */
+function isClaudeBindingDrift(value: unknown): value is NonNullable<DispatchRecord['version_drift_accepted']> {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return typeof v.decision === 'string'
+    && typeof v.accepted_by === 'string'
+    && typeof v.frozen_native_version === 'string'
+    && typeof v.observed_native_version === 'string';
+}
+
+/**
+ * 原子替换（GOAL-084 收口）：同目录临时文件 + rename，读者永不看到被截断的首行。
+ * 并发读（API/桌面端）在此期间读到的是旧完整内容或新完整内容，二选一。
+ * 只用于 header 重写；事件行仍走 appendFileSync 增量追加。
+ */
+function writeAtomic(file: string, text: string): void {
+  const tmp = file + '.tmp-' + process.pid + '-' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
+  try {
+    writeFileSync(tmp, text, 'utf8');
+    renameSync(tmp, file);
+  } catch (error) {
+    try { rmSync(tmp, { force: true }); } catch { /* 清不掉临时文件也不能掩盖原始错误 */ }
+    throw error;
+  }
+}
+
 export class BoardPersistence {
   readonly runtimeRoot: string;
-  private readonly isAlive: (pid: number) => boolean;
+  private readonly isAlive: (pid: number, port?: number) => boolean;
 
-  constructor(runtimeRoot: string, opts: { isAlive?: (pid: number) => boolean } = {}) {
+  constructor(runtimeRoot: string, opts: { isAlive?: (pid: number, port?: number) => boolean } = {}) {
     this.runtimeRoot = path.resolve(runtimeRoot);
-    this.isAlive = opts.isAlive ?? processAlive;
+    this.isAlive = opts.isAlive ?? isProcessReallyActive;
   }
 
   private ensureDir(): void {
@@ -55,11 +82,17 @@ export class BoardPersistence {
     return path.join(this.runtimeRoot, 'dispatches', `${dispatchId}.jsonl`);
   }
 
-  /** header 一次性写入（append-only：文件存在则不重写）。 */
+  /** 首行 header 写入/重写。
+   *
+   *  证据边界（GOAL-084 收口）：本文件有两种行，语义不同——
+   *  1) 首行 header 是**可变投影**：随 status/stdout_tail/session_id/receipt_path
+   *     等记录字段变化而整体重写，供重启后恢复展示与 rerun 快照；
+   *  2) 其后的 `kind:"event"` 行是**原始证据链**：只追加，header 重写不得改动它们。
+   *  header 不承载 `structured_output`（完整对象在回执 JSON，见 tests/persistence.test.ts）。
+   *  重写走同目录临时文件 + rename，读者不会看到被截断的首行。 */
   saveDispatchHeader(record: DispatchRecord): void {
     this.ensureDir();
     const file = this.dispatchPath(record.dispatch_id);
-    if (existsSync(file)) return;
     const header = {
       kind: 'header',
       schema_version: 1,
@@ -72,12 +105,37 @@ export class BoardPersistence {
       stdout_tail: record.stdout_tail,
       stderr_tail: record.stderr_tail,
       session_id: record.session_id,
+      // GOAL-085 D95 收口（2026-10-05 交接 §4.1）：审计字段必须随 header 落盘——
+      // version_drift_accepted 是放行依据（D95 声称"写入派发记录"），observed_model_id
+      // 是运行时观测身份。缺省时省略键，不编造。
+      ...(record.observed_model_id !== undefined ? { observed_model_id: record.observed_model_id } : {}),
+      ...(record.version_drift_accepted !== undefined ? { version_drift_accepted: record.version_drift_accepted } : {}),
       ...(record.stream_id !== undefined ? { stream_id: record.stream_id } : {}),
       ...(record.task_id !== undefined ? { task_id: record.task_id } : {}),
       ...(record.carveout_id !== undefined ? { carveout_id: record.carveout_id } : {}),
       ...(record.request !== undefined ? { request: record.request } : {}),
     };
-    writeFileSync(file, JSON.stringify(header) + '\n', 'utf8');
+    if (!existsSync(file)) {
+      writeFileSync(file, JSON.stringify(header) + '\n', 'utf8');
+      return;
+    }
+    // 更新语义：REPORT 后 record 获得 stdout_tail/session_id/receipt_path——
+    // 回写首行 header 使派发输出可事后核验；事件行保持 append-only 不动。
+    const text = readFileSync(file, 'utf8');
+    const lines = text.split('\n');
+    // catch 范围只覆盖"首行解析"（GOAL-084 复核修正）：写入/rename 失败必须上抛，
+    // 否则会被误判成"首行损坏"而走前置补头，产出 header,header,event 双头文件。
+    let existing: { kind?: string; dispatch_id?: string } | null = null;
+    try {
+      existing = JSON.parse(lines[0] ?? '') as { kind?: string; dispatch_id?: string };
+    } catch { existing = null; /* 首行损坏 → 退回前置补头 */ }
+    if (existing !== null && existing.kind === 'header' && existing.dispatch_id === record.dispatch_id) {
+      lines[0] = JSON.stringify(header);
+      writeAtomic(file, lines.join('\n'));
+      return;
+    }
+    // 首行不是本单 header（缺头/损坏）：补头而不是丢弃既有事件行，同样原子落盘。
+    writeAtomic(file, JSON.stringify(header) + '\n' + text);
   }
 
   /** 生命周期事件增量追加（一行一事件，不重写历史）。 */
@@ -119,6 +177,8 @@ export class BoardPersistence {
         stdout_tail: (header.stdout_tail as DispatchRecord['stdout_tail']) ?? null,
         stderr_tail: (header.stderr_tail as DispatchRecord['stderr_tail']) ?? null,
         session_id: typeof header.session_id === 'string' ? header.session_id : null,
+        ...(typeof header.observed_model_id === 'string' ? { observed_model_id: header.observed_model_id } : {}),
+        ...(isClaudeBindingDrift(header.version_drift_accepted) ? { version_drift_accepted: header.version_drift_accepted } : {}),
         ...(typeof header.stream_id === 'string' ? { stream_id: header.stream_id } : {}),
         ...(typeof header.task_id === 'string' ? { task_id: header.task_id } : {}),
         ...(typeof header.carveout_id === 'string' ? { carveout_id: header.carveout_id } : {}),
@@ -267,12 +327,13 @@ export class BoardPersistence {
         existing = {};
       }
       const pid = Number(existing.pid);
+      const port = typeof existing.port === 'number' && existing.port > 0 ? existing.port : undefined;
       const released = existing.released_at_utc !== undefined && existing.released_at_utc !== null;
       // 同进程重入（测试/嵌入宿主可并行多个 server）；跨进程才是 F-42 防线。
       if (!released && pid === process.pid) {
         return existing as unknown as LockState;
       }
-      if (!released && Number.isInteger(pid) && pid > 0 && this.isAlive(pid)) {
+      if (!released && Number.isInteger(pid) && pid > 0 && this.isAlive(pid, port)) {
         // DEF-06：拒绝时带上旧实例的监听端口（若可得）与处置指引——
         // owner 曾因旧实例残留误以为看板坏了。
         let portHint = '';
@@ -284,7 +345,7 @@ export class BoardPersistence {
             ` — 用已有实例，或结束旧进程（taskkill /PID ${pid} /F）后重启`,
         );
       }
-      // 陈锁：PID 已不存在 → 接管。
+      // 陈锁：PID 已不存在、非 node 进程或监听端口已关闭（Windows PID 复用） → 接管。
     }
     const lock: LockState = { pid: process.pid, acquired_at_utc: now, released_at_utc: null };
     writeFileSync(file, JSON.stringify(lock) + '\n', 'utf8');
@@ -328,4 +389,112 @@ function processAlive(pid: number): boolean {
   } catch (error) {
     return (error as NodeJS.ErrnoException).code === 'EPERM';
   }
+}
+
+function isProcessNode(pid: number): boolean {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  if (process.platform === 'win32') {
+    try {
+      const res = spawnSync('tasklist.exe', ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH'], {
+        encoding: 'utf8',
+        timeout: 1000,
+        windowsHide: true,
+      });
+      if (res.error || res.status !== 0) return true; // fail-safe: don't mistakenly takeover on command error
+      const stdout = (res.stdout || '').trim();
+      if (!stdout || stdout.startsWith('INFO:')) return false;
+      const match = stdout.match(/^"([^"]+)"/);
+      if (!match) return true;
+      const imageName = match[1].toLowerCase();
+      return imageName.startsWith('node') || imageName.startsWith('electron');
+    } catch {
+      return true;
+    }
+  } else if (process.platform === 'linux') {
+    try {
+      const comm = readFileSync(`/proc/${pid}/comm`, 'utf8').trim().toLowerCase();
+      return comm.includes('node') || comm.includes('electron') || comm.includes('tsx');
+    } catch {
+      return true;
+    }
+  } else {
+    // macOS / BSD
+    try {
+      const res = spawnSync('ps', ['-p', String(pid), '-o', 'comm='], {
+        encoding: 'utf8',
+        timeout: 1000,
+      });
+      if (res.error || res.status !== 0) return true;
+      const comm = (res.stdout || '').trim().toLowerCase();
+      return comm.includes('node') || comm.includes('electron') || comm.includes('tsx');
+    } catch {
+      return true;
+    }
+  }
+}
+
+function isPortListening(pid: number, port: number): boolean {
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) return false;
+  if (process.platform === 'win32') {
+    try {
+      const res = spawnSync('netstat.exe', ['-ano', '-p', 'tcp'], {
+        encoding: 'utf8',
+        timeout: 1500,
+        windowsHide: true,
+      });
+      if (res.error || res.status !== 0) return true; // fail-safe
+      const lines = (res.stdout || '').split('\n');
+      for (const line of lines) {
+        const fields = line.trim().split(/\s+/);
+        if (fields[0]?.toUpperCase() === 'TCP' && fields[1]?.endsWith(`:${port}`) &&
+            fields[3]?.toUpperCase() === 'LISTENING' && Number(fields[4]) === pid) {
+          return true;
+        }
+      }
+      return false;
+    } catch {
+      return true;
+    }
+  } else if (process.platform === 'linux') {
+    try {
+      const res = spawnSync('ss', ['-tlpn'], { encoding: 'utf8', timeout: 1000 });
+      if (!res.error && res.status === 0) {
+        return (res.stdout || '').split('\n').some((line) => {
+          const fields = line.trim().split(/\s+/);
+          if (fields[0] !== 'LISTEN' || !fields[3]?.endsWith(`:${port}`)) return false;
+          const owners = [...line.matchAll(/\bpid=(\d+)/g)];
+          return owners.length === 0 || owners.some((owner) => Number(owner[1]) === pid);
+        });
+      }
+    } catch {}
+    try {
+      const res = spawnSync('netstat', ['-tlpn'], { encoding: 'utf8', timeout: 1000 });
+      if (!res.error && res.status === 0) {
+        return (res.stdout || '').split('\n').some((line) => {
+          const fields = line.trim().split(/\s+/);
+          return fields[3]?.endsWith(`:${port}`) && fields[5] === 'LISTEN' &&
+            (fields[6] === '-' || fields[6]?.startsWith(`${pid}/`));
+        });
+      }
+    } catch {}
+    return true;
+  } else {
+    // macOS / BSD
+    try {
+      const res = spawnSync('lsof', ['-nP', '-a', '-p', String(pid), '-iTCP:' + port, '-sTCP:LISTEN'], { encoding: 'utf8', timeout: 1000 });
+      if (res.error || res.status === null || (res.status !== 0 && res.status !== 1) || res.stderr?.trim()) return true;
+      return res.status === 0 && (res.stdout || '').trim().length > 0;
+    } catch {
+      return true;
+    }
+  }
+}
+
+export function isProcessReallyActive(pid: number, port?: number): boolean {
+  if (!processAlive(pid)) return false;
+  if (!isProcessNode(pid)) return false;
+  if (typeof port === 'number' && port > 0) {
+    if (!isPortListening(pid, port)) return false;
+  }
+  return true;
 }

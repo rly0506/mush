@@ -1,0 +1,74 @@
+{
+  "goal_id": "GOAL-085",
+  "phase": "stage3a-cli-fix",
+  "executor": "GLM",
+  "independent_reviewer": "Codex（五缺口独立复现，未修改产品代码、未外发数据；证据 .test-fixtures/stage3a-codex-review-jnfGoT/review.json）",
+  "reviewer_note": "执行与核验署名为 GLM（ZCode 会话）；Codex 为独立复核方；非 Owner 正式验收，Goal 保持 PROPOSED",
+  "status": "PROPOSED",
+  "owner_formal_acceptance": "pending",
+  "at": "2026-10-06T19:40:00.000Z",
+  "implementation": "VERIFIED",
+  "scope": "CLI 薄入口修复轮：Codex 复核五缺口的修复与回归；MCP/skill 按 owner 指示暂不推进；原回执 GOAL-085-cli-stage3a-receipt.json 保留不改写",
+  "fixes": [
+    "① 地址限制：--board-url 只允许本机回环（localhost/127.0.0.0/8/::1），拒绝 userinfo 凭据 URL；fetch 一律 redirect:'error'（重定向 exit 3）；所有请求带有限截止时间（默认 30s，MUSH_COLLAB_TIMEOUT_MS 可覆盖）——材料正文永不外发出回环",
+    "② 请求文件与工作区：create --request <file>（UTF-8 JSON，与逐项旗标互斥；materials 支持 {path} 引用本地文件与 allowed_seats 席位权限透传）；--workspace 透传 workspace_root（服务端校验，传错实测 400→exit 64）",
+    "③ 重复旗标：--material（唯一多值旗标）两种写法（--material=x / --material x）统一聚合；其余标量旗标重复 → exit 64 明确列出",
+    "④ 输出覆盖：--out 已存在文件 → exit 64 拒绝覆盖，原文件保留",
+    "⑤ 错误处理统一：响应协议校验（200 缺 ok/result/sessions、非 JSON、markdown content-type 不符 → exit 1，不输出 undefined）；不可达（连接失败/超时/重定向）统一 exit 3（status 列表分支并入统一封装）"
+  ],
+  "focused_regressions": {
+    "file": "tests/g085-cli-collab.test.ts",
+    "passed": 12,
+    "failed": 0,
+    "first_round_failure_log": "首轮 1 例失败（缺口4 夹具 create 未带材料致协调轮 m1 校验拒绝——夹具问题非实现缺陷），修复后全绿",
+    "new_cases": [
+      "非回环/带凭据 --board-url 拒绝（exit 64，不发起请求）",
+      "重定向拒绝（mock 302 → exit 3）",
+      "请求截止时间生效（MUSH_COLLAB_TIMEOUT_MS=200 + 挂起 mock → exit 3）",
+      "两种写法重复 --material 均聚合（2 份材料入会话）；重复标量旗标 exit 64 含 duplicate",
+      "--request JSON 入口：workspace_root 透传（错值实测 400）、材料 allowed_seats 保留、与 --topic 互斥 64",
+      "--out 拒绝覆盖已存在文件、原文件保留",
+      "不可达 status exit 3；非协议 200 exit 1 且不输出 undefined"
+    ]
+  },
+  "default": {
+    "file": ".test-fixtures/stage3a-fix-full-default.log",
+    "total": 981,
+    "passed": 981,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "aeaa19a212c6679b36fee67dafa203842593c193f129e2c15ca03c21766a0d05"
+  },
+  "isolated": {
+    "file": ".test-fixtures/stage3a-fix-full-isolated.log",
+    "total": 981,
+    "passed": 981,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "520985d3925e709dd526b7984b5e137d6565e72ce8a04624cd31322c2c8bf567"
+  },
+  "typecheck_exit_code": 0,
+  "docs_reconcile": "PASS（契约 v1.69 修复轮修订同节，66 个版本节）",
+  "git_diff_check_exit_code": 0,
+  "api_contract": "v1.69",
+  "receipt_wording_correction": {
+    "requested_by": "Owner",
+    "original": "GOAL-085-cli-stage3a-receipt.json production_board.note：『CLI 代码需下次空闲重载后 CLI 才在常驻进程外可用』",
+    "corrected": "CLI 是按需启动的独立进程（node bin/mush），直接使用磁盘上的当前代码，当前无需重载看板；原回执文件不改写，本字段与 GOAL-085 §7.7 为更正记录"
+  },
+  "production_operations": "零模型调用、零生产会话操作；本轮未重载看板（无需重载）",
+  "artifacts": [
+    { "file": "src/cli.ts", "sha256": "911b460655769d4727864cdbd7b4fbb701cc4131fec463c53f0bed685764f6d5" },
+    { "file": "tests/g085-cli-collab.test.ts", "sha256": "d91d0306dece847806343b2cbb04b46dafb11b296b242481b056a3bc888d2001" },
+    { "file": "src/web/api-contract.md", "sha256": "d02c792ba9dccc92a49047289f622a143191bb2b378e7aa3d4a42d507abb11d9" },
+    { "file": "goals/GOAL-085-claude-and-triple-model-discussion.md", "sha256": "09b4dc252d7ec16c3092fd4281dfd2ae1ddb5bca667e2fd46632caa630d62333" },
+    { "file": "docs/goal-pool.md", "sha256": "933995ba1badc0bf7ff045247ceb87d3af73585568ef6391218f1c87cc09a299" },
+    { "file": ".test-fixtures/stage3a-fix-full-default.log", "sha256": "aeaa19a212c6679b36fee67dafa203842593c193f129e2c15ca03c21766a0d05" },
+    { "file": ".test-fixtures/stage3a-fix-full-isolated.log", "sha256": "520985d3925e709dd526b7984b5e137d6565e72ce8a04624cd31322c2c8bf567" }
+  ],
+  "limitations": [
+    "费用与账号权益仍 UNKNOWN；pi-rpc 独立全量间歇失败根因未确认（本轮 981/981，不视为已解决）",
+    "MCP/skill 按 owner 指示暂不推进",
+    "本轮零模型调用、未提交未推送；Goal 保持 PROPOSED"
+  ]
+}

@@ -1,20 +1,25 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { parseCcSwitchProviders, getHarnessDoctorReport, discoverHarnessGroupedModels } from '../src/adapters/live-probe.ts';
 import { DispatchPipeline } from '../src/web/dispatch.ts';
 import { renderBoardPage } from '../src/web/page.ts';
+import { installCcSwitchFixture } from './fixtures/ccswitch.ts';
 
 test('Harness Multi-Provider & Doctor Suite', async (t) => {
-  await t.test('1. parseCcSwitchProviders extracts real third-party providers from cc-switch.db', () => {
+  await t.test('1. parseCcSwitchProviders extracts configured providers from a fixture database', (t) => {
+    installCcSwitchFixture(t);
     const claudeRes = parseCcSwitchProviders('claude');
     assert.ok(claudeRes.models.length > 0, 'Should find claude models');
     const groupKeys = Object.keys(claudeRes.grouped);
-    assert.ok(groupKeys.some(k => k.includes('everyapi claude') || k.includes('Claude')), 'Should include everyapi or official');
+    assert.ok(groupKeys.some(k => k.includes('Claude Fixture')), 'Should include the configured Claude provider');
 
     const codexRes = parseCcSwitchProviders('codex');
     assert.ok(codexRes.models.length > 0, 'Should find codex models');
     const codexKeys = Object.keys(codexRes.grouped);
-    assert.ok(codexKeys.some(k => k.includes('tbtk') || k.includes('OpenAI')), 'Should include tbtk or OpenAI');
+    assert.ok(codexKeys.some(k => k.includes('OpenAI Fixture')), 'Should include the configured OpenAI provider');
   });
 
   await t.test('2. getHarnessDoctorReport discovers all 8 harnesses and their recipes', () => {
@@ -38,12 +43,13 @@ test('Harness Multi-Provider & Doctor Suite', async (t) => {
   });
 
   await t.test('3. roster contains real unified agy and excludes pseudo agy fragments', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'mush-doctor-'));
     const pipeline = new DispatchPipeline({
-      workspaceRoot: 'D:/mush',
-      approvalRoot: 'D:/mush/goals/receipts/approval-requests',
-      approvalRequestRoot: 'D:/mush/goals/receipts/approval-requests',
-      approvalTokensPath: 'D:/mush/runtime/approval-tokens',
-      ledgerPath: 'D:/mush/runtime/ledger.jsonl',
+      workspaceRoot: root,
+      approvalRoot: path.join(root, 'approvals'),
+      approvalRequestRoot: path.join(root, 'approval-requests'),
+      approvalTokensPath: path.join(root, 'approval-tokens'),
+      ledgerPath: path.join(root, 'ledger.jsonl'),
     });
 
     const roster = pipeline.roster();

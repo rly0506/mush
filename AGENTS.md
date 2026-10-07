@@ -1,90 +1,78 @@
-# mush — agent 工作区指引
+# mush - agent 工作区指引
 
-mush 是个人跨 harness 多 agent 编排工具（雪橇队）。你在本仓库工作时遵守：
+适用范围：本仓库。mush 是个人跨 harness 多 agent 编排工具，使用 Node.js >=24 / TypeScript。
 
-## 必读（按序，都很短）
+## 按当前请求执行
 
-1. `CONSTITUTION.md` — 最高治理文件：双模式治理 + 五类触发门 + 证据纪律
-2. `DECISIONS.md` — 全部奠基决议（append-only，不改写历史条目）
-3. `docs/rm-001-dogfood-bootstrap.md` — 当前路线图与里程碑
+- 默认简体中文，结论先行，说明具体改动、证据与遗留项；区分事实、推断和建议，不夸赞、不把猜测写成定论。
+- 用户明确要求修改或修复，即授权在该范围内读取、编辑和本地验证；先简述动作后执行，不重复询问“是否开始”。“继续”沿用最近明确的任务，不自行开启新方向。
+- 用户只问解释、评审或方案时先保持只读。只有目标歧义会实质影响结果、存在不可逆选择或触发下述审批门时才问，合并必要问题。
+- 本文件统一仓库工作约定；[CLAUDE.md](CLAUDE.md) 仅引用本文件。遵守运行环境更高优先级指令；本文件不覆盖其权限或安全要求。
+- [CONSTITUTION.md](CONSTITUTION.md) 是治理基准，[DECISIONS.md](DECISIONS.md) 中已生效修订按范围执行。用户最新要求决定本次范围；治理红线变更追加决议。
 
-## 硬红线（违反即停，等 owner 决定）
+## 必要审批与固定边界
 
-- 不 push 任何远端、不发布、不发送数据离开本机（**唯一例外**：D19 授权的私有远端
-  `github.com/rly0506/mush`，仅限本仓 master 同步，不得携出密钥或未扫描内容）；
-- 不修改 `D:\意向项目` 内的任何文件（agent-bridge 是冻结的黄金参照，只读）;
-- 不安装全局包、不变更凭据/密钥路径；密钥不入库、不入日志、不入 prompt；
-- 花钱超 per-actor cap 前必须停下弹审批（CONSTITUTION.md §1）;
-- 永久删除、权限/范围扩张、身份变更同样先停。
+- 五类触发门：超 cap/预算；外发/发布；无恢复路径的删除/覆盖；权限、范围、数据面或依赖扩张；provider/身份/凭据变更。触发时暂停相关动作，等 owner 决定。
+- 外发的既有例外仅为 D19：本仓 `master` 同步至私有 `github.com/rly0506/mush`，先扫描待推送内容，密钥与未扫描内容不得携出。普通修改不顺带提交、推送或发布。
+- `D:\意向项目` 只读参照，D85可切换；不安装全局包、不改系统配置或凭据路径。密钥不入库、不入日志、不入 prompt；需要此类变更先明确报批，授权也不允许泄露密钥。
+- D30 只管**新发起的真实模型派发**：每单停看板审批卡等 owner 点批，免费通道也适用；不以常设审批文件替代。当前对话内直接改文件、静态检查及 mock/fixture 测试不是新派发。
+- 真实派发前运行 `powershell -NoProfile -File D:\mush\scripts\scan-inflight.ps1`。此脚本看板探针固定为 4790；端口不同需核查实际实例，连接失败不代表没有在途任务。
+- 同一派发包只走看板或手开窗口一个通道（AD-34/35）；手开用 `D:\mush\scripts\dog-window.cmd <packet> <dog>`，不重复启动在执行任务。
+- 无人值守调度默认关闭（D8）。角色、模型和通道能力按当前配置与实测判断；历史故障不自动扩大为对当前模型的全面禁用，也不自动解除原故障通道限制。
 
-## 治理与执行体系（三重架构 + 双轨引擎 D67/D68）
+## 任务与技能按需使用
 
-1. **三重事实架构（Single Source of Truth）**：
-   - **规划层（Spec）**：`spec/`（系统蓝图、宪法边界、研发验收总则）；
-   - **路线图（Roadmap）**：`docs/roadmaps/`（RM-001 ~ RM-007 阶段演进）；
-   - **执行目标（Goal/RFC）**：`goals/GOAL-*.md`（单一合法任务实体，标准模板见 `goals/TEMPLATE.md`）。全库废除旧 `GP-xx` 杂糅命名。
-2. **双轨自适应编排引擎（Dual-Track Orchestration）**：
-   - **Goal 轨（持久化宏观目标）**：跨文件修改、多工序协同或新功能迭代，头犬必须先在对话中与 owner 确认大纲，自动生成 `goals/GOAL-xxx.md` 落盘后入池派发；
-   - **Tasklet 轨（瞬态即时微任务）**：局部微调、探索问答、即时探针，头犬直接生成提示词向工犬派发，无需写独立文档；
-   - **工犬直调感知**：owner 直接手操工犬修改代码时，头犬保持只读感知并在下次对话时主动对账与审查。
-3. **工作区 Goal 文档全自动入池（D67）**：
-   - 无论是人类还是 AI 在 `goals/` 创建 `GOAL-*.md`，任务池与思维导图 8 秒内自动解析标题、元数据与「目标与价值」简报并入池；
-   - 任务卡一键直通派发（`data-task-dispatch`）自动携带目标规格。
+- 小修复、文档整理、局部调整直接做，允许连同相关测试跨文件修改；不因文件数量强制新 Goal、worktree、架构设计、全面审计或多 agent 派发。
+- 需要跨会话跟踪的新功能或多 agent 协作，先查 `goals/GOAL-*.md`，确需新建按 [模板](goals/TEMPLATE.md) 记录目标、边界与验收；Goal 文档自动入任务池（D67），入池不等于获准真实派发，局部任务在当前对话直接执行即可。
+- 只加载与本次任务直接相关的技能及必要引用，不按“修改代码”“继续”等宽泛词串联整套流程，不为每次编辑无条件读取全库；技能是方法参考，已安装且足用时不重复下载安装，已批准动作不再次索要批准。
+- 任务描述尽量写清目标、完成条件、验证命令和停止条件；隔离 fixture、本地测试和无生产访问范围内可连续执行，真实模型仍逐单审批。
+- 优先已有模式、标准库和最小可验证实现；无具体收益不拆文件、不加抽象/依赖/配置层，不为流程而写长文档。300 行是上下文裁剪阈值，不是源码文件上限。
+- 发现范围外问题简短记录，不顺手修；安全检查围绕实际变更，涉及鉴权、预算、外部暴露或新数据面时重点核查对应边界。
 
-## 工作约定
+## 调用方与帮手
 
+- 发起调用的 harness 是该次 `caller/controller`；Claude Code、Codex 等均可调用 mush，不固定等同头犬。
+- mush 提供计划、doctor/liveness、审批、事件和回执；executor 只接收 D30 派发。配置、MCP 握手或历史成功不等于余额/API 权益，未知为 `UNKNOWN`。
+- CLI/Agent 审批复用审批卡和 append-only owner response，返回 `WAITING`、摘要和任务号；完整审批面未实现前不绕过看板。
 
-- **Windows 转义铁律（DEF-07/08 教训，人犬一律遵守）**：复杂逻辑（多行 JS、
-  含反斜杠/引号/CJK 的参数、PowerShell）**必须先写脚本文件再执行**
-  （`node scripts/xxx.cjs` / `powershell -File xxx.ps1`），禁止 `node -e`、
-  `bash -c`、`powershell -Command` 内联多行；PowerShell 脚本源码保持纯 ASCII
-  （路径用 `[Environment]::GetFolderPath()` 运行时取）；文件一律用显式
-  Windows 绝对路径（`C:/Users/.../x.cjs`），不用 `/tmp` 相对形态；
-  模板字符串内的正则/反斜杠必须双写（DEF-07）。
-- 证据 append-only：摘要不覆盖原文，事件带哈希锚点；
-- 用户显式接受才 DONE，模型不自行宣布完成（D15：机检验收规格全绿可升
-  AUTO_ACCEPTED，不阻断后续 Goal；DONE 与否决权仍归 owner）；
-- **头犬（zcode）常设职责：审核验收 + 队列编排 + 安全审查**（D23：DEF/F
-  漏洞审计与修复验证；任何对外暴露/新数据面前置检查）；
-- 语言/运行时：Node/TS（D2）；UTF-8 原生，不引入 PS5.1 式编码补丁；
-- 测试即验收规格：新实现行为与 fixture/影子回放不一致即为缺陷；
-- 技能：用户全局技能目录可用；本仓库暂无专属技能，需要时按 DECISIONS D12 处理；
-- 目标池：docs/goal-pool.md（D23，头犬维护，owner 增删），队列排程从池取材；
-- **投喂单通道（AD-34）**：一份派发包同一时刻只走一个投喂通道（owner 手开
-  窗口 **或** 看板派发），禁止双开；后续包默认走看板（DEF-12 后 kimi/dsh
-  均可被看板真实拉起）；
-- **每单审批卡（D30）**：头犬（或任何人）发起的每次真实派发一律停看板
-  审批卡等 owner 点批；常设审批文件免检旁路已废除，头犬未经告知自主
-  真实派发属越权；
-- **在途三件套扫描（AD-35）**：头犬派发前必跑 `powershell -NoProfile -File
-  scripts/scan-inflight.ps1`（犬窗口标题/worktree/看板派发三通道）；手开
-  犬窗口用 `scripts/dog-window.cmd <packet> <dog>` 启动（自动标题
-  `mush|<packet>|<dog>`），已有窗口可在窗口内执行 `title mush|<packet>|<dog>`
-  补标——窗口标题对 owner 与头犬均机器可读。
+## 上下文入口
 
-## 当前状态
+先看 `git status --short` 和相关 diff，保护现有修改；读宪法后按任务查以下入口，不要求每轮重读全部历史或上下文中已有的未变文件。
 
-**RM-001 ~ RM-007 全部 7 大路线图 / 55 个 Goal 经 owner 明确授权已全部正式大圆满收官（D65）。**
-- **RM-001：犬队基建与机检验收** ✅（GOAL-001 ~ GOAL-012）；
-- **RM-002：看板与工作流治理** ✅（GOAL-013 ~ GOAL-023）；
-- **RM-003：会话流式与零成本梯队** ✅（GOAL-024 ~ GOAL-027）；
-- **RM-004：多拓扑与实战闭环** ✅（GOAL-028 ~ GOAL-034）；
-- **Phase C：视觉审查与记忆图谱** ✅（GOAL-035 ~ GOAL-042）；
-- **RM-005：社会化 Agent 合作框架与自适应工作台** ✅（GOAL-043 ~ GOAL-047，圆桌辩论/流水线/红蓝攻防/悬赏撮合）；
-- **RM-006：跨犬技能联邦与时空状态内核** ✅（GOAL-048 ~ GOAL-051，跨 Harness 技能双向转译/平行时间旅行/共享黑板/液态小队）；
-- **RM-007：自演进评测天梯与雪橇伴侣** ✅（GOAL-052 ~ GOAL-055，战绩 ELO 天梯/路由自进化/托盘伴侣浮窗/全景能效战报）；
-- **RM-008：效能经济学与上下文生命周期工程** ✅（GOAL-056 ~ GOAL-057，用量后验对账/Prompt Cache 细分/300行安全门禁/结构化不变式压缩）；
-- **RM-009：通用挂载、动态思维链、工犬直连与智能 Resume** ✅（GOAL-058 ~ GOAL-062，自由工作区挂载/多厂商思维链动态Spec/头像直连抽屉/Child Auto-Resume/DoD收官工具/多Provider动态发现与犬队医生 D76~D77）；
-- **RM-010：商业化就绪、零信任安全加固与 MVP 发版** ✅（GOAL-063 ~ GOAL-066，Caller-Token 零信任鉴权闭环/CSRF与沙箱白名单/服务端权威预算与台账持久化/EPIPE与进程树杀/Fail-Closed纠偏/Apache-2.0与EULA/桌面便携打包 D79）。
-- **GOAL-081 丝滑工程** ✅（AUTO_ACCEPTED 2026-08-29）：SSE 快照六处高频列表键控增量补丁（patchList 同构副本，未变卡 DOM 引用不动——点击不吞）+ 任务卡/审批/派发动作文档级捕获相委托（重建不丢监听）；D30 审批卡内联聊天流（批准/否决/改后批准三键 + 回执徽标）；第一单零配置（snapshot.first_task 派生信号 + 引导横幅一键预填 opencode 免费通道）；`mush chat` 终端 REPL（/api/chat 202 + SSE kind=chat 帧，零新端点；Ctrl+T 思维链/Ctrl+C 中断当前回合//resume 续接）。契约 v1.45。g081 10/10 + 基线 7/7 + 全量 693 全绿。
+| 需要了解 | 入口 |
+| --- | --- |
+| 安装、命令、运行环境 | [README.md](README.md)、[package.json](package.json) |
+| 当前开发交接 | [2026-10-05 交接](docs/project-handoff-2026-10-05.md)，作当日证据，现状以代码和新验证为准 |
+| 目标与排期 | [目标池](docs/goal-pool.md)、`goals/GOAL-*.md`；目标池需与 Goal 状态对账 |
+| 路线图 | `docs/rm-*.md`；RM-001 是已结束的自举阶段，不是永远的当前路线 |
+| Web 行为与生产治理 | [API 契约](src/web/api-contract.md)、[派发管线](src/web/dispatch.ts) |
+| 参照实现 | [src/loop/README.md](src/loop/README.md)：D80 定为离线 fixture，不与生产链路强制合流 |
+| 历史裁决与验收 | [默认裁决](docs/auto-decisions-log.md)、`goals/receipts/`；按主题查决议，不补造缺失编号 |
 
-**基线 698 tests 100% 全绿（GOAL-080/082 收官后：076 收官 652 + 078 新增 6 + 079 新增 9 + 080 新增 10 + 082 新增 8 + 081 新增 10 + tbtk 网关 3）+ typecheck 零错误门禁**（2026-08-29 更正：原记 661 系 078 落库时错账）；版本 `v0.1.1-pilot`；奠基决议落地至 `D81`；RM-011 实战淬火路线图全线收官（M0~M4 GOAL-070~074 全 DONE）。
-**GOAL-080 犬链可靠性 + GOAL-082 任务监理** ✅（AUTO_ACCEPTED 2026-08-29，头犬施工+独立子代理审计一轮修复+UI 收尾）：探针阶梯 L0-L3 恒零成本 + 派发预检门 + 故障转移换道一跳（候选犬过预检）+ 诚实标签犬卡级位徽标（`/api/dogs/liveness`）；任务监理滞判 8min + 干预阶梯（换道→重排→升级提问）+ 完成核验双门（mark-done 409 + G024 自动推进前置询问）+ 受阻自解冻 + 洞察区监理面板（完成率/阶段分布/动作流）。契约 v1.14。g080 10/10 + g082 8/8。
-**GOAL-075 + GOAL-076 + GOAL-078 已收官（88b6435 / 164a82f / 3a948bb + 078 落库）**：导航 10 tab 收敛为 codex 式左侧栏 6 入口（对话/工作台/犬队/治理/洞察/实验室，可折叠）；配色为**双主题「月之亮/暗面」**（亮面默认 + 🌓 切换 + localStorage 持久化；§7.5 极夜暗色母题保留为暗面档——owner 2026-08-28 反馈定调，覆盖原「仅暗色」裁定）；L1 配置舱收进「⚙ 设置」面板守首屏预算；**头犬/工作区胶囊即入口**（顶栏点击弹级联 popover，GOAL-078）；派发表单为右滑抽屉（工作台「＋派发任务」唤起）；泳道卡片动作分层（主行动作常驻 + 「⋯」溢出菜单 + 手动标记完成 `POST /api/tasks/:id/mark-done`）；顶栏收敛 5 件（快照/SSE 按需显示、遥测短码化）；术语全站人话化（状态码统一译出/stream-\* 折叠短码/版本号黑话剥离/effort 梯度留原文）；`fmtUsd` 兜底消灭 \$NaN、账号邮箱 `maskAccount` 脱敏、待办徽标点击有反馈；对话流三段式气泡（思考/工具/正文）且**帧持久化**（ChatTurn 带 thinking/tools/plan，历史回看可重建——075 附录）；076 回归基线 `scripts/g076-board-regression-baseline.cjs`（7/7）。
-犬队在册（deepseek/claude/kimi/zcode/codex/opencode/pi/agy；codex 因 F-50 故障禁任头犬；pi-rpc 通道实测贯通以绕开 DEF-13 上游挂起）。
-findings 默认裁决：docs/auto-decisions-log.md（D16）。
-GitHub 私有远端同步为常规动作（D19）；无人值守调度器仍默认关（D8）。
+## 编辑与验证
 
+- 保留用户及其他 agent 的在途修改；先读再接续，不使用破坏性 reset/checkout 或覆盖无关 diff。
+- 文件用 UTF-8。Windows 复杂、多行或多层转义逻辑先写脚本，再用 `node <绝对路径>` 或 `powershell -NoProfile -File <绝对路径>` 执行；不用多行 `node -e` / `bash -c` / `powershell -Command`。
+- PowerShell 脚本源码纯 ASCII，用户目录运行时获取；模板内正则/反斜杠按目标语言正确转义。临时脚本放 `.test-fixtures/`，使用明确 Windows 路径。下列命令以 `D:\mush` 为 cwd，npm 脚本和 import 路径可相对仓库根目录。
+- 新行为和缺陷修复补聚焦测试，优先复用 fixture/影子回放；不削弱断言或放开生产审批来凑绿。测试隔离用户配置、模型 CLI 与真实账本，单独运行也预加载 [tests/setup.ts](tests/setup.ts)。
+- 纯文档检查引用、命令和 diff；代码改动跑相关测试与 typecheck；共享状态、跨模块契约、测试入口或发布候选再跑全量及隔离模式。UI 改动加对应回归，视觉/交互改动需浏览器实测，不把 HTTP/DOM 冒烟称为视觉验收。
 
+在仓库根目录执行（Windows 使用 `npm.cmd`）：
 
+| 验证 | 命令 |
+| --- | --- |
+| 类型检查 | `npm.cmd run typecheck` |
+| 默认全量 | `npm.cmd test` |
+| 独立进程全量 | `npm.cmd run test:isolated` |
+| 单文件示例 | `node --import ./tests/setup.ts --test --test-isolation=none D:\mush\tests\persistence.test.ts` |
+| 看板 HTTP/DOM 冒烟 | `node --import ./tests/setup.ts D:\mush\scripts\g076-board-regression-baseline.cjs` |
+| 补丁格式 | `git diff --check` |
 
+命令来源以 package.json 和实际脚本为准；没有通用 build/lint/format 脚本，不猜造命令。测试记录保留在 `.test-fixtures/`，不要读取或改写真实用户账本来做 fixture。
+
+## 证据与交付
+
+- 决议、事件和验收回执 append-only；更正追加，摘要不覆盖原证据，关键验收产物带哈希锚点。
+- 报告实际运行的命令、结果与未验证部分，不引用历史测试数宣称当前全绿。
+- 普通修改直接报告“已修改/已验证”。正式 Goal 满足适用机检规格及回执要求可为 `AUTO_ACCEPTED`（D15）；只有 owner 明确接受才记 `DONE`，不通过自动收官脚本绕过。
+- 不在本文件堆积里程碑状态。派发会将本文件注入 prompt，维护时保持不超过 4000 字符，避免规则被截断。

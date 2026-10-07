@@ -1,6 +1,6 @@
 # GOAL-026: 零 Token 消耗模型探测与四级可调度信度梯队
 
-- 状态：`ACTIVE`（2026-08-19 立项，基于 owner 深度探讨与授权）
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；零 token 四级信度梯队在库，专测 tests/g026-zero-token-model-tiers.test.ts 通过；目标池 GP-37 已记完成（2026-08-19）；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 - 依据：`GP-37`，衔接 `GP-35 (GOAL-025)`、`CONSTITUTION.md §1`（零密钥与花钱约束）与 `DEF-13`。
 
 ---

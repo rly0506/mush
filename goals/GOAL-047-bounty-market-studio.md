@@ -1,6 +1,6 @@
 # GOAL-047: Contract Net 悬赏招投标市场与动态撮合池 (Bounty Market Studio)
 
-- 状态：`PROPOSED`（RM-005 M4 核心规划，2026-08-19 立项）
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；悬赏市场在库（src/orchestration/bounty-market.ts），专测 tests/g047-*.test.ts 通过；目标池 RM-005 表已记完成；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 - 来源：2026-08-19 owner `/grill-me` 深度访谈裁决 + FIPA Contract Net Protocol
 - 优先级：中（RM-005 M4）
 - 依赖：GOAL-039 (智能路由画像), GOAL-027 (用量与单价监控)

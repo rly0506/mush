@@ -1,0 +1,56 @@
+{
+  "goal_id": "GOAL-085",
+  "phase": "stage3d-skill-load-verify",
+  "executor": "GLM",
+  "reviewer_note": "执行与核验署名为 GLM（ZCode 会话）；非 Owner 正式验收，Goal 保持 PROPOSED",
+  "status": "PROPOSED",
+  "owner_formal_acceptance": "pending",
+  "at": "2026-10-07T10:10:00.000Z",
+  "implementation": "VERIFIED",
+  "scope": "skill 项目内加载零模型只读验证：选定 harness=Claude Code（本机 claude CLI 2.1.292）；skill 片收口依据=Codex 复核通过（Owner 转呈，§7.18）",
+  "model_calls": 0,
+  "load_verification": {
+    "harness": "claude-code",
+    "harness_version": "2.1.292",
+    "installed_path": ".claude/skills/collab/SKILL.md",
+    "project_level_not_global": true,
+    "identical_to_source": true,
+    "sha256_both": "51d2303227a6dfbd3643b9ee8455025a4e31370cf88f028dd676cbb39ce55d3a",
+    "frontmatter_ok": "name=mush-collab、description 109 字符、无格式错误",
+    "content_checks": "九项全过（五命令/审批门/不自动批准/费用三态/本地入口无全局安装）",
+    "evidence": ".test-fixtures/stage3d-skill-load-verify.json（all_pass=true）"
+  },
+  "honest_boundary": "会话内真实加载（/mush-collab 在 agent 会话中被解析使用）需一次模型调用——本轮未执行；项目内验证止于文件就位+frontmatter 规范+内容完整性。该残留与 pi-rpc 间歇失败并列保留",
+  "focused_regressions": "skill 7/7、CLI 16/16、MCP 11/11 不变",
+  "typecheck": { "file": ".test-fixtures/stage3d-typecheck.log", "exit_code": 0, "sha256": "76e242f2a8428dd7b0f0ebd221e4c2b6263943c16aa40f375c4fa31ec2d88e1a" },
+  "default": {
+    "file": ".test-fixtures/stage3d-full-default.log",
+    "total": 1003,
+    "passed": 1003,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "8ee488df80b8eb340161236a38ab5a983566a96652b1159a74e2b3fe7c3021a6"
+  },
+  "isolated": {
+    "file": ".test-fixtures/stage3d-full-isolated.log",
+    "total": 1003,
+    "passed": 1003,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "66fefbd1b361e4742c805f94392927c4c8785c5d77052ed06cc9c452c37c9f0c"
+  },
+  "docs_reconcile": "PASS",
+  "git_diff_check_exit_code": 0,
+  "api_contract": "v1.70",
+  "artifacts": [
+    { "file": ".test-fixtures/stage3d-skill-load-verify.json", "sha256": "16e4163d1b9bf4e5d8e73c2ecdf24a799fb9be813edba567e64f40c0840bad5c" },
+    { "file": ".test-fixtures/stage3d-skill-load-verify.mjs", "sha256": "4bfb6e5d6dc00d687a59752b834d2aea035eadb0febf73f35403d2052a43d776" },
+    { "file": ".test-fixtures/stage3d-typecheck.log", "sha256": "76e242f2a8428dd7b0f0ebd221e4c2b6263943c16aa40f375c4fa31ec2d88e1a" },
+    { "file": ".claude/skills/collab/SKILL.md", "sha256": "51d2303227a6dfbd3643b9ee8455025a4e31370cf88f028dd676cbb39ce55d3a" }
+  ],
+  "limitations": [
+    "会话内真实加载需模型调用未执行——部分开放",
+    "费用与账号权益仍 UNKNOWN；pi-rpc 独立全量间歇失败根因未确认",
+    "本轮零模型调用、未提交未推送；Goal 保持 PROPOSED"
+  ]
+}

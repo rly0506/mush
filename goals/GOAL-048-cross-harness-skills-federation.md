@@ -1,6 +1,6 @@
 # GOAL-048: 跨 Harness 技能双向转译与统一热挂载引擎 (Cross-Harness Skills Federation)
 
-- 状态：`PROPOSED`（RM-006 M1 核心规划，2026-08-19 立项）
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；技能联邦在库（skills-federation.ts），专测 tests/g048-*.test.ts 通过；目标池 RM-006 表已记完成；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 - 来源：2026-08-19 owner `/grill-me` 深度访谈裁决 + RM-006 路线图
 - 优先级：高（RM-006 M1）
 - 依赖：D12 (技能治理), GOAL-043 (协作总线)

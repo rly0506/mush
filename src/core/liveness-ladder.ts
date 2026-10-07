@@ -8,6 +8,8 @@
  */
 
 import { execFile } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { AdapterContract } from '../adapters/contract.ts';
 import { loadLiveProbeCache, type LiveProbeRecord } from '../adapters/live-probe.ts';
@@ -44,14 +46,56 @@ export type SpawnLivenessFn = (
 const L0_TIMEOUT_MS = 10_000;
 const execFileP = promisify(execFile);
 
-/** stdlib 探针：execFile 自带 timeout 杀进程；错误对象携带部分 stdout/stderr。 */
+const WIN_PATHEXT_FALLBACK = ['.COM', '.EXE', '.BAT', '.CMD'];
+
+/** Windows 把裸命令名解析成 PATHEXT 可执行全路径：execFile 不做 PATHEXT 搜索，
+ *  dsh/zcode/codex 这类只有 .cmd 垫片的 CLI 直接拉起必然 ENOENT（2026-09-06 实机审计，
+ *  见 tests/liveness-realspawn.test.ts）。已带路径或扩展名的输入按存在性校验后原样返回；
+ *  非 win32 原样透传；解析失败返回 undefined，由调用方产出诚实错误。 */
+export function resolveWindowsExecutable(
+  executable: string,
+  pathEnv: string = process.env.PATH ?? '',
+  pathExtEnv: string = process.env.PATHEXT ?? '',
+): string | undefined {
+  if (process.platform !== 'win32') return executable;
+  const hasPathSep = executable.includes('\\') || executable.includes('/');
+  const hasExecExt = /\.(exe|cmd|bat|com)$/i.test(executable);
+  if (hasPathSep || hasExecExt) return existsSync(executable) ? executable : undefined;
+  const declared = pathExtEnv.split(';').map((s) => s.trim()).filter((s) => s !== '');
+  const exts = declared.length > 0 ? declared : WIN_PATHEXT_FALLBACK;
+  for (const dir of pathEnv.split(';')) {
+    if (dir.trim() === '') continue;
+    for (const ext of exts) {
+      const candidate = join(dir, executable + ext);
+      if (existsSync(candidate)) return candidate;
+    }
+  }
+  return undefined;
+}
+
+/** stdlib 探针：execFile 自带 timeout 杀进程；错误对象携带部分 stdout/stderr。
+ *  win32 下先做 PATHEXT 解析；.cmd/.bat 垫片必须经 shell 拉起（Node ≥18.20 安全策略
+ *  拒绝无 shell 直接 spawn 批处理，CVE-2024-27980）。args 来自适配器合同（静态 flag），非用户输入。 */
 async function defaultSpawn(
   executable: string,
   args: readonly string[],
   timeoutMs: number,
 ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  const resolved = resolveWindowsExecutable(executable);
+  if (resolved === undefined) {
+    return {
+      exitCode: -1,
+      stdout: '',
+      stderr: `[liveness] 可执行文件未在 PATH/PATHEXT 解析到（${executable}；Windows .cmd 垫片需解析后拉起）`,
+    };
+  }
+  const needsShell = process.platform === 'win32' && /\.(cmd|bat)$/i.test(resolved);
   try {
-    const { stdout, stderr } = await execFileP(executable, [...args], { windowsHide: true, timeout: timeoutMs });
+    const { stdout, stderr } = await execFileP(
+      needsShell ? `"${resolved}"` : resolved,
+      [...args],
+      { windowsHide: true, timeout: timeoutMs, shell: needsShell },
+    );
     return { exitCode: 0, stdout, stderr };
   } catch (e) {
     const err = e as NodeJS.ErrnoException & { stdout?: string; stderr?: string };
@@ -84,7 +128,7 @@ export async function evaluateLiveness(
       level_reached: 0,
       ok: false,
       label: 'DEAD',
-      detail: `L0 进程探针失败（${contract.executable} --version exit ${l0.exitCode}）：${(l0.stderr || l0.stdout || 'no output').slice(0, 160)}（修复指引：确认 ${contract.executable} 已安装并在 PATH，或运行 scripts/setup-harnesses.cmd）`,
+      detail: `L0 进程探针失败（${contract.executable} --version exit ${l0.exitCode}）：${(l0.stderr || l0.stdout || 'no output').slice(0, 160)}（修复指引：确认 ${contract.executable} 已安装并在 PATH（Windows 下 .cmd 垫片需可经 PATHEXT 解析），或运行 scripts/setup-harnesses.cmd）`,
       checked_at_utc: at,
     };
   }

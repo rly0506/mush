@@ -1,0 +1,416 @@
+{
+  "goal_id": "GOAL-085",
+  "file": "GOAL-085-claude-and-triple-model-discussion.md",
+  "status": "IN_PROGRESS",
+  "status_note": "隔离补证轮已结束（五维登记 + 读回 + 两卡就绪），遗留项处置完成（C11 重复卡否决清理、C10 保持未执行）。**2026-10-05 首次真实验收**：双模型讨论先因 Claude CLI 漂移（2.1.286→2.1.289）被版本门拒绝（未派发、无费用），owner 裁定 **D95 显式接受漂移**（机制 + 登记文件 + 契约 v1.63 + 回归 7/7）；重试后 **Codex＋Claude 双模型讨论跑通并 completed**（7 次调用全 PASS、CLI 申报合计 **$0.169489**、未触发刹车）。**三模型未启动**（待 owner 预算与批准，其卡 `2d082857…` 仍 pending，agy 上限已设 $3.00）。**遗留缺口**：D95 的 `version_drift_accepted` 未落入持久化派发记录（header 白名单）与回执，需下一轮补。**讨论结论仍待 owner 验收**；C10 不恢复；本回执不代替 Owner 正式验收。",
+  "created_at": "2026-10-05T04:20:00Z",
+  "environment": { "platform": "win32", "node": "v24.13.1", "board_port": 4790, "board_pid": 26672, "board_previous_pids": [1948, 32520], "board_reload": "本轮两次空闲重载（1948 → 32520 → 26672）：末次在终局优先级与模型初值修复之后，`GET /` 200 且页面同时含 collab-effort-a 与 collab_default_model_id；POST /api/collaboration/sessions 列表 200（9 条持久化会话）；scan-inflight 无在途" },
+  "fixed_configuration": {
+    "codex": { "model_id": "gpt-5.5", "effort": "LOW", "seat_fingerprint": "8194bb67a14f1eae74b218bf3724d13849cdb641d01dbd16451c1b24bda58936" },
+    "agy": { "model_id": "gemini-3.7-flash-high", "effort": "HIGH", "seat_fingerprint": "05c2a65b342ce52a7be4855eaebcd92b4512ff45d6f2a69fda4dec0c0d31d286" },
+    "claude_code": { "model_id": "claude-sonnet-5", "effort": "LOW", "seat_fingerprint": "5b5096e9c3d49f3d3d33a0f61d93d58d4bf30b4cacdf9913106ff056afd7857d", "variant_fingerprint_c11": "4f6901487aba35db99860ac1f71715dccedf6dbff87d6c8bebb4358855c6b8a4", "native_version": "2.1.286" },
+    "budgets": { "dual": "7+1 calls / 20 min", "triple": "13+1 calls / 40 min", "single_call_timeout_s": 180 },
+    "effort_selection": "逐席位可选（D91）：默认 codex/Claude=LOW、agy=HIGH；显式值须在该通道 effort_levels 内，随授权快照冻结，派发要求逐字相等；强度不进入 config_fingerprint"
+  },
+  "checks": [
+    { "command": "npm.cmd run typecheck", "exit_code": 0 },
+    { "command": "npm.cmd test", "exit_code": 0, "tests": 940, "passed": 940, "failed": 0,
+      "log": ".test-fixtures/r12-full-default.log",
+      "sha256": "11bf9d5754dcad0fbf0c8c5fe15b0c8b65fed06c8a19a493c7f47315148b1006" },
+    { "command": "npm.cmd run test:isolated", "exit_code": 0, "tests": 940, "passed": 940, "failed": 0,
+      "log": ".test-fixtures/r13-full-isolated.log",
+      "sha256": "d3a24485719689f70957710bc517be2d92795a60538235e7fee07cf3eb9cd81e" },
+    { "command": "node scripts/docs-reconcile.cjs", "exit_code": 0, "contract_version": "v1.61", "decisions_max": "D93" },
+    { "command": "git diff --check", "exit_code": 0 }
+  ],
+  "prior_flaky_isolated_runs": [
+    { "run": "r10", "failed": ["tests/persistence.test.ts default lock reclaims a PID recycled into a non-Node Windows process",
+                               "tests/pi-rpc-completion-state-machine.test.ts stdout audit file is write-only（agent-settle-timeout 63≠0）"] },
+    { "run": "r11", "failed": ["tests/pi-rpc-completion-state-machine.test.ts hard non-terminal turn budget（agent-settle-timeout）",
+                               "tests/web-dispatch.test.ts SSE lifecycle frames during dry-run (DoD smoke)"] },
+    { "run": "r12", "failed": ["tests/persistence.test.ts a port prefix is not an exact listening port",
+                               "tests/persistence.test.ts default lock checks correlate the listening port with its owning process"] },
+    { "targeted_comparison": "把上述三个文件放在**默认隔离模式**下连跑 3 轮：每轮 68/68 全过（tests 68 / pass 68 / fail 0 ×3）。",
+      "conclusion": "**根因未确认，本轮改动对这些失败的影响尚未排除**。定向对照只说明'只跑这几个文件时不复现'，不足以断定与本轮改动无关；本轮最终全量为默认 940/940 + 独立 940/940 全绿，同样不构成因果结论。后续若再复现，应按文件逐一在满载条件下复跑并比对进程/端口探测时序。" }
+  ],
+  "focused_suites": [
+    { "file": "tests/g085-answer-envelope.test.ts", "tests": 7, "passed": 7, "new": true,
+      "covers": "答案信封解析口径（成功 result 事件答案文本、agy NDJSON 嵌套终局、元事件不冒充观点、失败终局不冒充观点、显式 structured_output 优先）+ **终局优先级**（早期结构化草稿不得胜出、末终局纯文本不可解析即拒绝、末终局失败拒绝整段且不采信运行侧缓存字段）+ 两个真实管线集成例 + 协调器端到端两例",
+      "sha256": "c6d9ab8ace814b4fddde969ec693ff6cd82a51185d2b84bfec53f1acdff2b474" },
+    { "file": "tests/g085-collab-effort.test.ts", "tests": 6, "passed": 6, "new": true,
+      "covers": "强度默认值与档位（codex/Claude LOW、agy HIGH、无档案通道不冻结、非法档位拒绝）、逐席位强度随授权快照冻结并带出审批卡、名册 collab_default_effort 与 collab_default_model_id 与创建口径同源、协作表单模型初值优先讨论档案绑定模型且保留用户显式选择、非法/非字符串 400 且不留半成品会话、强度不进入权限指纹",
+      "sha256": "1ac59bcc6b4e2231a17c51102cd6743ed6d6f2c728a8162c00a05d0969c4d083" },
+    { "file": "tests/g085-claude-profile.test.ts", "tests": 6, "passed": 6, "covers": "受控参数集与顺序、资产哈希入绑定、模型/版本/参数/资产四类漂移 fail-closed、非本地目录与异内容资产拒绝、契约校验、登记文件不含凭据、管线登记工作目录" },
+    { "file": "tests/g085-claude-native.test.ts", "tests": 8, "passed": 8, "covers": "真实 spawn 假后端：受控 argv 实际下发、inline schema 与 stream-json 解析、结构化输出入记录与回执、工具请求可见但零执行痕迹、单次超时结算 TIMEOUT；本轮新增**身份缺失/不可解析必须拒绝且记录与回执都不保留 structured_output**、**身份不匹配拒绝**、**超时不得被身份判定掩盖**" },
+    { "file": "tests/g085-api-sessions.test.ts", "tests": 5, "passed": 5, "covers": "2/3 席位、服务端派生关系与额度、拒绝客户端注入、审批卡字段、准入拒绝回 409 且原样给原因" },
+    { "file": "tests/g085-e2e-session.test.ts", "tests": 3, "passed": 3, "covers": "真实管线+fake runner：三模型恰好 13 次调用与六条互评关系、双模型恰好 7 次、快照冻结关系与额度" },
+    { "file": "tests/g085-triple-model.test.ts", "tests": 18, "passed": 18, "covers": "席位模型与协调者、默认边界、关系冻结与注入拒绝、视图唯一性与三重拒绝、关系门、跨会话回应、材料三边界、13/14 次额度账目、提示隔离、模板与 Schema 分版、迁移幂等与回滚" },
+    { "file": "tests/core-budget.test.ts", "tests": "新增 2 例", "passed": 2, "covers": "实付替代预估（覆盖判定不受 decision 影响）与超 cap 实付仍计入 spentUsd 并阻断下一单" },
+    { "file": "tests/g072-claude-stream-run.test.ts", "tests": "断言有意变更", "covers": "stdout 一律返回原始流（不再归一为结果文本）——这是身份门与行为证据可核验的前提" }
+  ],
+  "browser_acceptance": {
+    "runner": "真实 Chromium（仓库 .venv-pw Playwright）+ fixture 看板（独立数据根）+ fake runner",
+    "artifact": ".test-fixtures/g085-browser-2026-10-04/browser-acceptance.json",
+    "sha256": "61b37a49f788559a1a26a460a393e575686043a81d1d14868ace9f09d20d43f1",
+    "dual_session": { "status": "completed", "call_count": 7, "retry_count": 0, "review_relations": ["A->B", "B->A"], "accepted_gaps": ["read_scope", "recursion", "tool_scope", "write_protection"] },
+    "triple_session": { "status": "completed", "call_count": 13, "retry_count": 0, "relations": ["A->B", "A->C", "B->A", "B->C", "C->A", "C->B"], "columns_1440": "376.656px ×3", "columns_390": "332px 单列" },
+    "stop_session": { "status": "interrupted", "call_count": 2, "stop_button_clicked": true },
+    "effort_selection": {
+      "asserted": "表单逐席位强度下拉的档位来自该通道声明（codex MINIMAL/LOW/MEDIUM/HIGH/XHIGH/MAX/ULTRA；agy LOW/MEDIUM/HIGH）、初值取服务端默认（A=LOW、B=LOW）、双模型下 C 的强度控件隐藏；改选 A=MEDIUM、B=LOW 后提交",
+      "create": { "http_status": 201, "authorization_readiness_ready": true, "session_id": "cb089b51-01a4-469f-89d5-f325d8ca7e11" },
+      "frozen_snapshot": ["A=codex×MEDIUM", "B=agy×LOW"],
+      "approval_card_line": "参会者 2 位：A=codex × MEDIUM、B=agy × LOW",
+      "screenshots": [
+        { "file": ".test-fixtures/g085-browser-2026-10-04/form-effort-seats.png", "sha256": "dd466704fcf3d05b4d0c537a77bd1d592d821fab2d9bd31f3c935b180c4d6f27" },
+        { "file": ".test-fixtures/g085-browser-2026-10-04/approval-card-effort.png", "sha256": "4e432ef556bd8e8700fe2481280c144adfe018ebf796dc1d5faa1b314ed0d72c" }
+      ],
+      "not_approved": "该会话只创建为待批准（pending_approval），**未批准、未派发、零模型调用**"
+    },
+    "fixture_observation": "验收过程中发现（**范围外，未改产品**）：协作表单的模型下拉默认取名册默认模型，本机 codex 为 gpt-5.6-sol，而证据按批准指纹 8194bb67…（gpt-5.5）登记，因此用表单默认值创建会话会得到**正确的 409 准入拒绝**。验收脚本显式改选 gpt-5.5 以测强度冻结；修法候选（表单初值改用讨论档案声明的模型）留 owner 决定。",
+    "prior_round": { "artifact_sha256": "f6f9804b11288937decb06c68dc9f083d464dce62501c2997b2cf9624705ec02", "covers": "双/三模式切换、材料白名单重建、侧栏卡逐项、两列/三列、窄屏单列、停止、备注输入" }
+  },
+  "real_probes": [
+    {
+      "packet": "C8 (身份＋schema)",
+      "receipt": "runtime/collaboration-admission/claude/workspace/.mush-receipts/dispatch-ceefb4557f1542008b2d1cedc25eef57.json",
+      "result": { "exit_code": 0, "timed_out": false, "structured_output": { "body": "PROBE_SCHEMA_OK", "stance": "support" } },
+      "proves": ["受控参数集实际下发到 claude CLI", "inline schema 运输生效", "结构化输出完整进入回执"],
+      "does_not_prove": ["运行时模型身份（身份门本轮已接线，但身份证据仍走 nonce 路径）", "任何隔离维度", "真实账户权益"],
+      "cost": { "ledger_entries_usd": [0.037617, 0.013659], "total_usd": 0.051296, "billing_status": "UNKNOWN" }
+    },
+    {
+      "packet": "C9 (受控配置验证)",
+      "receipt": "runtime/collaboration-admission/claude/workspace/.mush-receipts/dispatch-445ccdc1e29c4015a316d04a3ae177e0.json",
+      "result": { "exit_code": 0, "structured_output": { "write": "BLOCKED", "read": "BLOCKED", "shell": "BLOCKED", "mcp": "BLOCKED", "recursion": "BLOCKED" } },
+      "registration": "不登记任何维度：五维 BLOCKED 是**自报**且未实际发起工具请求（D90(5)）",
+      "cost_usd": 0.021209
+    },
+    {
+      "packet": "C11 (受控变体：去掉 --tools \"\"，强制工具请求)",
+      "dispatch_id": "1f9f2b9e93c74353a081681a1e16276d",
+      "variant_fingerprint": "4f6901487aba35db99860ac1f71715dccedf6dbff87d6c8bebb4358855c6b8a4",
+      "native_facts": ["Read 成功读到 canary 全文", "Bash(echo MUSH_PROBE_COMMAND) 成功执行", "Write probe-write.txt 被 dontAsk 拒绝（原生 permission_denied, decision_reason_type=mode）", "子代理经 Agent 工具后台启动（spawn_depth=1, subagent_type=general-purpose）", "子代理自己的 Bash(node dummy-agent.mjs) 被同一 dontAsk 门拒绝", "MCP NOT_ATTEMPTED"],
+      "subagent_terminal_state": {
+        "status": "completed",
+        "evidence": "task_progress(1 tool use / 20952 tokens / 7190 ms / last_tool_name=Bash) → permission_denied(agent_id=a56f036fad5e2a75d) → task_updated{patch.status:completed} → background_tasks_changed{tasks:[]} → task_notification{status:completed, summary}；subagent_stats={spawned:1,started_in_background:1,max_depth:1,completed:1,failed:0,killed:0}",
+        "output_file": "C:\\TEMP\\claude\\…\\tasks\\a56f036fad5e2a75d.output 存在但 0 字节（创建于启动时刻）——不得据此判定子代理未工作",
+        "mush_child_records": 0,
+        "doc": "docs/operations/goal085-c11-subagent-terminal-state-2026-10-05.md",
+        "doc_sha256": "2ed43e306ce52192e9896aebc85fd2700a3a89f5e1261553adbb8ce7b773833b"
+      },
+      "registration": "只归档**变体指纹**下的原生行为事实；不登记任何隔离维度通过（特定 Write 被拒不能证明所有写路径被禁）；严格席位指纹 5b5096e9… 仍五维 unmet",
+      "correction": "我此前关于 C11 的三条错误结论（零落地副作用 / 回执字段不足以区分 / 不能解读为读被允许写被拒绝）已作废，更正报告 sha256 33980e92a5af8ae636bb333955ba09fa2a8b7bfb03775fd01512a7f7c61515ad",
+      "cost_usd": 0.34339,
+      "cost_note": "单次实付约为卡上 cap_usd=0.10 的 3.4 倍——cap_usd 是准入门阈值而非账单硬上限（见 known_limitations）"
+    },
+    {
+      "packet": "C10 (严格档案 + 强制请求)",
+      "status": "PREPARED_AWAITING_OWNER",
+      "record": "runtime/dispatches/e337dab589f74da3a651a0c1a1edcb50.jsonl（status=BLOCKED_WAITING_OWNER、prepared_only=true、probe_id=C10、指纹 5b5096e9…、无回执 → 从未执行、未占额）",
+      "reused_meaning": "reused=true 的含义是**已存在同内容的 C10 待审批包**（去重条件见 collaboration-probes.ts:389：同包 ID + 同提示 + 同 schema + 同模型/强度/工作区/指纹 + 仍待审批）。**更正**：我此前说\"与 C9 同 prompt+schema 被判 reused\"是错的——C10 与 C9 提示不同，去重也不会跨包 ID 命中。",
+      "card_validity": "**更正（2026-10-05 本轮直查卡目录）**：C10 的卡文件 `goals/receipts/approval-requests/dispatch-e337dab589f74da3a651a0c1a1edcb50.json`**存在**，且**已有 owner-response = APPROVED**（`responded_at_utc=2026-10-05T01:32:28.892Z`，note=\"DeepSeek 受 Owner 委托：GOAL-085 C10 严格档案强制工具请求（owner 2026-10-05 批准，非 Owner 正式验收）\"）。因此**不是**\"仍待 owner 批准\"，也不在待批投影里（投影状态=APPROVED）。派发记录本身仍是 `BLOCKED_WAITING_OWNER`、`prepared_only=true`、`receipt_path=null`、**无回执** → 已获（委托）批准但**从未执行、未占额**；批准触发的重跑未落地（与 C11 同类的「原单未在当次进程内存中」折叠缺口）。",
+      "owner_ruling": "不改提示绕过机制；目前也无必要恢复这个付费探针；不补造卡片、不恢复执行，保留未执行记录。"
+    }
+  ],
+  "terminal_precedence_fix": {
+    "defect": "同一 stdout 上有多条 result 事件时，旧口径（倒序扫描 + 带字段才覆盖）会让**早期草稿**胜出：(a) 最后成功终局只在文本里给答案（纯文本不可解析 → 回退到早期终局的结构化草稿）；(b) 最后终局失败（缓存的早期 structured_output 绕过拒绝检查）。",
+    "repro": ".test-fixtures/g085-terminal-precedence-review-2026-10-05.mjs（owner 提供）——修复前两情形均为 coordinatorSelectedBody=EARLIER_DRAFT；修复后成功末终局=FINAL、失败末终局=无答案",
+    "rule": "权威终局 = type/event==='result'；只有最后一条有效——终局内优先 structured_output，其次解析答案文本；失败终局拒绝整段；终局内无可解析答案即本轮无答案；无权威终局时才回退旧口径",
+    "layers": ["src/adapters/claude.ts parseClaudeStreamJson（只从最后终局取字段，失败终局不保留 structured_output；resultText 仍如实描述该终局文本）", "src/orchestration/collaboration-coordinator.ts extractJsonObject（先定终局再取值）"],
+    "regression": "tests/g085-answer-envelope.test.ts 7/7"
+  },
+  "collab_model_default_fix": {
+    "defect": "协作表单模型初值取名册默认模型（本机 codex 实测 gpt-5.6-sol），而证据按批准指纹 8194bb67…（gpt-5.5）登记 → 用默认值创建会话得到正确的 409 准入拒绝（fail-closed 但是 UX 陷阱）。",
+    "fix": "名册新增 collab_default_model_id（= 讨论档案绑定模型）；协作表单以它作初值；只影响协作表单，普通聊天/派发默认模型不变；用户显式选过的模型保留；未经验证组合照旧被拒并原样说明原因。",
+    "browser_verification": "真实 Chromium 表单**不再显式选模型**：初值 gpt-5.5 / gemini-3.7-flash-high（models_are_collab_default=true），创建 201 ready=true，无 409 弹窗；browser-acceptance.json sha256 43e82d00c560f84b88db0f85a8190b5883ce0b5687f795bb3e1add29c8d1e4a5"
+  },
+  "native_isolation_experiment": {
+    "doc": "docs/operations/goal085-claude-native-isolation-2026-10-05.md",
+    "artifact": ".test-fixtures/g085-claude-native-isolation-2026-10-05/evidence.json",
+    "artifact_sha256": "29ca8e83e543ccba287c451774cc216a67e7389c6e1f21592cac9c5216b41be1",
+    "zero_paid": true,
+    "setup": "真实 claude CLI + 本地假 Anthropic 后端（127.0.0.1 临时端口，三场景实测只命中 /v1/messages）+ 合成 token（剥离宿主全部 ANTHROPIC_*/CLAUDE_* 变量）+ 隔离 HOME/USERPROFILE/CLAUDE_CONFIG_DIR + 复用 C8/C9 空 MCP 配置与空 settings；装配与生产同源（buildContracts(能力注册表) → buildClaudeDiscussionProfile → capabilityArgs），并按 applyModelVariant 追加 --model claude-sonnet-5",
+    "strict_profile": { "tools_advertised": ["StructuredOutput"], "init_permission_mode": "dontAsk", "init_model": "claude-sonnet-5",
+      "forced_tool_use": { "requested": ["Read", "Write", "Bash"], "executed": [], "results": "三项均 <tool_use_error>No such tool available: X … disabled for this session", "permission_denied": [], "write_target_created": false },
+      "context_canaries_in_request": false },
+    "variant_drop_tools_flag": { "tools_advertised_count": 22, "read_executed": true, "read_returned_canary": true,
+      "write_denied": true, "write_permission_denied_reason": "mode", "bash_echo_executed": true, "write_target_created": false },
+    "baseline_plain_args": { "init_permission_mode": "auto", "skills_enabled": true, "workspace_claude_md_injected": true, "agents_md_injected": false, "user_level_md_injected": false },
+    "registration": {
+      "decision": "D93（owner 2026-10-05：采纳机器级事实，但按证明对象分别登记）",
+      "registered": [{ "dimension": "tool_scope", "record": "collaboration/evidence/records/aa98f492c21ff5baff4796cbb8f39fa4c84062a4a72e5a3f12907e21894de28f.json",
+        "source": "g085://claude-native-isolation-2026-10-05/claude-code/tool-scope-strict-surface", "method": "behavior_test",
+        "verification": "behavior", "result": "pass", "config_fingerprint": "5b5096e9c3d49f3d3d33a0f61d93d58d4bf30b4cacdf9913106ff056afd7857d",
+        "artifact_sha256": "29ca8e83e543ccba287c451774cc216a67e7389c6e1f21592cac9c5216b41be1",
+        "proof_object": "本机 Claude 2.1.286、严格受控参数下只广告 StructuredOutput（无内建工具）、强制 Read/Write/Bash 的 tool_use 一律被 CLI 拒绝；模拟模型不影响该客户端强制行为" }],
+      "not_registered": ["write_protection（只有局部证明；**两种配置的拒绝原因必须分开**：严格档案是\"工具不存在\"（根本没走到权限门），变体才是 `dontAsk` 权限门拒绝（`reason=mode`，同轮 Bash echo 被放行）；不得外推为所有写入路径已验证）",
+                         "read_scope / mcp_scope / recursion（未测或未覆盖）",
+                         "用户级上下文（尚未在真实路径上验证）"],
+      "context_boundary": "只登记**配置级**事实：严格配置未自动注入工作区 CLAUDE.md；基线同时改动多个参数，不足以单独归因于 --safe-mode；不升级 read_scope。",
+      "fingerprint_attribution": "机器核对（非贴指纹）：生产 profile + buildContracts(注册表) 重建 → 指纹 = 席位指纹 5b5096e9…；实验合同与生产合同唯一差异键 claude_discussion_profile、其内唯一差异字段 workspace_root；有效 argv 逐字节相同。登记 coverage 已并列说明隔离 HOME／本地假后端／隔离工作目录与生产环境的差异，并写明与 C8/C9 的对账关系。",
+      "post_registration_seat_state": "claude: tool_scope=live_verified；write_protection/read_scope/mcp_scope/recursion=unmet；失败反例 0 → 仍不通过隔离准入"
+    },
+    "not_proven": ["真实模型的行为倾向（模型是模拟的）", "仅覆盖 Read/Write/Bash 三种工具", "AGENTS.md / 用户级 CLAUDE.md 未被读取只记'未观测'", "真实子模型、真实 MCP、真实网络仍未演练"]
+  },
+  "write_coverage_experiment": {
+    "doc": "docs/operations/goal085-claude-native-isolation-2026-10-05.md §4",
+    "artifact": ".test-fixtures/g085-claude-native-isolation-2026-10-05/evidence-write-coverage.json",
+    "artifact_sha256": "2ce138408677f93f0be9582eda4a496ed13854c39b18a5d39c645af106a49075",
+    "zero_paid": true,
+    "registered_dimensions": "NONE（只产出证据；是否登记 write_protection 由 owner 裁定）",
+    "finite_scope_status": {
+      "1_strict_entries": "DONE：强制 Agent/Task/Workflow/CronCreate/ScheduleWakeup/CronList 六入口全部 No such tool available（原文含 'in subagents as well as here'）；无任何 task_*/background_tasks 事件；隔离 HOME+配置根跑前跑后 3→3 文件、**新增 0** → 无子任务、无持久化作业",
+      "2_outside_workspace": "DONE：严格档案下 Read/Write/Edit 指向工作区外合成目标全部'工具不存在'、工作区外零变化；变体下 Read(工作区外) 与 Write(工作区外) 均 permission_denied(mode)（**门对读取是工作区有界的**），Edit(工作区外) 被工具前置（File has not been read yet）挡下 → 零变化",
+      "3_dumb_mcp_contrast": "PENDING：需另建声明哑 MCP 的 profile（最小 initialize/tools/list 服务器）与空 MCP 配置对照",
+      "4_user_context_real_path": "DONE：本机环境下真实用户级记忆路径 = **$CLAUDE_CONFIG_DIR/CLAUDE.md**（canary=true），而 $HOME/.claude/CLAUDE.md canary=false；工作区 CLAUDE.md canary=true（正对照）。仍未在严格档案/变体下对照该路径是否被抑制 → 不登记 read_scope。"
+    },
+    "scenarios": [
+      { "id": "S-write-strict", "forced": ["Write", "Edit", "NotebookEdit", "Bash echo", "Bash printf>file"],
+        "outcome": "五项全部 No such tool available（原文含 'in subagents as well as here'）——**拒绝原因是工具不存在，未经过权限门**", "side_effects": "全部目标无变化" },
+      { "id": "V-write-variant", "forced": ["Write", "Edit", "NotebookEdit", "Bash echo", "Bash printf>file"],
+        "outcome": "Write/Edit/shell 重定向 由 **dontAsk 权限门**拒绝（permission_denied, reason=mode）；NotebookEdit 被工具前置（File has not been read yet）挡下；**Bash echo 执行成功**（该门按命令形态判定）",
+        "side_effects": "全部目标无变化（含 shell-write.txt 未创建）" },
+      { "id": "V-notebook-after-read", "forced": ["Read(notebook)", "NotebookEdit"],
+        "outcome": "Read 成功；NotebookEdit → permission_denied(mode)", "side_effects": "notebook 未改变" },
+      { "id": "S-entries-strict", "forced": ["Agent", "Task", "Workflow", "CronCreate", "ScheduleWakeup", "CronList"],
+        "outcome": "六入口全部 No such tool available；无 task_* 事件；持久化新增 0", "side_effects": "无" },
+      { "id": "S-outside-strict", "forced": ["Read(outside)", "Write(outside)", "Edit(outside)"],
+        "outcome": "三项全部 No such tool available", "side_effects": "工作区外零变化" },
+      { "id": "V-outside-variant", "forced": ["Read(outside)", "Write(outside)", "Edit(outside)"],
+        "outcome": "Read(outside)/Write(outside) → permission_denied(mode)；Edit(outside) → 工具前置（前置读被拒）", "side_effects": "工作区外零变化" },
+      { "id": "B-user-context", "forced": [],
+        "outcome": "基线：工作区 CLAUDE.md canary=true；$CLAUDE_CONFIG_DIR/CLAUDE.md canary=true（本项目环境下的真实用户级路径）；$HOME/.claude/CLAUDE.md canary=false", "side_effects": "无" }
+    ],
+    "supports": ["严格档案下四个写入类工具**不存在**（拒绝原因是'工具不存在'，未走到权限门；原文声明对子代理同样禁用——线索，未强制子代理写入）",
+                 "变体下 Write/Edit/NotebookEdit/shell 重定向写入由 **dontAsk 权限门**拒绝且零副作用；同轮 Bash echo 被放行 → 权限门按命令形态判定"],
+    "still_missing": ["本地哑 MCP 的可用／禁用对照（有限范围第 3 项，未做）", "严格档案／变体下用户级真实路径（$CLAUDE_CONFIG_DIR/CLAUDE.md）是否被抑制（未对照）", "EnterWorktree（目录/仓库侧写入）", "真实网络写操作"],
+    "next_round_finite_scope": [
+      "本地哑 MCP 作**可用／禁用**对照（最小 stdio initialize/tools/list 服务器 + 空 MCP 配置两套 profile）",
+      "把用户级上下文 canary 固定到 `$CLAUDE_CONFIG_DIR/CLAUDE.md`，在严格档案与变体下各跑一次，确认严格档案是否抑制它",
+      "补 EnterWorktree / 仓库侧写入（若仍属有限范围内）"
+    ]
+  },
+  "evidence_transport_fix": {
+    "defect": "runClaudeStreamRun 把累积 stream-json 归一成一行 final text 才返回，于是 system/init（模型身份）、tool_use/tool_result、permission_denied、task_* 不随 runner 返回值与回执暴露——任何只看回执的判断都退化为自报。",
+    "numeric_proof": "C11 回执 stdout_sha256=17AAD74F50AC5D633CF5F7DC9304C727C39B29653554C0D4D096726D21E61594，经计算**恰好等于那条 102 字符结果 JSON 的 sha256**（即归一化文本），而 29450 字节原始流只存在于 dispatch 事件流帧（重建 sha256 8CA0B1C90F1DA1844BE7AAE3A07D668D262880E2B4CB348AF11DEC7FA463F557）",
+    "fix": "stdout 一律返回累积原始流；回执新增 raw_stream（≤64 KiB 原文）+ raw_stream_bytes + observed_model_id；身份不符时回执不含 structured_output 但原始流保留",
+    "wording": "原始流**并非完全丢失**（一直在 dispatch 事件流的 payload.stream_text 里）；缺的是**证据运输**（没进 runner 返回值与回执）"
+  },
+  "identity_gate": {
+    "rule": "受控讨论派发在**执行成功**（exit 0 且未超时）时解析原生 system/init 的模型身份，缺失/不可解析/不匹配一律 FAIL；FAIL 时记录与回执都不保留 structured_output",
+    "timeout_boundary": "超时/非零退出不参与身份判定（否则真正的 TIMEOUT 会被改写成\"身份缺失\"，实测踩到并加回归）",
+    "closes": "v1.59 契约中登记的\"派发路径不比对运行时上报身份\"限制"
+  },
+  "answer_envelope_fix": {
+    "defect": "受控通道 stdout 是事件流；有效答案放在成功 result 事件的 result 文本里且无 structured_output 时，旧实现\"只跳过同时带 type 与 subtype 的行\"会跳过整行（连吃两次拒绝后会话 failed），而只带 type 的 assistant 行反被当成观点对象。",
+    "before_after": "对照脚本 .test-fixtures/g085-result-envelope-fix-2026-10-05.mjs：旧算法在含 assistant 的流上返回 assistant 事件对象、在最小流上取不到任何对象；新实现返回真实答案；协调器整体 7 轮完成、retry_count=0",
+    "implementation": "src/adapters/answer-envelope.ts（唯一实现，agy 通道解析器改为复用）+ src/orchestration/collaboration-coordinator.ts（按信封扫描；失败终局整段不采信）",
+    "module_sha256": "8ffb428926f8d387a2347b8939620eaad82f30cd3dba58676fea055ed3d0e8a5"
+  },
+  "effort_selection": {
+    "decision": "D91",
+    "implementation": ["src/web/collab-effort.ts（默认值/档位/请求校验的唯一来源）", "src/web/server.ts（创建时校验并冻结）", "src/web/dispatch.ts（名册投影 collab_default_effort）", "src/web/page.ts（逐席位强度下拉）", "src/adapters/contract.ts（DEFAULT_EFFORT_LEVELS 上移到合同层，前后端与派发共用一份）"],
+    "boundary": "强度是质量旋钮不是权限面：不进入 config_fingerprint；批准后改强度仍被拒（tests/g084-session-authorization.test.ts 原有回归继续生效）"
+  },
+  "pending_owner_decisions": [
+    "两场真实讨论（Codex＋Claude、Codex＋agy＋Claude）的逐卡批准与后续验收——准入前置已满足，但**未批准、未启动**；费用与真实调用暂停状态未解除",
+    "看板上本轮核对用的两张 pending_approval 会话卡（8fa0232e… 双席位、c8c1fb65… 三席位）如何处置（保留待批 / 否决清理）",
+    "C10 付费探针是否恢复（当前卡仍 BLOCKED_WAITING_OWNER 且有效；owner 已裁定无需恢复、也不改提示绕过去重）",
+    "看板上遗留的 GOAL-084 会话授权卡是否否决清理"
+  ],
+  "admission_state": {
+    "codex_seat": { "dimensions_best": "五维全部 live_verified", "failure_counterexamples": 0, "policy_gaps_needed": 0 },
+    "agy_seat": { "dimensions_best": "mcp_scope=live_verified; write_protection/tool_scope/read_scope/recursion=unmet（D89 政策逐条接受）", "failure_counterexamples": 0 },
+    "claude_seat": { "dimensions_best": "**五维全部 live_verified**（D93 的 tool_scope + D94 的四条登记；记录 5 条，产物 29ca8e83/2ce13840/e25f6330）", "failure_counterexamples": 0,
+      "note": "准入就绪：三席位会话创建 201 ready=true；**真实讨论尚未验收、未批准启动**" },
+    "verified_on_live_board": "codex+agy 双席位 201 ready=true（8fa0232e…）；codex+agy+claude 三席位 **201 ready=true**（c8c1fb65…）——两张卡保持 pending_approval，未批准、未启动"
+  },
+  "source_sha256": {
+    "src/adapters/answer-envelope.ts": "8ffb428926f8d387a2347b8939620eaad82f30cd3dba58676fea055ed3d0e8a5",
+    "src/adapters/agy.ts": "dc82500b49407d4f9f6a60f336a1caad098e6d537f31ca1fc8829dcf572ff2a0",
+    "src/adapters/claude.ts": "176057d7d995a8e068c75749be4623ee0bfaf232861a431d6be95e437616756c",
+    "src/adapters/contract.ts": "8a6b6478f3fce6333b90f8bb29a7530585f75af9f28bbf179b59996855ec6ebc",
+    "src/adapters/claude-discussion-profile.ts": "5eeedc796ea1a80dd8be2d421c63f45dbf8d7551f96a41bc38e40f486d648da5",
+    "src/core/budget.ts": "ae210ed6a10e4775b16608bc31699b12dfa2d08fadd4d688e8d3f2c8903c6aca",
+    "src/orchestration/collaboration-blackboard.ts": "532be84fffe0234418d04e9d2c78d9bb4bcec5616dd2531ed0295139fe44f730",
+    "src/orchestration/collaboration-coordinator.ts": "2d1c9e66c425e82c181d1629317b4325bdafb4792088446dc203eeb0ed388569",
+    "src/orchestration/collaboration-skills.ts": "b26782852625e95fb024351604919df8b140bd5348f7b550b60a2a1aa1d2b023",
+    "src/web/collab-effort.ts": "213e469c9837becc7d4444280ecf70c451795265c14e59b531620a19631ecf2d",
+    "src/web/collaboration-probes.ts": "b420d3f03b2b3456f0569e9b0704cbc56784b90f0682ff59fdb2a34a3b58f259",
+    "src/web/dispatch.ts": "38cd104f5b259aa62e1500d629c1583f99f3fe6e02c10128ecf8d4d3397af93f",
+    "src/web/page.ts": "e30dfb82be05a8b9b18aaec7702f508ebba24a71ba9c6c3545d88216ee7fe6ab",
+    "src/web/server.ts": "a5e00fd9ff2eb727337600a81ea098df114a181474d2f9051fbfb1aa8c8f36a0",
+    "src/web/sources.ts": "979bd10aed2b2c9011519126e8e0e89ad4a232d489726ad21ba0a908c5c15108"
+  },
+  "board_post_reload_verification": {
+    "reload": "1948 → 32520 → **26672**（末次在终局优先级/模型初值修复后）；`GET /` 200，页面同时含 `collab-effort-a` 与 `collab_default_model_id`",
+    "gap_found": "重载后**讨论档案是进程内状态**，未自动恢复：直接创建会话会因合同指纹不匹配被拒（实测 409 报的是席位 A codex 的 write_protection，而非真实缺口）。",
+    "fix_applied": "按既有流程补跑零派发激活（`POST /api/collaboration/profiles/activate-claude` → `claude_fingerprint=5b5096e9…`；`POST /api/collaboration/profiles/activate` → `agy=05c2a65b…`、`codex=8194bb67…`），三者与席位指纹逐字一致。",
+    "after_activation": "codex+agy 双席位创建 **201 ready=true**；codex+agy+claude 三席位 **409**，原因正确指向**席位 C claude-code 的 write_protection** 仍缺行为级证据（tool_scope 已因本轮登记不再是缺口）→ 与读回状态一致。",
+    "cleanup": "上述复核用的临时双席位会话已随即否决清理（append-only owner response：`collab-session-9a25b862….json.owner-response.json`，approved=false；未派发、未占额）。",
+    "pending_cards": "看板仍挂 1 张待批记录 = C10（`e337dab5…`，BLOCKED_WAITING_OWNER）"
+  },
+  "mcp_and_userctx_experiment": {
+    "doc": "docs/operations/goal085-claude-native-isolation-2026-10-05.md §4.2",
+    "artifact": ".test-fixtures/g085-claude-native-isolation-2026-10-05/evidence-mcp-and-userctx.json",
+    "artifact_sha256": "e25f633091c235e74dc6ef24dcb866ff5ac80c21398e0a21a5ea1e4c95e64874",
+    "zero_paid": true,
+    "registered_dimensions": "NONE（两项完成后由 owner 统一评审剩余四维；EnterWorktree 未新增、付费探针未恢复）",
+    "dumb_mcp_server": ".test-fixtures/g085-claude-native-isolation-2026-10-05/dumb-mcp-server.mjs（stdio 换行分隔 JSON-RPC：initialize / tools/list / tools/call(echo)；每次收发都写调用日志，故'服务端是否被调用'是机器判定）",
+    "mcp_contrast": [
+      { "id": "MCP-available", "config": "声明哑 MCP；去掉 --safe-mode 与 --tools \"\"；bypassPermissions",
+        "init_mcp": "mushprobe=connected", "advertised": "mcp__mushprobe__echo", "call": "执行成功，结果 MUSH_MCP_ECHO:MUSH_MCP_PROBE_TEXT", "server_tools_call_count": 1 },
+      { "id": "MCP-declared-safe-mode", "config": "声明哑 MCP 但保留 --safe-mode",
+        "init_mcp": "无（MCP 未加载）", "advertised": "无", "call": "No such tool available", "server_tools_call_count": 0 },
+      { "id": "MCP-declared-tools-empty", "config": "声明哑 MCP、去掉 --safe-mode、保留 --tools \"\"",
+        "init_mcp": "mushprobe=connected", "advertised": "mcp__mushprobe__echo", "call": "被 dontAsk 权限门拒绝（permission_denied, reason=mode）", "server_tools_call_count": 0 },
+      { "id": "MCP-strict-seat", "config": "席位档案原样（空 MCP + --safe-mode + --tools \"\" + dontAsk）",
+        "init_mcp": "无", "advertised": "无", "call": "No such tool available", "server_tools_call_count": 0 }
+    ],
+    "attribution": ["--safe-mode 单独即让 MCP 不被加载（help 语义获实测支持）",
+                    "--tools \"\" 不压制 MCP 工具（照样被广告）；拦下同一调用的是 dontAsk 权限门，且在产生任何服务端流量之前（次数 0）",
+                    "严格档案叠加两者：MCP 未加载 + 工具不存在 → 服务端零调用"],
+    "user_context_suppression": {
+      "path": "$CLAUDE_CONFIG_DIR/CLAUDE.md（上一轮确认的真实用户级记忆路径），工作区 CLAUDE.md 作正对照，两处用**同一** canary",
+      "baseline": { "workspace_claude_md": true, "config_dir_claude_md": true },
+      "strict_seat": { "workspace_claude_md": false, "config_dir_claude_md": false },
+      "conclusion": "同一路径同一 canary：基线命中、严格配置不命中 → 用户级上下文在严格档案下确实被抑制"
+    },
+    "still_open": ["$CLAUDE_CONFIG_DIR 之外的用户级/企业级路径", "--safe-mode 与 --tools \"\" 之外参数对 MCP 的影响", "真实 MCP 服务器行为与真实网络"]
+  },
+  "remaining_four_dimension_registration": {
+    "decision": "D94（owner 2026-10-05 统一复核：有限范围实验已足以支持剩余四维的行为级登记，不再追加工具枚举）",
+    "script": ".test-fixtures/g085-claude-native-isolation-2026-10-05/register-claude-remaining-dimensions.mjs（登记前逐项校验三份产物、指纹等价与 argv 一致，任一不符即拒）",
+    "registered": [
+      { "dimension": "write_protection", "source": "g085://claude-native-isolation-2026-10-05/claude-code/write-protection-strict-entries", "artifact_sha256": "2ce138408677f93f0be9582eda4a496ed13854c39b18a5d39c645af106a49075",
+        "proof_object": "已测试的直接写入/修改/Notebook/shell 重定向及替代入口在严格配置下被关闭，目标未改变（变体侧由 dontAsk 权限门拒绝、零副作用，仅作对照）" },
+      { "dimension": "read_scope", "source": "g085://claude-native-isolation-2026-10-05/claude-code/read-scope-workspace-bounded-and-context-suppressed", "artifact_sha256": "e25f633091c235e74dc6ef24dcb866ff5ac80c21398e0a21a5ea1e4c95e64874",
+        "proof_object": "Read 入口关闭；合成内外目标与已测试的工作区／用户级自动上下文路径都不能向模型提供额外材料（同路径同 canary：基线 true、严格 false）" },
+      { "dimension": "mcp_scope", "source": "g085://claude-native-isolation-2026-10-05/claude-code/mcp-scope-strict-not-loaded", "artifact_sha256": "e25f633091c235e74dc6ef24dcb866ff5ac80c21398e0a21a5ea1e4c95e64874",
+        "proof_object": "已知可用的哑工具（可用配置实测回显成功、服务端 tools/call=1）在严格配置下未加载、强制请求被拒、服务端零调用（新增 0 行）" },
+      { "dimension": "recursion", "source": "g085://claude-native-isolation-2026-10-05/claude-code/recursion-no-subagents-no-jobs", "artifact_sha256": "2ce138408677f93f0be9582eda4a496ed13854c39b18a5d39c645af106a49075",
+        "proof_object": "Agent／Task、工作流与调度入口被拒，未产生子任务或持久化作业（六入口全部 No such tool available；无 task_* 事件；隔离 HOME+配置根新增文件 0）" }
+    ],
+    "common_fields": "adapter_id=claude-code、method=behavior_test、verification=behavior、result=pass、tool_version=claude-code 2.1.286、config_fingerprint=5b5096e9…（席位指纹）；每条 coverage 均写明版本/模型/有效 argv/两资产哈希/实验与生产差异/覆盖限制",
+    "no_extrapolation": "只属于 Claude 2.1.286 的当前严格指纹；不外推到其他模型、版本、变体（含去掉 --tools \"\" 的变体）或未测试的企业配置；模型是本地假后端，只证明 CLI/宿主侧行为",
+    "history_preserved": "四条均为**新 source**；未改写、未撤回任何历史记录（含 D89 前的 declared 条目）",
+    "independent_readback": {
+      "command": "node --import ./tests/setup.ts .test-fixtures/g085-codex-seat-behavior-2026-10-04/check-seat-admission.mjs",
+      "codex_seat": "五维 live_verified，反例 0（15 条）",
+      "agy_seat": "mcp_scope=live_verified，其余四维 unmet，反例 0（13 条）",
+      "claude_seat": "**五维全部 live_verified**，反例 0（5 条）"
+    },
+    "admission_readiness": {
+      "board_pid": 26672,
+      "dual_codex_agy": { "http": 201, "status": "pending_approval", "ready": true, "session_id": "8fa0232e-f190-4a9f-a421-151aea44554a" },
+      "triple_codex_agy_claude": { "http": 201, "status": "pending_approval", "ready": true, "session_id": "c8c1fb65-a6ad-433f-af9c-66dd281454b2" },
+      "not_approved": "两张卡按 owner 指令**只核对就绪状态、未批准、未启动**（保持 pending_approval，供 owner 处置）"
+    },
+    "round_conclusion": "登记 + 独立读回双通过 → 可报告\"Claude 席位五维准入已满足\"；**真实讨论尚未验收**，费用与真实调用的暂停状态不因此解除，C10 无需恢复。隔离补证轮结束。"
+  },
+  "acceptance_card_housekeeping": {
+    "cancelled_check_sessions": [
+      { "session_id": "8fa0232e-f190-4a9f-a421-151aea44554a", "kind": "dual codex+agy（准入核对用，非首场计划）", "http": 200, "status": "cancelled", "card_kept": true, "owner_response_written": false },
+      { "session_id": "c8c1fb65-a6ad-433f-af9c-66dd281454b2", "kind": "triple codex+agy+claude（准入核对用；议题乱码、材料为空）", "http": 200, "status": "cancelled", "card_kept": true, "owner_response_written": false }
+    ],
+    "pending_projection_fix": {
+      "contract": "v1.62",
+      "behavior": "kind='collab-session' 的卡在其会话进入终态（completed/failed/cancelled/interrupted）后，投影状态由 WAITING 改为新增值 SESSION_TERMINAL，并附 session_terminal_status 与 stale_reason；**原卡与历史保留、不写 owner response、不伪造决定**（侧栏卡/待批计数/内联卡与「处理」按钮均按 WAITING 过滤故自动排除；审批列表仍如实展示并显示失效原因）",
+      "code": ["src/web/sources.ts（collectApprovals 增 collabSessionStatus 只读查询 + SESSION_TERMINAL + stale_reason）", "src/web/server.ts（/api/snapshot 传入会话状态查询）", "src/web/page.ts（SESSION_TERMINAL 标签与只读单元格、徽标配色）"],
+      "regression": "tests/g085-collab-session-projection.test.ts 2/2（单元级 + 真实 HTTP：取消后移出待批、未取消不受影响、卡文件与「无应答」事实保持不变）",
+      "live_verification": "GOAL-084 三张旧卡（302e6db7…/8c091f5c…/e8c549e9…）实测投影为 SESSION_TERMINAL(cancelled) → **无需再次否决**；两张新卡为 WAITING"
+    },
+    "formal_acceptance_cards": [
+      { "kind": "dual", "session_id": "1c1901dd-21cd-49f8-b08e-80f18a4bf37c", "request_file": "collab-session-1c1901dd-21cd-49f8-b08e-80f18a4bf37c.json",
+        "topic": "评审 GOAL-084 的实现与遗留问题（源码材料按 2026-10-05 冻结）", "participants": ["A=codex×LOW", "B=claude-code×LOW"],
+        "review_relations": ["A→B", "B→A"], "call_limit": 7, "session_timeout_min": 20, "materials": 5, "http": 201, "status": "pending_approval", "ready": true },
+      { "kind": "triple", "session_id": "2d082857-7367-4a6e-9d01-1796f49080c4", "request_file": "collab-session-2d082857-7367-4a6e-9d01-1796f49080c4.json",
+        "topic": "评审 GOAL-084 的实现与遗留问题（源码材料按 2026-10-05 冻结）", "participants": ["A=codex×LOW", "B=agy×HIGH", "C=claude-code×LOW"],
+        "review_relations": ["A→B", "A→C", "B→A", "B→C", "C→A", "C→B"], "call_limit": 13, "session_timeout_min": 40, "materials": 5, "http": 201, "status": "pending_approval", "ready": true }
+    ],
+    "frozen_materials": [
+      { "name": "冻结材料 1：协调器阶段与终局取值", "file": "src/orchestration/collaboration-coordinator.ts", "file_sha256_prefix": "2d1c9e66c425", "excerpt": "L1-L40", "chars": 1406 },
+      { "name": "冻结材料 2：答案信封与终局优先级", "file": "src/adapters/answer-envelope.ts", "file_sha256_prefix": "8ffb428926f8", "excerpt": "L1-L60", "chars": 2524 },
+      { "name": "冻结材料 3：证据等级与准入判定", "file": "src/orchestration/collaboration-evidence-store.ts", "file_sha256_prefix": "b27d5c66c3e1", "excerpt": "L1-L60", "chars": 3555 },
+      { "name": "冻结材料 4：受控席位派发校验", "file": "src/web/dispatch.ts", "file_sha256_prefix": "38cd104f5b25", "excerpt": "L1280-L1330", "chars": 3078 },
+      { "name": "冻结材料 5：会话授权卡与待批投影", "file": "src/web/sources.ts", "file_sha256_prefix": "667f637a5d0a", "excerpt": "L52-L104", "chars": 1848 }
+    ],
+    "frozen_materials_total_chars": 12411,
+    "card_preparation_notes": "上一轮用 PowerShell 拼 JSON 导致议题乱码、材料为空；本轮改用 Node（fetch 以 UTF-8 编码）并重新冻结材料。脚本 .test-fixtures/g085-formal-acceptance-cards-2026-10-05.mjs（幂等：记录态文件避免重复建卡）",
+    "leftovers_for_owner": [
+      "C11 重复准备卡 `dispatch-9fa52af8…`：本轮已按 owner 裁定**否决清理**（见 c11_duplicate_check.disposition）",
+      "**更正**：C10 **有卡文件**（此前\"没有卡文件\"的说法是从待批过滤结果误推的，已更正）；该卡带（委托）APPROVED 应答，但派发记录 `e337dab589f74da3a651a0c1a1edcb50` 仍 `BLOCKED_WAITING_OWNER`/`prepared_only`/`receipt_path=null`、**无回执** → 保留未执行记录，不补造卡片、不恢复执行"
+    ],
+    "c11_duplicate_check": {
+      "instruction": "owner 2026-10-05：C11 旧准备卡核对与已执行包一致后，否决并注明「重复包已执行」，保留历史",
+      "verification_script": ".test-fixtures/g085-c11-duplicate-card-disposition.mjs（核对未全部通过即中止，不写任何决定）",
+      "result": "**核对未通过 → 已中止，未写否决、未改任何文件**",
+      "identical": { "prompt_sha256": "ffac0c2ccf3dbb589495ae7824974e9942c2db9ba86567ee9d7424124f0bfd61（卡与已执行包相同）", "probe_id": "C11（相同）", "adapter/model/effort": "claude-code / claude-sonnet-5 / LOW（相同）", "workspace": "runtime/collaboration-admission/claude/workspace（相同）", "contract_fingerprint": "4f6901487aba35db99860ac1f71715dccedf6dbff87d6c8bebb4358855c6b8a4（相同）" },
+      "different": { "output_schema": "卡 = 读探针 schema（properties: body,stance；sha256 bb1082fcecfd…）；已执行包 = C11 五维闭合 schema（properties: write,read,shell,mcp,recursion；sha256 3f808ceab07e…）" },
+      "interpretation": "该卡是 **C11 schema 定稿之前的遗留准备包**（同提示词、同探针号，但 schema 是当时误用的读探针 schema）。它与已执行包**不是同一份包**，因此按 owner 给定的措辞写「重复包已执行」**不成立**——不写不实记录。",
+      "state": "卡文件保留、无 owner-response、记录仍 BLOCKED_WAITING_OWNER、未重跑、未发令牌、零费用",
+      "disposition": {
+        "action": "**已否决清理**（owner 2026-10-05 裁定；DeepSeek 受委托执行）",
+        "http": 201, "decision": "REJECTED", "response_path": "goals/receipts/approval-requests/dispatch-9fa52af88392435198a6ef54dd6dc234.json.owner-response.json",
+        "record_chain": "append-only 链追加第 4 行 status=REJECTED（2026-10-05T09:18:16.826Z），原 3 行完整保留",
+        "card_kept": true, "rerun": "无（未重跑、未发令牌、零费用）",
+        "projection_after": "REJECTED（移出待批）；待批仅剩两张正式验收卡",
+        "blockers_cleared": ["提示词 sha256 与已执行包相同", "probe_id=C11 三方一致", "席位（claude-code/claude-sonnet-5/LOW）与执行包相同", "合同指纹 4f690148… 与执行包相同", "已执行派发 status=PASS 且有 exit 0 回执", "已执行包与**已批准卡** dispatch-92f77d57…（APPROVED @2026-10-05T01:44:00Z）提示词+schema 完全一致", "本卡此前无任何 owner-response"],
+        "documented_difference": "本卡 output_schema 为 C11 定稿前的读探针 schema（properties: body,stance；sha256 bb1082fc…），已批准卡与已执行包均为五维闭合 schema（write,read,shell,mcp,recursion；sha256 3f808cea…）→ 已在 note 中如实写明，未隐藏",
+        "note_written": "重复包已执行：C11 已由批准卡 dispatch-92f77d57…（APPROVED @01:44:00Z）经派发 1f9f2b9e… 执行完成（PASS、回执 exit 0）；本卡是同一探针的重复准备包，从未被批准、未执行；其 schema 为定稿前读探针 schema，与执行包五维闭合 schema 不同；为避免以旧 schema 重跑并产生费用，否决清理，保留历史，不重跑。DeepSeek 受 Owner 委托执行。"
+      },
+      "recommended_disposition": "请 owner 选定措辞后再否决，例如：「已失效准备包：schema 为 C11 定稿前的读探针 schema，与已执行包（1f9f2b9e…，五维闭合 schema）不同；为避免用旧 schema 重跑并产生费用，否决清理，保留历史，不重跑。」"
+    },
+    "not_done": "两张新卡**未批准、未启动**；未取消/启动任何其他会话；费用与真实调用暂停不变；C10 未恢复",
+    "scope_statement": "这两场讨论主要验证**真实协作链路**（授权快照 → 逐轮派发 → 评审关系 → 修订齐备 → 回执）以及**所提供的五份源码片段**；**不能**据此宣称已完成 GOAL-084 全部源码审计。",
+    "remaining_actions": ["恢复费用授权（owner 决定）", "逐卡批准：**先** Codex＋Claude 双模型，**再** Codex＋agy＋Claude 三模型", "C11 遗留卡否决措辞确认后清理（见 c11_duplicate_check）"],
+    "this_round_actions": "本轮**未批准、未启动**任何会话；未追加隔离探针；C11 卡核对后**中止**、未写决定；C10 未补造卡片、未恢复执行"
+  },
+  "dual_discussion_attempt_2026-10-05": {
+    "authorization": "owner 2026-10-05 明确授权：本轮新增预算 **$4.00**、**先只跑 Codex＋Claude 双模型**（三模型另议）；同轮指定给 agy 设 $3.00 准入上限（已写入：/api/budget/caps → agy=3）",
+    "preflight": {"card": "collab-session-1c1901dd-21cd-49f8-b08e-80f18a4bf37c.json（status=pending_approval、readiness.ready=true、5 份材料、call_limit=7、timeout=180s、session_timeout=20min）", "breaker_halted": false, "scan_inflight": "无在途", "profiles": "已激活（codex 8194bb67…/agy 05c2a65b…/claude 5b5096e9…）"},
+    "run": {"approve_http": 201, "approved": true, "calls_made": 2, "phases": ["coordination", "proposal"], "final_status": "failed", "outcome_reason": "Claude discussion native version mismatch", "stop_rule_fired": false},
+    "calls": [
+      {"role": "coordination", "adapter": "codex", "dispatch_id": "5727e77f63204ada9fd08ee8418759ab", "status": "PASS", "exit_code": 0, "declared_cost_usd": null, "receipt": "D:\\mush\\.mush-receipts\\dispatch-5727e77f63204ada9fd08ee8418759ab.json"},
+      {"role": "proposal(A)", "adapter": "codex", "dispatch_id": "b1de0bd2970e42aea5bfada0fe8b9312", "status": "PASS", "exit_code": 0, "declared_cost_usd": null, "receipt": "D:\\mush\\.mush-receipts\\dispatch-b1de0bd2970e42aea5bfada0fe8b9312.json"},
+      {"role": "proposal(B)", "adapter": "claude-code", "status": "NOT_DISPATCHED", "note": "在版本校验阶段即被拒，未创建派发记录、未执行、无费用"}
+    ],
+    "declared_cost": {"total_usd": 0, "caveat": "codex 回执的 telemetry 缺 total_cost_usd → codex 花费 **UNKNOWN（不是 0）**；claude 未执行故 0。授权额度 $4.00 实质未使用。"},
+    "root_cause": {"check": "src/adapters/claude-discussion-profile.ts:133 → 'Claude discussion native version mismatch'（同一性门 fail-closed：观察到的主版本与冻结档案不一致即拒发）",
+                   "frozen_native_version": "2.1.286（runtime/collaboration-admission/claude/profile.json + 席位指纹 5b5096e9…）",
+                   "observed_live_version": "**2.1.289 (Claude Code)**",
+                   "interpretation": "本机 Claude CLI 在档案冻结后**自动升级**到 2.1.289；D93/D94 的五维证据明确**只属 2.1.286 当前严格指纹、不外推**，因此产品按设计拒绝派发。"},
+    "side_effects": "无写入、无 MCP、无递归；会话终态 failed 已 settled；三模型会话未启动（其卡仍 pending_approval）；本轮无在途派发",
+    "product_observation": "准入就绪投影（ready=true）只看冻结快照与合同指纹，**未覆盖派发时的原生版本漂移** → 出现\"卡显示就绪、首次派发即被版本门拒绝\"。属可改进项（例如把版本漂移并入 readiness 或提前告警），本轮未改动代码",
+    "owner_options": [
+      "A) 把本机 Claude CLI **钉回 2.1.286**（属全局依赖变更，需 owner 批准；AGENTS.md 默认不安装/变更全局包）→ 冻结指纹与五维证据即可用",
+      "B) 对 **2.1.289** 重做五维隔离证据并重新冻结档案/指纹（等于重启一轮隔离补证，owner 此前已声明不再追加探针）",
+      "C) 以政策显式接受版本漂移（需新决议；会使\"证据只属 2.1.286\"的说法失效，等同放宽同一性门）"
+    ]
+  },
+  "dual_discussion_run_2026-10-05": {
+    "session_id": "4a77b7b5-5771-4636-81f5-8ef8de014924",
+    "card": "collab-session-4a77b7b5-5771-4636-81f5-8ef8de014924.json",
+    "authorization": "owner 2026-10-05：本轮新增预算 $4.00、先只跑 Codex＋Claude；首次尝试因版本漂移被拒后，owner 按 D95 显式接受 2.1.289 并授权重试",
+    "result": "**completed**（phase=revision、call_count=7、retry_count=0；7 条派发全部 PASS，执行日志 seq 20–26 全 pass）",
+    "dispatch_ids": ["4352c79bb86d4fa090b792d665df12de", "7e78dffa53f2479e919e3288367c4350", "3d95ccc31e3b4fe78b7afef0add80134", "780ba05dc1544f9382cfa797f0c5d935", "ff217f04104f4ed8b882707778464508", "4e953e783e104fd5ae0d13b81d6e19d6", "5de2e8d5077241b0ba65171d21e89d12"],
+    "cost": {"declared_total_usd": 0.169489, "claude_code_usd": 0.1694886, "codex": "未申报（UNKNOWN）", "authorized_usd": 4.0, "stop_rules_fired": false},
+    "claude_outputs": {"proposal": ["body", "stance", "evidence", "reserved_disagreements"], "review": ["body", "stance", "responds_to", "evidence", "flaws", "suggestions", "reserved_disagreements"], "revision": ["body", "stance", "changes", "reserved_disagreements"], "observed_model_id": "claude-sonnet-5"},
+    "viewpoints_readable": {"via": "POST /api/collaboration/sessions/detail（viewpoints.A / viewpoints.B）", "A_chars": 11559, "B_chars": 9941},
+    "verification_still_owner_side": "讨论**结论本身**尚未由 owner 验收；本场只验证真实协作链路与所提供的五份源码片段，不构成 GOAL-084 全量源码审计",
+    "open_gap": "**D95 审计落点缺口**：`version_drift_accepted` 只存在于内存记录 + console.warn，**未落入** `runtime/dispatches/<id>.jsonl` 的持久化 header（该 header 走字段白名单）也**未入回执**——同一白名单还吞掉了既有的 `observed_model_id`（后者可在回执里读到）。D95/契约 v1.63 声称\"放行事实写入派发记录\"，实测**只部分成立**，需下一轮补：扩 header 序列化或改写入回执/执行日志，并补回归"
+  },
+  "known_limitations": [
+    "两场真实讨论尚未执行：Claude 席位无隔离证据（不继承 agy 的 D89 缺口政策），且真实会话需 owner 逐卡批准。",
+    "Claude 席位：`tool_scope` 已按 D93 登记为行为级（零付费原生实验，机器核对指纹归属）；其余四维仍未登记 → 仍不通过隔离准入。C9 是自报（未发起请求）、C11 属变体指纹，两者按纪律都不登记。",
+    "C10 记录 `e337dab589f74da3a651a0c1a1edcb50` 仍为 BLOCKED_WAITING_OWNER（未执行、未占额）；按 owner 裁定不改提示绕过去重、暂不恢复该付费探针。",
+    "未演练边界保持不变：invoke_subagent 的 Subagents 非空、真实子模型、真实 MCP 服务器、真实写入路径。",
+    "费用全程 UNKNOWN；token 计数为 0（stream-json 用量字段未解析）；cap_usd 是准入阈值而非账单硬上限（C11 实付 0.343 vs cap 0.10 是实证）。",
+    "回执 raw_stream 上限 64 KiB：更长时只留哈希（全文仍在 dispatch 事件流），需另设长流归档策略。",
+    "最后一条 result 事件的 permission_denials 可能为空数组，不能当拒绝清单；判拒绝须读 system/permission_denied 事件。",
+    "原生隔离实验只覆盖 Read/Write/Bash 三种工具，且 AGENTS.md 与用户级 CLAUDE.md 的未命中只记'未观测'（不排除路径不符）。",
+    "生产黑板库在 GOAL-084 收尾期间被迁移（viewpoints 四元唯一键、user_version=1）；经独立核对逐行无损、备份可回滚，已记录在案。",
+    "独立全量曾三轮出现时序/端口探测类失败：定向对照（三文件在默认隔离下连跑 3 轮 68/68）只说明'不单独复现'；**根因未确认，本轮改动影响尚未排除**（本轮最终默认 940/940 + 独立 940/940 全绿同样不构成因果结论）。",
+    "运行实例已在终局优先级与模型初值修复后**再次空闲重载**（1948 → 32520 → 26672；页面含 collab-effort-a 与 collab_default_model_id）；改动未提交、未推送。"
+  ]
+}

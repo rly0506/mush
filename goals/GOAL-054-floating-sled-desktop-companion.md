@@ -1,6 +1,6 @@
 # GOAL-054: 极简系统托盘常驻伴侣与全局热键雪橇浮窗 (Floating Sled Desktop Companion)
 
-- 状态：`PROPOSED`（RM-007 M3 核心规划，2026-08-19 立项）
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；托盘伴侣与雪橇浮窗在库（src/companion/tray-service.ts），专测 tests/g054-*.test.ts 通过；目标池 RM-007 表已记完成；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 - 来源：2026-08-19 owner `/grill-me` 深度访谈裁决 + 桌面极简人机工程学
 - 优先级：中（RM-007 M3）
 - 依赖：GOAL-043 (协作总线), D4 (状态机)

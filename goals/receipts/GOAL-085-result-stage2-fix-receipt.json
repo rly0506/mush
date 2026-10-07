@@ -1,0 +1,97 @@
+{
+  "goal_id": "GOAL-085",
+  "phase": "result-stage2-fix",
+  "executor": "GLM",
+  "independent_reviewer": "Codex（四缺口独立复现，未修改产品代码；复现证据 stage2-codex-review.json / stage2-codex-browser-UE8OW8/review.json）",
+  "reviewer_note": "执行与核验署名为 GLM（ZCode 会话）；Codex 为独立复核方；非 Owner 正式验收，Goal 保持 PROPOSED",
+  "status": "PROPOSED",
+  "owner_formal_acceptance": "pending",
+  "at": "2026-10-06T19:05:00.000Z",
+  "implementation": "VERIFIED",
+  "scope": "第二阶段修复轮：Codex 独立复核四缺口的修复与回归；前一轮回执 GOAL-085-result-stage2-receipt.json 与其失败日志保留不改写",
+  "model_calls": 0,
+  "production_sessions": "零生产建卡/批准/启动；生产看板未重载；第三阶段未推进",
+  "fixes": [
+    "① completion.complete 收紧为当前双模型流程完成（修订齐备+completed 终态+恰 2 席）；新增 completion.revisions_complete 单列修订齐备子命题",
+    "② fees.visibility 三态 DECLARED/PARTIAL/UNKNOWN——部分申报时整场 PARTIAL（不完整），新增 declared_dispatch_count/unknown_dispatch_count，total_declared_usd 仅作已知小计",
+    "③ 结果区无修订席位按该席位自身最后有效阶段回退（废弃全场最新阶段过滤），B 只有提案时提案可见",
+    "④ 详情轮询重渲染保留 details 展开状态（过程视图按 id、卡内块按 data-vp+summary 键控；跨会话不携带）"
+  ],
+  "focused_regressions": {
+    "file": "tests/g085-session-result.test.ts",
+    "passed": 8,
+    "failed": 0,
+    "new_cases": [
+      "修订齐备但会话 failed——complete=false、revisions_complete=true、不冒充流程完成",
+      "历史三席位修订齐备——complete=false（不属双模型口径）",
+      "全部派发申报——DECLARED（与 PARTIAL/UNKNOWN 三态闭合）"
+    ],
+    "updated_cases": "完整会话断言改 PARTIAL + revisions_complete；缺修订/中断/历史三席位补 revisions_complete 断言"
+  },
+  "browser_acceptance": {
+    "root": ".test-fixtures/g085-result-browser-fix-2026-10-06",
+    "engine": "真实 Chromium（.venv-pw Playwright）+ 独立 fixture 数据根 + fake runner",
+    "real_models": false,
+    "page_errors": 0,
+    "steps": [
+      "completed_session_flow_complete_new_wording",
+      "expansion_persists_after_5_2s_ge_2_polls_process_view_and_raw_json（原缺口 3.5s 折回）",
+      "json_markdown_downloads_with_revisions_complete_and_partial_fields",
+      "narrow_390_single_column",
+      "historical_three_seat_readonly_exportable_revisions_complete_false",
+      "stop_in_flight_interrupted",
+      "partial_revision_session_direct_db_fixture_A_revised_B_proposal_only_per_seat_fallback_visible_and_exported"
+    ]
+  },
+  "default": {
+    "file": ".test-fixtures/stage2-fix-full-default.log",
+    "total": 969,
+    "passed": 969,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "4ad50193a9d567faa4d7fbd7ac18ccfa5381637523aac45e8aaea438137b64e8"
+  },
+  "isolated": {
+    "file": ".test-fixtures/stage2-fix-full-isolated.log",
+    "total": 969,
+    "passed": 969,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "0fee4db5b83f7e1f7bf05658b444ce9d983ea5c8daf180c37188dec4a423889c",
+    "honest_note": "上一轮独立全量 965/966 的 pi-rpc 一例本轮通过——该文件在独立模式呈可复现间歇失败（GOAL-085 §6.2 两次、§7.2 一次，用例不同），根因仍未确认；上一轮日志 .test-fixtures/stage2-full-isolated.log（sha256 0e7b7f4785cafaf1a91fd2a2fbbb5c73d7de322cf1386b3a8aaf8eaa6bfd6580）保留，不以本轮全绿掩盖上一轮失败"
+  },
+  "typecheck_exit_code": 0,
+  "docs_reconcile": "PASS（契约 v1.68 修复轮修订同节记录，65 个版本节）",
+  "git_diff_check_exit_code": 0,
+  "api_contract": "v1.68",
+  "artifacts": [
+    { "file": "src/web/collab-result.ts", "sha256": "f3a36842773b9f1e4e2ffb16c5d4332d334a7209aaa84c6cf8db80ab46e6dcaa" },
+    { "file": "src/web/page.ts", "sha256": "0214af1478e9debb023c8ecc8de324d1bdf077866fa0c1882723db6caeb5bcb6" },
+    { "file": "src/web/api-contract.md", "sha256": "6add59f9d3cee64bcf18345a7eecff38163422c773f057f8b705ae1031add5f4" },
+    { "file": "tests/g085-session-result.test.ts", "sha256": "b746f0e63c992b7f333d0e1515d32961c176e0cb15603a7642b4a720333de055" },
+    { "file": "goals/GOAL-085-claude-and-triple-model-discussion.md", "sha256": "22b957daeba3ec194789f47ed8d3efeff0a3cf586094e48fbd377f47f341a38d" },
+    { "file": "docs/goal-pool.md", "sha256": "1d6beefafea353f634af6df2ab5c9a628effc3cb04290417b59e011e2dfd9754" },
+    { "file": ".test-fixtures/stage2-fix-full-default.log", "sha256": "4ad50193a9d567faa4d7fbd7ac18ccfa5381637523aac45e8aaea438137b64e8" },
+    { "file": ".test-fixtures/stage2-fix-full-isolated.log", "sha256": "0fee4db5b83f7e1f7bf05658b444ce9d983ea5c8daf180c37188dec4a423889c" },
+    { "file": ".test-fixtures/stage2-full-isolated.log", "sha256": "0e7b7f4785cafaf1a91fd2a2fbbb5c73d7de322cf1386b3a8aaf8eaa6bfd6580" },
+    { "file": ".test-fixtures/g085-result-browser-fix-2026-10-06/verified.json", "sha256": "1a410dcd5c865d88ad04c233c00a67198dabbba0a0e883c9f9b68b33fd556c19" },
+    { "file": ".test-fixtures/g085-result-browser-fix-2026-10-06/browser.json", "sha256": "66f6532664955a5fa397c39befe8ce1b3d1c2a7b1d9b68d018ebb5eaa446f223" },
+    { "file": ".test-fixtures/g085-result-browser-fix-2026-10-06/exported-result.json", "sha256": "ebec9ba1d0d4fbd0a2cf2a5e1d6fafe50da9e38f5541c18721523462266a262a" },
+    { "file": ".test-fixtures/g085-result-browser-fix-2026-10-06/partial-export.json", "sha256": "01f8fc29a396fe441bd1cbb267ad6c82ce5bb4829ab63f62c9819303c700cb7c" },
+    { "file": ".test-fixtures/g085-result-browser-fix-2026-10-06/expansion-after-polls.png", "sha256": "506830a9052ca407435a3ac8848dc6b26d23badcc4002bf3074a5473e5072ce8" },
+    { "file": ".test-fixtures/g085-result-browser-fix-2026-10-06/partial-revision-per-seat.png", "sha256": "c2000e9570653205fa985cbc2578456d66745f51675155a1b01b515cdb7923c2" },
+    { "file": ".test-fixtures/g085-result-browser-fix-2026-10-06/result-desktop.png", "sha256": "4b2551f0bc67fa47573761f99621895d160e18c136411d9bd638e11e995659d9" },
+    { "file": ".test-fixtures/g085-result-browser-fix-2026-10-06/narrow-results.png", "sha256": "a488fffe64af41399f92d55605ba76d8c6947717b0876641504db0a75448ec49" },
+    { "file": ".test-fixtures/g085-result-browser-fix-2026-10-06/historical-three-readonly.png", "sha256": "896ffa1246529825c251470dd8611c6c8556ba6be3f1ac094b5999bb9a494085" },
+    { "file": ".test-fixtures/g085-result-browser-fix-2026-10-06/stopped.png", "sha256": "3142b995498bd67908f4c6adfba73a28cc7104572c9be4373776c964d47370b4" },
+    { "file": ".test-fixtures/g085-result-browser-fix-2026-10-06/process-expanded.png", "sha256": "72782b5fb62d61b7cd5e0af4dfdd54d8cd19c2e227a5fa1fa4aae404af4a0962" },
+    { "file": ".test-fixtures/g085-result-browser-fix-2026-10-06/run-browser.mjs", "sha256": "7f94a5ee1397400cfe1bb6470f26961c6d42cff1ce2befccb73e3b5917ba9024" },
+    { "file": ".test-fixtures/g085-result-browser-fix-2026-10-06/browser-check.py", "sha256": "2852ed51f9203eabe40d5f8ee6b8eb77673fe9e5b2be07bec4b97ad8785fc579" }
+  ],
+  "limitations": [
+    "费用与账号权益仍 UNKNOWN；PARTIAL 只是已知申报小计，不代表整场",
+    "pi-rpc 完成状态机文件在独立全量模式下为可复现间歇失败，根因未确认",
+    "第二阶段仍不宜收口或重载生产看板；收口与重载由 owner 决定",
+    "第三阶段（CLI/MCP/skill）未推进；本轮零模型调用，未提交未推送"
+  ]
+}

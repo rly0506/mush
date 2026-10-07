@@ -1,6 +1,6 @@
 # GOAL-049: 会话与代码时空状态树与因果时间旅行快照 (Time-Travel State Kernel)
 
-- 状态：`PROPOSED`（RM-006 M2 核心规划，2026-08-19 立项）
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；时空状态树在库（time-travel.ts），专测 tests/g049-*.test.ts 通过；目标池 RM-006 表已记完成；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 - 来源：2026-08-19 owner `/grill-me` 深度访谈裁决 + RM-006 路线图
 - 优先级：高（RM-006 M2）
 - 依赖：GOAL-035 (Diff 采集与回滚), GOAL-033 (工作流四态)

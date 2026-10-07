@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "goal_id": "GOAL-085",
+  "goal_status": "PROPOSED",
+  "attempt_status": "failed",
+  "formal_owner_acceptance": false,
+  "executed_by": "Codex delegated by Owner",
+  "session_id": "81e32fe2-0768-4d83-88c0-6d6a0e1a713b",
+  "authorization_hash": "a5c0ab61cf1799c0b422035de6ea7e404fe2e827dfb337b14d45a2e8396cf799",
+  "owner_authorization": "Owner explicitly selected authorization for new retest; new room14 max, prior4; combined18 max; visible cost stop4USD, unknown Codex/agy cost accepted",
+  "call_count": 2,
+  "normal_calls": 2,
+  "retry_calls": 0,
+  "total_actual_calls_with_prior_attempt": 6,
+  "outcome": {
+    "status": "failed",
+    "reason": "agy discussion native version mismatch",
+    "dispatch_ids": []
+  },
+  "observed_dispatch_ids": [
+    "32756cceac4b4feebff0c91d2ed87d8c",
+    "7e6805b1832a4dd7b2b20be9cbc247a1"
+  ],
+  "outcome_ids_projection_incomplete": true,
+  "execution_log": [
+    {
+      "seq": 31,
+      "session_id": "81e32fe2-0768-4d83-88c0-6d6a0e1a713b",
+      "call_index": 1,
+      "kind": "normal",
+      "seat": "A",
+      "status": "pass",
+      "started_at_utc": "2026-10-05T15:06:46.159Z",
+      "ended_at_utc": "2026-10-05T15:07:22.289Z",
+      "error": null
+    },
+    {
+      "seq": 32,
+      "session_id": "81e32fe2-0768-4d83-88c0-6d6a0e1a713b",
+      "call_index": 2,
+      "kind": "normal",
+      "seat": "A",
+      "status": "pass",
+      "started_at_utc": "2026-10-05T15:07:31.983Z",
+      "ended_at_utc": "2026-10-05T15:08:27.158Z",
+      "error": null
+    }
+  ],
+  "receipts": [
+    {
+      "dispatch_id": "32756cceac4b4feebff0c91d2ed87d8c",
+      "adapter_id": "codex",
+      "file": "D:\\mush\\.mush-receipts\\dispatch-32756cceac4b4feebff0c91d2ed87d8c.json",
+      "sha256": "5024d548440abe5d8f73a197738cfa47080080523175fee50eb65101cc46ace2",
+      "cost_usd": null,
+      "observed_model_id": null,
+      "version_drift_accepted": null,
+      "exit_code": 0,
+      "timed_out": false
+    },
+    {
+      "dispatch_id": "7e6805b1832a4dd7b2b20be9cbc247a1",
+      "adapter_id": "codex",
+      "file": "D:\\mush\\.mush-receipts\\dispatch-7e6805b1832a4dd7b2b20be9cbc247a1.json",
+      "sha256": "904f3864ae795bc8de348aec5146be50da42133c65496e3d526859f2f8bfedf9",
+      "cost_usd": null,
+      "observed_model_id": null,
+      "version_drift_accepted": null,
+      "exit_code": 0,
+      "timed_out": false
+    }
+  ],
+  "actual_cost_usd": "UNKNOWN",
+  "agy_calls": 0,
+  "claude_calls": 0,
+  "agy_version": {
+    "frozen": "1.2.16",
+    "observed": "1.2.17",
+    "accepted": false
+  },
+  "finish_protocol": {
+    "prompt_delivery_fixture_verified": true,
+    "native_behavior_verified": false,
+    "permission_change": false,
+    "terminal_parser_change": false
+  },
+  "checks": [
+    {
+      "file": ".test-fixtures/g085-real-triple-codex-2026-10-05/finish-default-host.log",
+      "pass": 954,
+      "fail": 0,
+      "exit_code": 0,
+      "sha256": "5ea7285dcb9c7f2496432b0cc2418ad6648e02deafee593a5e35738b2fa91517"
+    },
+    {
+      "file": ".test-fixtures/g085-real-triple-codex-2026-10-05/finish-isolated-host.log",
+      "pass": 954,
+      "fail": 0,
+      "exit_code": 0,
+      "sha256": "410bf96172417d92590b133ab625d45a9698f6054040a6ab396c661df40daf4b"
+    }
+  ],
+  "typecheck_exit_code": 0,
+  "artifacts": [
+    {
+      "file": ".test-fixtures/g085-agy-finish-fix-2026-10-05/real/final-detail.json",
+      "sha256": "648860f6c31468434c691364db6108a75f5c23e399a2430549d1bf13e58a45f1"
+    },
+    {
+      "file": ".test-fixtures/g085-agy-finish-fix-2026-10-05/real/monitor.jsonl",
+      "sha256": "893b72ed165f58cd40fd7251dc7f3408ccbb4486046964b4e8ba8cfa11a03cfc"
+    },
+    {
+      "file": ".test-fixtures/g085-agy-finish-fix-2026-10-05/real/receipt-index.json",
+      "sha256": "3fd544dff9fd6ab71ded5c2dcd9e1481e89147fb42e72a5b157cc408b0f442fd"
+    },
+    {
+      "file": ".test-fixtures/g085-agy-finish-fix-2026-10-05/native-preflight.json",
+      "sha256": "740a1ff65df05260d85c6d1a0047d1fc811f4d214a8666386e25a93c464b9d95"
+    },
+    {
+      "file": ".test-fixtures/g085-agy-finish-fix-2026-10-05/prepared-room.json",
+      "sha256": "a9a14f38b6bcc6496555973bae65b652ae7c90a535d2e4dc4560d5db31582492"
+    }
+  ],
+  "source": [
+    {
+      "file": "src/orchestration/collaboration-coordinator.ts",
+      "sha256": "9be66693898fd850f05bb72fbee072fc388d75048091a13af6f77eea08ae3958"
+    },
+    {
+      "file": "tests/g084-coordinator.test.ts",
+      "sha256": "c250c36be89c2df6a6932b10c96ac5589e9f71289d167ee05d695909720e0264"
+    }
+  ],
+  "limitations": [
+    "agy and Claude were never called in this retest",
+    "Native finish behavior not validated",
+    "agy patch drift not accepted; proposal outside runtime only",
+    "Two Codex calls spent before failed gate; actual fee unknown",
+    "Approval-time version checking omitted agy, corrected in standalone read-only script",
+    "No third paid session started; unlisted versions still rejected"
+  ]
+}

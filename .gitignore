@@ -30,6 +30,7 @@ Thumbs.db
 # M1 fixture-reference runtime artifacts (written by tests, never committed)
 .test-fixtures/
 .mush-receipts/
+collaboration/
 
 # mush runtime (known-workspaces, workspace selection)
 .mush/
@@ -39,3 +40,7 @@ runtime/worktrees/
 .playwright-mcp/
 .venv-pw/
 .zcode/
+
+# Local approval history and ad-hoc board screenshots (keep on disk)
+goals/receipts/approval-requests/
+/board-*.png

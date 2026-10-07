@@ -169,13 +169,15 @@ describe('GOAL-081: silk engineering — keyed patch / delegation / REPL / first
     assert.ok(script.includes("prefillDispatchFromSnapshot(String(d.dispatch_id || '')"), '改后批准须预填快照');
   });
 
-  test('7. 第一单零配置：snapshot 派生信号 + 引导横幅 + 一键预填免费通道', () => {
+  test('7. 第一单零配置：snapshot 派生信号 + 引导横幅 + 本地配置检查', () => {
     assert.ok(html.includes('id="first-task-banner"'), '引导横幅容器');
     assert.ok(html.includes('id="btn-first-task"'), '一键首单按钮');
     assert.ok(script.includes('function g081FirstTaskBanner()'), '横幅控制函数');
     assert.ok(script.includes("snapshot.first_task.zero_config === true"), '仅零配置时升起');
     assert.ok(script.includes("localStorage.getItem('mush.first-task.dismissed')"), '关闭持久化');
-    assert.ok(script.includes("free_adapter_id"), '免费通道 id 来自 snapshot');
+    assert.ok(script.includes('snapshot.first_task.local_ready'), '首单候选来自本地配置检查');
+    assert.ok(script.includes("document.getElementById('btn-first-task').disabled = ready.length === 0"), '无本地候选时不虚假承诺首单可用');
+    assert.ok(html.includes('供应商额度与 API 权益未确认'), '余额与 API 权益不冒充已经核验');
   });
 
   test('8. REPL：splitThinking 思维链剥离 + mush chat 命令注册', () => {

@@ -1,0 +1,33 @@
+{
+  "goal_id": "GOAL-085",
+  "phase": "stage3b-mcp-close",
+  "executor": "GLM",
+  "independent_reviewer": "Codex（最终边界复验 + 官方 SDK 1.29.0 对当前代码重验 + 自跑 CLI+MCP 27/27）",
+  "ruling_wording": "按 §7.5 纪律：Codex 独立复核通过，Owner 转呈；MCP 片按本地技术验收收口——这不是 Owner 正式验收，Goal 不标 DONE",
+  "status": "PROPOSED",
+  "owner_formal_acceptance": "pending",
+  "at": "2026-10-07T09:00:00.000Z",
+  "implementation": "VERIFIED",
+  "scope": "MCP 片收口；下一片=薄 skill（说明如何检查组合/提交议题和材料/等待看板批准/读取结果与停止；权限和执行仍由 mush 控制，先不全局安装）",
+  "model_calls": 0,
+  "reviewer_confirmation": {
+    "handshake_bypass_closed": "无 id initialize 通知 + notifications/initialized → HTTP 请求数 0、-32600 拒绝、看板零写入",
+    "initialize_as_notification_states_false": true,
+    "optional_fields_no_silent_omission": true,
+    "invalid_id_response_id_null": true,
+    "sdk_1_29_0_reverified_on_current_code": "握手/ping/五工具发现通过",
+    "reviewer_own_runs": "CLI+MCP 27/27、typecheck、对账、diff 检查",
+    "full_suite": "996/996 两份日志核对，未复跑",
+    "receipt_hashes": "fix3 回执 8 项哈希一致"
+  },
+  "artifacts": [
+    { "file": ".test-fixtures/stage3b-final-review-hLFHqZ/review.json", "sha256": "f8d94a34ad195a6b525092c380bd9cb7ea655c47240d005ae7e51e00365e0312" },
+    { "file": ".test-fixtures/stage3b-independent-sdk-final-2026-10-07.json", "sha256": "7bd38ceb694bfb0f6f3173565475bb06c1494e4062fe9d0671aa9d97effd5239" },
+    { "file": ".test-fixtures/stage3b-fix4-full-default.log", "sha256": "f1e93be4aaf02edf596dfc1305f5c8c32182a1e972c1fa739dfe8e1d39bbd31e" },
+    { "file": ".test-fixtures/stage3b-fix4-full-isolated.log", "sha256": "fd2cc830c01fb752ab1fc23e70d95a7f750f0826a422cfce13bd66e8a683772f" }
+  ],
+  "limitations": [
+    "费用与账号权益仍 UNKNOWN；pi-rpc 独立全量间歇失败根因未确认",
+    "Owner 正式验收（Goal §6 末项）未发生；未提交未推送"
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "goal_id": "GOAL-085",
+  "phase": "stage3c-skill",
+  "executor": "GLM",
+  "reviewer_note": "执行与核验署名为 GLM（ZCode 会话）；MCP 片收口依据=Codex 独立复核通过（Owner 转呈，§7.14）；非 Owner 正式验收，Goal 保持 PROPOSED",
+  "status": "PROPOSED",
+  "owner_formal_acceptance": "pending",
+  "at": "2026-10-07T09:20:00.000Z",
+  "implementation": "VERIFIED",
+  "scope": "第三阶段第三片：薄 skill（skills/collab/SKILL.md 纯指引文档）；至此第三阶段三片（CLI→MCP→skill）全部交付，Goal 整体验收待 Owner",
+  "model_calls": 0,
+  "design_boundary": "纯指引文档：不包装逻辑、不安装依赖、不新增端点；权限与执行完全由 mush 看板控制——create 仅得到 PENDING_OWNER_APPROVAL，批准只能由 owner 在看板完成（无批准入口可循）；入口是仓库本地 node bin/mush（不全局安装）；MCP 备选入口同语义（工具面无文件系统、无 board_url、无批准工具）",
+  "skill_content": {
+    "file": "skills/collab/SKILL.md",
+    "steps": [
+      "check 只读准入（ready=false 是阻断事实，原样报告原因，不换模型不绕过）",
+      "create 提交议题与材料（PENDING_OWNER_APPROVAL；批准前零模型调用）",
+      "等待看板批准（owner 唯一批准入口；轮询 status）",
+      "result 读取（UNKNOWN/PARTIAL 费用语义；不合成共同结论；互评未经核实）",
+      "stop 停止（只发请求，终态以 status 为准）"
+    ],
+    "exit_codes": "0 成功（含 ready=false）/ 2 业务拒绝 / 3 不可达 / 64 用法错误 / 1 其它",
+    "red_lines": ["不自动批准/不绕过审批卡", "不换模型/不接受版本漂移/不放宽隔离", "费用 UNKNOWN≠0", "讨论结果不构成审计或验收"]
+  },
+  "focused_regressions": {
+    "file": "tests/g085-skill-collab.test.ts",
+    "passed": 4,
+    "failed": 0,
+    "coverage": [
+      "五子命令齐全 + 入口为 node bin/mush + 无全局安装指引",
+      "文档全部 --旗标 ∈ KNOWN_FLAGS（自 cli.ts 导出，防漂移）+ 关键旗标齐全",
+      "审批门与红线写明（PENDING_OWNER_APPROVAL/等待看板批准/不自动批准/UNKNOWN/不合成/退出码语义）",
+      "MCP 工具面与文档一致（五工具、无 out/path/board_url、无批准工具）"
+    ],
+    "prior_regressions": "CLI 16/16、MCP 11/11 不变（KNOWN_FLAGS 导出与文档新增不改变行为）"
+  },
+  "default": {
+    "file": ".test-fixtures/stage3c-full-default.log",
+    "total": 1000,
+    "passed": 1000,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "5fedaf68944d51d53fd4b2e89564d726531bc76666442e54f981b85823fb8c86"
+  },
+  "isolated": {
+    "file": ".test-fixtures/stage3c-full-isolated.log",
+    "total": 1000,
+    "passed": 1000,
+    "failed": 0,
+    "exit_code": 0,
+    "sha256": "2ea51f9fdadfd3a8a155f6ac3c196f25f756ec652837e2cd1ab9d34ae9ba13c4"
+  },
+  "typecheck_exit_code": 0,
+  "docs_reconcile": "PASS（契约 v1.70，67 个版本节）",
+  "git_diff_check_exit_code": 0,
+  "api_contract": "v1.70",
+  "production_operations": "零模型调用、零生产会话操作；未重载看板（无需重载）",
+  "artifacts": [
+    { "file": "skills/collab/SKILL.md", "sha256": "a52388953ca9cef844c06c63a02d503351890362fbb572308f3de2c13d80c5e8" },
+    { "file": "tests/g085-skill-collab.test.ts", "sha256": "f74b377e96731fb189d5762e682cc243bb7be9ab897d2882e0d465a4eef56afa" },
+    { "file": "src/cli.ts", "sha256": "67f92f43ba4f33eb9c6adaac85bf89511c63e19614eebdb12bfbe8de0b3fd198" },
+    { "file": ".test-fixtures/stage3c-full-default.log", "sha256": "5fedaf68944d51d53fd4b2e89564d726531bc76666442e54f981b85823fb8c86" },
+    { "file": ".test-fixtures/stage3c-full-isolated.log", "sha256": "2ea51f9fdadfd3a8a155f6ac3c196f25f756ec652837e2cd1ab9d34ae9ba13c4" }
+  ],
+  "limitations": [
+    "费用与账号权益仍 UNKNOWN；pi-rpc 独立全量间歇失败根因未确认（本轮 1000/1000，不视为已解决）",
+    "skill 为文档指引，未接入具体 harness 的 skill 装载机制做人工验收（内容面由防漂移回归覆盖）",
+    "本轮零模型调用、未提交未推送；Goal 保持 PROPOSED；第三阶段三片全部交付，Goal 整体验收待 Owner"
+  ]
+}

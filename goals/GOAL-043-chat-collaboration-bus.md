@@ -1,6 +1,6 @@
 # GOAL-043: 聊天底栏协作模式快捷开关与调度总线 (Chat Collaboration Bus)
 
-- 状态：`PROPOSED`（RM-005 M1 核心规划，2026-08-19 立项）
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；协作总线在库（src/orchestration/collaboration-bus.ts），专测 tests/g043-*.test.ts 通过；目标池 RM-005 表已记完成；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 - 来源：2026-08-19 owner `/grill-me` 深度访谈裁决 + RM-005 路线图
 - 优先级：最高（首发 M1 先置）
 - 依赖：GOAL-028 (多组织拓扑), GOAL-039 (智能路由画像), GOAL-042 (协作总线基础)

@@ -1,0 +1,104 @@
+{
+  "goal_id": "GOAL-085",
+  "executor": "Codex",
+  "owner_authorization": "Owner explicitly authorized exactly one A16; browser approval recorded",
+  "status": "PROPOSED",
+  "owner_acceptance": "pending",
+  "at": "2026-10-06T01:09:09.696Z",
+  "prepared_id": "b5317d75eb1342098b9237955943eb09",
+  "executed_id": "c0643a3b394d4fff82c0205cbad6ab09",
+  "verdict": "A16_MINIMAL_ANSWER_INTERFACE_VERIFIED",
+  "mush_dispatches": 1,
+  "internal_generation_turns": 1,
+  "fee": "UNKNOWN",
+  "candidate_fingerprint": "43ae6c28ff26110c014bd162b3323a03b1b092b342e7ceed965c0b4144979c80",
+  "observed_native_version": "1.2.17",
+  "version_acceptance": {
+    "decision": "D96",
+    "accepted_by": "owner",
+    "frozen_native_version": "1.2.16",
+    "observed_native_version": "1.2.17"
+  },
+  "identity": {
+    "expected": "gemini-3.7-flash-high",
+    "native_init": "gemini-3.7-flash-high",
+    "matched": true
+  },
+  "conclusion": "Candidate tools:[finish] actually requested finish, guard allowed it, one authority-terminal JSON satisfied the fixed schema. Native tool inventory and self-report were not used as sole proof.",
+  "native_tool_steps": [
+    {
+      "index": 2,
+      "state": "ACTIVE",
+      "name": "finish"
+    }
+  ],
+  "numeric_native_steps": [
+    {
+      "idx": 0,
+      "step_type": 14,
+      "status": 3
+    },
+    {
+      "idx": 1,
+      "step_type": 15,
+      "status": 3
+    },
+    {
+      "idx": 2,
+      "step_type": 132,
+      "status": 3
+    }
+  ],
+  "resources": {
+    "observed_tool_names": [
+      "finish"
+    ],
+    "resource_allow_entries": 0,
+    "guard_unchanged": true,
+    "project_policy_unchanged": true,
+    "limits": "Only this owned native trajectory and synthetic targets checked; no claim that every resource path is proven isolated."
+  },
+  "restoration": {
+    "agent_sha256": "68e47ebb6845259901e25fb3c1ad3bcd263232d8a64d78d8815a55747abaa01e",
+    "original_contract_restored": true,
+    "candidate_adopted": false,
+    "evidence_registered": false,
+    "policy_changed": false
+  },
+  "scope_limits": [
+    "Minimal prompt/schema differs from earlier proposal/review prompts: not a controlled causal proof for every historical failure",
+    "No formal proposal/review/revision payload has been tested under this candidate",
+    "New candidate fingerprint does not inherit old D89 clauses or isolation evidence",
+    "No new dual-model discussion started; no auto-retry; Claude 2.1.290 remains outside D95"
+  ],
+  "sources": [
+    {
+      "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/a16-c0643a3b394d4fff82c0205cbad6ab09.json",
+      "sha256": "0bd29e7fa18570950766bf419338cd802424a8c2923408e9aa71b716b2780a5a"
+    },
+    {
+      "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/a16-identity.json",
+      "sha256": "38e1ffefe1d8e8fbf4e8644ae2a5c3490b79275a4e73388666d6c13580c1e7f9"
+    },
+    {
+      "file": "D:/mush/.test-fixtures/g085-dual-implementation-2026-10-06/a16-native-steps.json",
+      "sha256": "5555a7c2a8f33d652401ff7e7d5d181d538b4cf8f133f1d3b1eac0df45421e67"
+    },
+    {
+      "file": "D:/mush/runtime/dispatches/c0643a3b394d4fff82c0205cbad6ab09.jsonl",
+      "sha256": "fd46413109e489853952d356c17e0388993e2869be4ef93f560aa90b9f6143fe"
+    },
+    {
+      "file": "D:\\mush\\runtime\\collaboration-admission\\agy\\workspace\\.mush-receipts\\dispatch-c0643a3b394d4fff82c0205cbad6ab09.json",
+      "sha256": "0101c38119d6a5a10076bb05baea660aaa1f35b6d38ed5c3e68a6ca4c5aca536"
+    },
+    {
+      "file": "D:/mush/goals/receipts/approval-requests/dispatch-b5317d75eb1342098b9237955943eb09.json",
+      "sha256": "7402a99ca205fe088dd8e84b26ead121fa0024b210d9379bf9dc04188d8d5be0"
+    },
+    {
+      "file": "D:/mush/goals/receipts/approval-requests/dispatch-b5317d75eb1342098b9237955943eb09.json.owner-response.json",
+      "sha256": "8252717eea60178c9190b309b92e704b0ebb2b798030269fef91b194da469f8b"
+    }
+  ]
+}

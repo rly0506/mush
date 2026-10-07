@@ -1,6 +1,6 @@
 ---
 goal_id: MUSH-GOAL-020
-status: QUEUED（D34 融合章程：雪原营地骨架 + 任务池前端，kimi 单 worktree
+- 状态：`AUTO_ACCEPTED`（2026-09-06 审计追账：此前状态行未随交付更新；雪原营地×任务池融合版在库（src/web/page.ts），专测 tests/g020-*.test.ts 通过；目标池 GP-34 已记完成；按 D15 升 AUTO_ACCEPTED，DONE 与否决权归 owner）
 串行；owner↔kimi 直启线执行，头犬验收+安全审查）
 mode: LIGHT
 rm: RM-004 / 体验线 × M3 任务池前端（融合）

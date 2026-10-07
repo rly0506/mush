@@ -77,6 +77,24 @@ test('GP-32: real dispatch gates on per-dispatch token; granted token + approved
   assert.equal(pipeline.get(blocked.dispatch_id)?.status, 'SUPERSEDED');
 });
 
+test('GP-32: failed approved rerun keeps the original waiting for recovery', async () => {
+  const root = fixtureRoot();
+  const pipeline = makePipeline(root);
+  const blocked = await pipeline.dispatch({ adapter_id: 'fake-t1', prompt: 'replay validation', real: true });
+  assert.equal(blocked.status, 'BLOCKED_WAITING_OWNER');
+
+  // Simulate a request that becomes invalid before the approved replay reaches execution.
+  blocked.request!.workspace = path.join(root, 'missing-workspace');
+  pipeline.grantApprovalToken(blocked.dispatch_id);
+  await assert.rejects(
+    () => pipeline.rerun(blocked.dispatch_id, { real: true, approved_via: blocked.dispatch_id }),
+    /workspace does not exist/i,
+  );
+
+  assert.equal(pipeline.get(blocked.dispatch_id)?.status, 'BLOCKED_WAITING_OWNER');
+  assert.equal(pipeline.recent(10).length, 1, 'failed replay must not leave an orphan replacement dispatch');
+});
+
 test('workspaces list/select persists selection and is fail-closed on missing paths', () => {
   const root = fixtureRoot();
   const pipeline = makePipeline(root);
@@ -85,9 +103,15 @@ test('workspaces list/select persists selection and is fail-closed on missing pa
   const selected = path.join(root, 'selected-ws');
   mkdirSync(selected, { recursive: true });
   assert.equal(pipeline.selectWorkspace(selected), selected);
-  assert.ok(existsSync(path.join(selected, '.mush', 'workspace.json')));
+  // D86：选择落管线登记簿（registryDir），目标文件夹零足迹——不再写 selected/.mush。
+  assert.ok(existsSync(path.join(root, '.mush', 'workspace.json')), 'selection persists in registryDir');
+  assert.equal(existsSync(path.join(selected, '.mush')), false, 'selected workspace stays footprint-free (D86)');
+  const selection = JSON.parse(readFileSync(path.join(root, '.mush', 'workspace.json'), 'utf8')) as { selected?: string };
+  assert.equal(selection.selected, selected);
   const after = pipeline.listWorkspaces();
-  assert.equal(after.some((ws) => ws.path === selected && ws.mush_managed === true), true);
+  assert.equal(after.some((ws) => ws.path === selected), true);
+  // mush_managed 按目标文件夹 .mush 探测——外部工作区恒 false 属预期（契约 v1.50）。
+  assert.equal(after.some((ws) => ws.path === selected && ws.mush_managed === false), true);
   assert.throws(() => pipeline.selectWorkspace(path.join(root, 'no-such')), InputError);
 });
 
@@ -137,6 +161,9 @@ test('board server exposes dispatch/workspaces/budget endpoints per contract v1'
   const servers: BoardServer[] = [];
   const server = await startBoardServer({
     approvalRoot: path.join(root, 'approvals'),
+    // D86 卫生：显式钉宿主根到 fixture——缺省会落到 cwd（仓库根），集中数据目录
+    // 与注册表会泄漏进真实 D:\mush\runtime。
+    workspaceRoot: root,
     runId: 'board-dispatch-run',
     assignmentEpoch: 1,
     dispatch: pipeline,
@@ -157,7 +184,7 @@ test('board server exposes dispatch/workspaces/budget endpoints per contract v1'
     method: 'POST',
     body: JSON.stringify({ adapter_id: 'fake-t1', prompt: 'x', cap_usd: 5, amount_usd: 6 }),
   });
-  assert.equal(over.status, 402);
+  assert.equal(over.status, 402, await over.text());
 
   const created = await fetch(base + '/api/dispatch', {
     method: 'POST',
@@ -213,6 +240,7 @@ test('GP-03 restart replay: new pipeline + new server read back records and chai
 
   const server = await startBoardServer({
     approvalRoot: path.join(root, 'approvals'),
+    workspaceRoot: root, // D86 卫生：同上，钉 fixture 防泄漏进仓库根
     runId: 'board-restart-run',
     assignmentEpoch: 1,
     dispatch: second,

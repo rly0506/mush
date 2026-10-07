@@ -20,6 +20,7 @@ import { buildDeepSeekContract } from '../src/adapters/deepseek.ts';
 import { buildAgyContract } from '../src/adapters/agy.ts';
 import { DispatchPipeline } from '../src/web/dispatch.ts';
 import { renderBoardPage } from '../src/web/page.ts';
+import { installModelsFixture } from './fixtures/opencode.ts';
 
 test('GOAL-026: classifyModelTier assigns correct 4 tiers based on ground truth and flags', () => {
   const claude = buildClaudeContract('claude-sonnet-5');
@@ -75,7 +76,7 @@ test('GOAL-026: recordModelReceipt promotes model on dispatch PASS and blocks on
   }
 });
 
-test('GOAL-026: DispatchPipeline integrates 4-tier model dispatchability into roster and auto-promotes on PASS', async () => {
+test('GOAL-026: DispatchPipeline integrates 4-tier model dispatchability into roster and auto-promotes on PASS', async (t) => {
   const tmpDir = mkdtempSync(path.join(tmpdir(), 'mush-dispatch-tier-test-'));
   const approvalRoot = path.join(tmpDir, 'approvals');
   const ledgerPath = path.join(tmpDir, 'dispatch-ledger.jsonl');
@@ -93,6 +94,7 @@ test('GOAL-026: DispatchPipeline integrates 4-tier model dispatchability into ro
       },
     });
 
+    installModelsFixture(t, tmpDir);
     await pipeline.probeLiveModels();
     const roster = pipeline.roster();
     const kimi = roster.find((r) => r.adapter_id === 'kimi-code');
